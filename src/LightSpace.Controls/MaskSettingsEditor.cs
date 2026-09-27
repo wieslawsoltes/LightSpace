@@ -57,6 +57,8 @@ public sealed class MaskSettingsEditor : UserControl
         var ranged = _value.RangeEnabled || _value.Kind == MaskKind.LuminanceRange;
         _rangeButton.Selected = ranged; _rangeButton.IsEnabled = _value.Kind != MaskKind.LuminanceRange;
         foreach (var name in new[] { "Range minimum", "Range maximum", "Range smoothness" }) _sliders[name].Slider.IsEnabled = ranged;
-        foreach (var name in new[] { "Feather", "Angle", "Horizontal position", "Vertical position" }) _sliders[name].Slider.Visibility = _value.Kind == MaskKind.LuminanceRange ? Visibility.Collapsed : Visibility.Visible;
+        foreach (var name in new[] { "Angle", "Horizontal position", "Vertical position" }) _sliders[name].Slider.Visibility = _value.Kind == MaskKind.LuminanceRange ? Visibility.Collapsed : Visibility.Visible;
+        // Linear falloff is set by its transition handles, not a radial feather.
+        _sliders["Feather"].Slider.Visibility = _value.Kind == MaskKind.Radial ? Visibility.Visible : Visibility.Collapsed;
     }
 }
