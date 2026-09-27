@@ -1,7 +1,7 @@
-# LightSpace 0.1.0-alpha.1
+# LightSpace 0.1.1-alpha.1
 
-Initial independent Uno photography workspace with eight reusable library projects, shared desktop/browser hosts, custom development controls, source-preserving editing, tonal/color runtime shaders, crop/masks/clone tools, catalog organization, named versions, image/catalog export and local recovery.
+Revision-safe local recovery, explicit save/retry status, browser unsaved-change warnings, protected unreadable recovery, cancelable slider gestures, and source/state-aware rendering and thumbnail caches.
 
-The repository includes deterministic engine validation, pointer-driven browser acceptance tests, Windows/Linux/macOS build jobs, provenance-checked GitHub Pages delivery and a tagged prerelease packaging workflow.
+The recovery coordinator captures committed catalog snapshots rather than live previews and acknowledges only completed storage writes. Controlled asynchronous tests cover write races and failures. Real browser regressions hold a slider gesture across an earlier edit's autosave deadline, verify the actual IndexedDB payload, cancel with Escape, and protect unsupported recovery schemas until explicit replacement.
 
-This is an early functional implementation, not a production replacement for Adobe Lightroom. Camera RAW, Adobe processing/catalog compatibility, AI tools, calibrated lens corrections, HDR/panorama merging, cloud services, printing and signed native distribution are not included. Rendered export is 8-bit sRGB and strips source metadata. See FEATURE-COVERAGE.md for the precise boundary.
+The shared Uno browser/desktop workspace and its eight reusable libraries remain independent of Adobe. This is an early functional implementation, not complete Lightroom parity. RAW, AI processing, calibrated lens correction, HDR/panorama merging, cloud services and signed native distribution are not included. See CHANGELOG.md, docs/RECOVERY.md and docs/FEATURE-COVERAGE.md.
