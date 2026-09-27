@@ -52,11 +52,11 @@ public sealed class AdjustmentSlider : UserControl
         _track.DoubleTapped+=(_,e)=>{Set(DefaultValue,true);ValueCommitted?.Invoke();e.Handled=true;};
         _number.GotFocus+=(_,_)=>_typing=true;_number.LostFocus+=(_,_)=>CommitNumber();
         _number.KeyDown+=(_,e)=>{if(e.Key==VirtualKey.Enter){CommitNumber();Focus(FocusState.Programmatic);e.Handled=true;}else if(e.Key==VirtualKey.Escape){_typing=false;Refresh();Focus(FocusState.Programmatic);e.Handled=true;}};
-        KeyDown+=(_,e)=>{if(_typing)return;var next=e.Key switch{VirtualKey.Left or VirtualKey.Down=>Value-Step,VirtualKey.Right or VirtualKey.Up=>Value+Step,VirtualKey.Home=>Minimum,VirtualKey.End=>Maximum,_=>double.NaN};if(double.IsFinite(next)){Set(next,true);ValueCommitted?.Invoke();e.Handled=true;}};
+        KeyDown+=(_,e)=>{if(e.Key==VirtualKey.Escape&&_dragging){Cancel();e.Handled=true;return;}if(_typing)return;var next=e.Key switch{VirtualKey.Left or VirtualKey.Down=>Value-Step,VirtualKey.Right or VirtualKey.Up=>Value+Step,VirtualKey.Home=>Minimum,VirtualKey.End=>Maximum,_=>double.NaN};if(double.IsFinite(next)){Set(next,true);ValueCommitted?.Invoke();e.Handled=true;}};
         Refresh();
     }
     private void FromPointer(PointerRoutedEventArgs e){var x=e.GetCurrentPoint(_track).Position.X;Set(Minimum+(x-5)/Math.Max(1,_track.ActualWidth-10)*(Maximum-Minimum),true);}
-    private void Cancel(){if(!_dragging)return;_dragging=false;GestureCanceled?.Invoke();}
+    private void Cancel(){if(!_dragging)return;_dragging=false;_track.ReleasePointerCaptures();GestureCanceled?.Invoke();}
     private void CommitNumber(){if(!_typing)return;_typing=false;if(double.TryParse(_number.Text,NumberStyles.Float,CultureInfo.InvariantCulture,out var number)&&double.IsFinite(number)){Set(number,true);ValueCommitted?.Invoke();}Refresh();}
     internal void Set(double value,bool notify)
     {
@@ -69,7 +69,7 @@ public sealed class AdjustmentSlider : UserControl
     {
         protected override string GetClassNameCore()=>nameof(AdjustmentSlider);
         protected override AutomationControlType GetAutomationControlTypeCore()=>AutomationControlType.Slider;
-        protected override object GetPatternCore(PatternInterface pattern)=>pattern==PatternInterface.RangeValue?this:base.GetPatternCore(pattern);
+        protected override object? GetPatternCore(PatternInterface pattern)=>pattern==PatternInterface.RangeValue?this:base.GetPatternCore(pattern);
         public bool IsReadOnly=>false;public double LargeChange=>(owner.Maximum-owner.Minimum)/10;public double Maximum=>owner.Maximum;public double Minimum=>owner.Minimum;public double SmallChange=>owner.Step;public double Value=>owner.Value;
         public void SetValue(double value)=>owner.SetFromAutomation(value);
     }

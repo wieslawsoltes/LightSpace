@@ -85,7 +85,8 @@ test('photo navigation, crop workflow, interactive mask creation and native file
 test('device recovery, keyboard rating and compact workspace layout', async ({ page }) => {
   await boot(page); await click(page, 'Rate 2'); await exposure(page, .58);
   await expect.poll(async () => (await state(page)).rating).toBe(2);
-  await expect.poll(async () => (await state(page)).status).toContain('All changes saved');
+  await expect.poll(async () => (await state(page)).recovery.state).toBe('Saved');
+  expect((await state(page)).recovery.savedRevision).toBe((await state(page)).revision);
   const expected = (await state(page)).exposure; await boot(page);
   await expect.poll(async () => (await state(page)).rating).toBe(2);
   await expect.poll(async () => (await state(page)).exposure).toBe(expected);
@@ -94,4 +95,45 @@ test('device recovery, keyboard rating and compact workspace layout', async ({ p
   await click(page, 'Grid view'); await expect.poll(async () => (await state(page)).view).toBe('Grid'); await screenshot(page, 'library');
   await page.setViewportSize({ width: 1024, height: 820 }); await click(page, 'Detail view'); await screenshot(page, 'compact');
   await mkdir('artifacts/browser-exports', { recursive: true }); await writeFile('artifacts/browser-exports/diagnostics.json', JSON.stringify(await state(page), null, 2));
+});
+
+
+test('autosave writes committed snapshots while a slider gesture crosses the debounce deadline', async ({ page }) => {
+  await boot(page);
+  await expect.poll(async () => (await state(page)).recovery.state).toBe('Saved');
+  await click(page, 'Rate 2');
+  const box = await bounds(page, 'slider-Exposure');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 5 + (box.width - 10) * .65, box.y + box.height / 2, { steps: 6 });
+  await expect.poll(async () => (await state(page)).recovery.state).toBe('Preview');
+  await expect.poll(async () => (await state(page)).recovery.savedRevision).toBe(1);
+  const savedDuringDrag = await page.evaluate(async () => JSON.parse(await globalThis.lightSpaceFiles.load()));
+  const active = savedDuringDrag.Photos.find(photo => photo.Id === savedDuringDrag.ActivePhoto);
+  expect(active.State.Rating).toBe(2);
+  expect(active.State.Develop.Exposure).toBe(0);
+  expect((await state(page)).exposure).toBeGreaterThan(1);
+  expect((await state(page)).recovery.hasUnsavedChanges).toBe(true);
+  await page.mouse.up();
+  await expect.poll(async () => (await state(page)).recovery.state).toBe('Saved');
+  const expected = (await state(page)).exposure;
+  expect((await state(page)).recovery.savedRevision).toBe(2);
+  await boot(page);
+  expect((await state(page)).exposure).toBe(expected);
+  expect((await state(page)).rating).toBe(2);
+});
+
+test('Escape cancels a slider preview without losing previously committed metadata', async ({ page }) => {
+  await boot(page);
+  await expect.poll(async () => (await state(page)).recovery.state).toBe('Saved');
+  await click(page, 'Rate 1');
+  const box = await bounds(page, 'slider-Exposure');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+  await page.mouse.move(box.x + box.width * .7, box.y + box.height / 2, { steps: 5 });
+  await expect.poll(async () => (await state(page)).recovery.state).toBe('Preview');
+  await expect.poll(async () => (await state(page)).recovery.savedRevision).toBe(1);
+  await page.keyboard.press('Escape'); await page.mouse.up();
+  await expect.poll(async () => (await state(page)).exposure).toBe(0);
+  await expect.poll(async () => (await state(page)).recovery.state).toBe('Saved');
+  await boot(page); expect((await state(page)).rating).toBe(1); expect((await state(page)).exposure).toBe(0);
 });

@@ -24,19 +24,23 @@ public sealed partial class StudioView : UserControl, IDisposable
     private PhotoQuery _query = new();
     private IReadOnlyList<PhotoDocument> _visible = [];
     private int _page;
-    private bool _gridMode, _sidebarVisible = true, _refreshing, _saving, _savePending, _disposed;
+    private bool _gridMode, _sidebarVisible = true, _refreshing, _disposed;
     private Guid _displayedPhoto;
     private string _inspectorMode = "Edit";
     private PhotoState? _clipboard;
     private ToneCurveView? _curve;
-    private long _savedRevision;
+    private readonly RecoveryCoordinator _recovery;
+    private LightButton? _saveButton;
+    public event Action<bool>? UnsavedChangesChanged;
     public EditorSession Session { get; }
     public PhotoViewport Viewport { get; }
     public event Action<StudioDiagnostics>? DiagnosticsChanged;
 
-    public StudioView(EditorSession session,IWorkspaceStorage storage)
+    public StudioView(EditorSession session,IWorkspaceStorage storage,bool recoveryLoaded = true)
     {
-        Session=session;_storage=storage;_savedRevision=session.Revision;
+        Session=session;_storage=storage;
+        _recovery = new RecoveryCoordinator(session, storage.WriteRecoveryAsync, recoveryLoaded);
+        _recovery.StatusChanged += RecoveryChanged;
         FontFamily=Theme.Font;RequestedTheme=ElementTheme.Dark;Background=Theme.Background;
         HorizontalContentAlignment=HorizontalAlignment.Stretch;VerticalContentAlignment=VerticalAlignment.Stretch;
         Viewport=new(session,_renderer);Register("canvas",Viewport);
@@ -65,6 +69,8 @@ public sealed partial class StudioView : UserControl, IDisposable
         _histogramTimer.Tick+=(_,_)=>{_histogramTimer.Stop();if(Session.Active is {} photo)try{_histogram.Histogram=_renderer.CalculateHistogram(photo);}catch(Exception e){SetStatus(e.Message);}};
         _diagnosticsTimer.Tick+=(_,_)=>PublishDiagnostics();Loaded+=(_,_)=>{_diagnosticsTimer.Start();Resize();RefreshAll();};
         RefreshAll();
+        RecoveryChanged(_recovery.Status);
+        if (!recoveryLoaded) _saveTimer.Start();
     }
     private static StackPanel Row()=>new(){Orientation=Orientation.Horizontal,Spacing=8,VerticalAlignment=VerticalAlignment.Center};
     private T Register<T>(string id,T widget) where T:FrameworkElement{_widgets[id]=widget;return widget;}
@@ -91,7 +97,7 @@ public sealed partial class StudioView : UserControl, IDisposable
         var rating=Row();rating.Spacing=0;for(var i=1;i<=5;i++){var value=i;var button=Button($"Rate {i}",Glyph.Star,null,()=>Session.Edit($"Rate {value} stars",s=>s with{Rating=value},true));button.MinWidth=25;button.Padding=new(3,6,3,6);_ratingButtons.Add(button);rating.Children.Add(button);}Grid.SetColumn(rating,1);viewbar.Children.Add(rating);
         var right=Row();right.HorizontalAlignment=HorizontalAlignment.Right;right.Spacing=2;right.Children.Add(Button("Pick photo",Glyph.Flag,null,()=>Session.Edit("Flag as pick",s=>s with{Flag=s.Flag==PhotoFlag.Pick?PhotoFlag.None:PhotoFlag.Pick},true)));right.Children.Add(Button("Reject photo",Glyph.Reject,null,()=>Session.Edit("Flag as rejected",s=>s with{Flag=PhotoFlag.Reject},true)));Grid.SetColumn(right,2);viewbar.Children.Add(right);Grid.SetRow(viewbar,2);center.Children.Add(viewbar);
         var film=new ScrollViewer{Content=_filmstrip,Padding=new(10,8,10,6),VerticalScrollBarVisibility=ScrollBarVisibility.Disabled,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,Background=Theme.Brush("#191919")};Grid.SetRow(film,3);center.Children.Add(film);
-        var footer=new Grid{Background=Theme.Brush("#1f1f1f"),Padding=new(12,0,12,0),ColumnDefinitions={new(){Width=GridLength.Auto},new(){Width=new(1,GridUnitType.Star)},new(){Width=GridLength.Auto}}};footer.Children.Add(_count);_status.Margin=new(18,0,18,0);Grid.SetColumn(_status,1);footer.Children.Add(_status);var badge=Theme.Text("LOCAL",9,true);Grid.SetColumn(badge,2);footer.Children.Add(badge);Grid.SetRow(footer,4);center.Children.Add(footer);return center;
+        var footer=new Grid{Background=Theme.Brush("#1f1f1f"),Padding=new(12,0,12,0),ColumnDefinitions={new(){Width=GridLength.Auto},new(){Width=new(1,GridUnitType.Star)},new(){Width=GridLength.Auto}}};footer.Children.Add(_count);_status.Margin=new(18,0,18,0);Grid.SetColumn(_status,1);footer.Children.Add(_status);_saveButton=Button("Save recovery now",Glyph.Check,"Saved",()=>Run(SaveRecoveryAsync));_saveButton.FontSize=10;_saveButton.MinHeight=23;_saveButton.Padding=new(3,0,3,0);Grid.SetColumn(_saveButton,2);footer.Children.Add(_saveButton);Grid.SetRow(footer,4);center.Children.Add(footer);return center;
     }
     private void Resize()
     {
@@ -107,7 +113,7 @@ public sealed partial class StudioView : UserControl, IDisposable
     }
     private void RefreshToolButtons(){foreach(var (tool,button) in _tools)button.Selected=tool==Viewport.Tool||(tool==PhotoTool.RadialMask&&Viewport.Tool==PhotoTool.LinearMask);}
     public void SetStatus(string text){_status.Text=text;ToolTipService.SetToolTip(_status,text);PublishDiagnostics();}
-    private void Committed(){RefreshCatalog();RefreshLive();if(_inspectorMode is "History" or "Masks")BuildInspector();_histogramTimer.Stop();_histogramTimer.Start();_savePending=true;_saveTimer.Stop();_saveTimer.Start();}
+    private void Committed(){RefreshCatalog();RefreshLive();if(_inspectorMode is "History" or "Masks")BuildInspector();_histogramTimer.Stop();_histogramTimer.Start();_saveTimer.Stop();_saveTimer.Start();}
     private void RefreshAll(){RefreshCatalog();BuildInspector();RefreshLive();_histogramTimer.Start();}
     private void RefreshLive()
     {
@@ -175,8 +181,8 @@ public sealed partial class StudioView : UserControl, IDisposable
             if(!visible)continue;
             try{var rect=widget.TransformToVisual(this).TransformBounds(new Rect(0,0,widget.ActualWidth,widget.ActualHeight));if(rect.Right>0&&rect.Bottom>0&&rect.X<ActualWidth&&rect.Y<ActualHeight)list.Add(new(id,rect.X,rect.Y,rect.Width,rect.Height));}catch(InvalidOperationException){}
         }
-        var p=Session.Active;DiagnosticsChanged.Invoke(new(p?.Name??"",_gridMode?"Grid":"Detail",Viewport.Tool.ToString(),p?.State.Develop.Exposure??0,p?.State.Rating??0,Session.Catalog.Photos.Count,p?.State.Masks.Length??0,p?.State.CloneSpots.Length??0,Session.CanUndo,Session.CanRedo,Session.Revision,_status.Text,list.ToArray()));
+        var p=Session.Active;DiagnosticsChanged.Invoke(new(p?.Name??"",_gridMode?"Grid":"Detail",Viewport.Tool.ToString(),p?.State.Develop.Exposure??0,p?.State.Rating??0,Session.Catalog.Photos.Count,p?.State.Masks.Length??0,p?.State.CloneSpots.Length??0,Session.CanUndo,Session.CanRedo,Session.Revision,_status.Text,list.ToArray(),_recovery.Status));
     }
     private async void Run(Func<Task> operation){try{await operation();}catch(Exception e){SetStatus(e.Message);}}
-    public void Dispose(){_disposed=true;_diagnosticsTimer.Stop();_saveTimer.Stop();_histogramTimer.Stop();Session.Changed-=Committed;Session.ViewChanged-=RefreshLive;Viewport.Dispose();_thumbnails.Dispose();_renderer.Dispose();}
+    public new void Dispose(){if(_disposed)return;_disposed=true;_recovery.Dispose();_diagnosticsTimer.Stop();_saveTimer.Stop();_histogramTimer.Stop();Session.Changed-=Committed;Session.ViewChanged-=RefreshLive;Viewport.Dispose();_thumbnails.Dispose();_renderer.Dispose();}
 }

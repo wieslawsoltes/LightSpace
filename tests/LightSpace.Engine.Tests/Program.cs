@@ -65,6 +65,34 @@ Test("Clone spot samples source", () => { using var r = new PhotoRenderer(); var
 Test("Preview cache is bounded", () => { using var r = new PhotoRenderer(); using var s = SKSurface.Create(new SKImageInfo(64,64)); foreach (var p in Catalog(7).Photos) r.Draw(s.Canvas,p,SKRect.Create(64,64)); Check(r.CachedImages <= 5); });
 Test("Source transform is invertible", () => { for (var q = 0; q < 4; q++) { var m = PhotoTransform.SourceToView(new(.2f,.1f,.8f,.9f,q,true,false),96,64,SKRect.Create(20,30,600,400)); Check(m.TryInvert(out var inverse)); var p = new SKPoint(40,30); var restored = inverse.MapPoint(m.MapPoint(p)); Check(Math.Abs(restored.X-p.X) < .001 && Math.Abs(restored.Y-p.Y) < .001); } });
 Test("Generated sample decodes", () => { var p = PhotoCodec.Import("sample.png", SamplePhotos.Create(0)); Check(p.Width == 1440 && p.Height == 960); });
+Test("Preview shader invalidates on replacement state at the same revision", () =>
+{
+    using var renderer = new PhotoRenderer(); var photo = Tiny();
+    using var surface = SKSurface.Create(new SKImageInfo(96, 64));
+    renderer.Draw(surface.Canvas, photo, SKRect.Create(96, 64));
+    using var first = surface.Snapshot(); using var before = SKBitmap.FromImage(first);
+    photo.State = photo.State with { Develop = new() { Exposure = 1 } };
+    renderer.Draw(surface.Canvas, photo, SKRect.Create(96, 64));
+    using var second = surface.Snapshot(); using var after = SKBitmap.FromImage(second);
+    Check(after.GetPixel(20, 20).Red > before.GetPixel(20, 20).Red + 15);
+});
+Test("Preview cache invalidates on replacement original at the same identity", () =>
+{
+    using var renderer = new PhotoRenderer(); var photo = Tiny();
+    using var surface = SKSurface.Create(new SKImageInfo(96, 64));
+    renderer.Draw(surface.Canvas, photo, SKRect.Create(96, 64));
+    using var replacement = SKSurface.Create(new SKImageInfo(96, 64));
+    replacement.Canvas.Clear(SKColors.Blue); using var image = replacement.Snapshot();
+    using var data = image.Encode(SKEncodedImageFormat.Png, 100); photo.Original = data.ToArray();
+    renderer.Draw(surface.Canvas, photo, SKRect.Create(96, 64));
+    using var second = surface.Snapshot(); using var after = SKBitmap.FromImage(second);
+    Check(after.GetPixel(20, 20).Blue > 250 && after.GetPixel(20, 20).Red < 3);
+});
+foreach (var (name, action) in RecoveryTests.Cases)
+{
+    try { await action(); passed++; Console.WriteLine($"PASS {name}"); results.Add(new { name, passed = true, error = "" }); }
+    catch (Exception error) { failed++; Console.WriteLine($"FAIL {name}: {error}"); results.Add(new { name, passed = false, error = error.Message }); }
+}
 Directory.CreateDirectory("artifacts/engine");
 File.WriteAllText("artifacts/engine/results.json", JsonSerializer.Serialize(new { passed, failed, results }, new JsonSerializerOptions { WriteIndented = true }));
 File.WriteAllBytes("artifacts/engine/import-fixture.png", Tiny().Original);

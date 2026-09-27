@@ -14,6 +14,7 @@ public sealed class EditorSession
     public PhotoDocument? Active => Catalog.Photos.FirstOrDefault(p => p.Id == Catalog.ActivePhoto);
     public HashSet<Guid> Selection { get; } = [];
     public long Revision { get; private set; }
+    public bool HasActiveGesture => _gestureBefore is not null;
     public bool CanUndo => _undo.Count > 0;
     public bool CanRedo => _redo.Count > 0;
     public IReadOnlyList<string> History => _undo.Select(t => t.Name).Reverse().ToArray();
@@ -35,12 +36,13 @@ public sealed class EditorSession
     public void Add(PhotoDocument photo)
     {
         if (Catalog.Photos.Any(p => p.Id == photo.Id)) throw new InvalidOperationException("Photo already in catalog.");
+        CommitGesture("Adjustment");
         Catalog.Photos.Add(photo); Catalog.ActivePhoto = photo.Id; Selection.Clear(); Selection.Add(photo.Id); Notify();
     }
     public void BeginGesture()
     {
         if (_gestureBefore is not null || Active is not { } photo) return;
-        _gesturePhoto = photo.Id; _gestureBefore = photo.State;
+        _gesturePhoto = photo.Id; _gestureBefore = photo.State; ViewChanged?.Invoke();
     }
     public void Preview(Func<PhotoState, PhotoState> edit)
     {
@@ -54,6 +56,7 @@ public sealed class EditorSession
         var photo = Catalog.Photos.FirstOrDefault(p => p.Id == _gesturePhoto);
         if (photo is not null && CatalogSerializer.SerializeSettings(before) != CatalogSerializer.SerializeSettings(photo.State))
         { Push(new(name, [new(photo.Id, before, photo.State)])); Notify(); }
+        else ViewChanged?.Invoke();
     }
     public void CancelGesture()
     {
@@ -105,5 +108,31 @@ public sealed class EditorSession
     {
         var album = Catalog.Albums.First(a => a.Id == id); album.Photos = album.Photos.Concat(Selection).Distinct().ToList(); Notify();
     }
+    /// <summary>
+    /// Captures a committed revision without temporarily rolling back the visible
+    /// preview. Original bytes are shared only during synchronous serialization.
+    /// </summary>
+    public CommittedCatalogSnapshot CaptureCommittedSnapshot()
+    {
+        var committed = new CatalogDocument
+        {
+            SchemaVersion = Catalog.SchemaVersion,
+            ActivePhoto = Catalog.ActivePhoto,
+            Albums = Catalog.Albums.Select(album => new Album
+            {
+                Id = album.Id, Name = album.Name, Photos = [.. album.Photos]
+            }).ToList(),
+            Photos = Catalog.Photos.Select(photo => new PhotoDocument
+            {
+                Id = photo.Id, Name = photo.Name, Original = photo.Original,
+                Width = photo.Width, Height = photo.Height, ImportedAt = photo.ImportedAt,
+                Camera = photo.Camera, Lens = photo.Lens, ExposureInfo = photo.ExposureInfo,
+                State = _gestureBefore is not null && photo.Id == _gesturePhoto ? _gestureBefore : photo.State,
+                Versions = [.. photo.Versions]
+            }).ToList()
+        };
+        return new(Revision, CatalogSerializer.Serialize(committed));
+    }
+
     public void Notify() { Revision++; Changed?.Invoke(); ViewChanged?.Invoke(); }
 }

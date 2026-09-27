@@ -53,6 +53,6 @@ public static class PhotoCodec
             8 => new SKMatrix(0, 1, 0, -1, 0, w, 0, 0, 1),
             _ => SKMatrix.Identity
         };
-        c.Concat(ref matrix); c.DrawBitmap(bitmap, 0, 0); return surface.Snapshot();
+        c.Concat(in matrix); c.DrawBitmap(bitmap, 0, 0); return surface.Snapshot();
     }
 }

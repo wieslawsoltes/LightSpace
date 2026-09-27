@@ -26,25 +26,11 @@ public sealed partial class StudioView
         var file=await _storage.OpenCatalogAsync();if(file is null)return;
         if(file.Bytes.Length>CatalogSerializer.MaxCatalogBytes*1.4)throw new InvalidDataException("Catalog file exceeds the size limit.");
         var catalog=CatalogSerializer.Deserialize(Encoding.UTF8.GetString(file.Bytes));
-        _renderer.Clear();Session.Load(catalog);_query=new();_page=0;_search.Text="";RefreshAll();SetStatus("Opened "+file.Name);
+        _renderer.Clear();_thumbnails.Clear();Session.Load(catalog);_query=new();_page=0;_search.Text="";RefreshAll();SetStatus("Opened "+file.Name);
     }
     public async Task SaveCatalogAsync()
     {
         Session.CommitGesture("Adjustment");await _storage.SaveAsync("LightSpace-catalog.lightspace",Encoding.UTF8.GetBytes(CatalogSerializer.Serialize(Session.Catalog)),"application/json");SetStatus("Catalog backup exported, including original photographs and edit settings.");
-    }
-    private async Task SaveRecoveryAsync()
-    {
-        if(_saving){_savePending=true;return;}_saving=true;
-        try
-        {
-            do
-            {
-                _savePending=false;var revision=Session.Revision;var json=CatalogSerializer.Serialize(Session.Catalog);await _storage.WriteRecoveryAsync(json);_savedRevision=revision;
-            }while(_savePending);
-            SetStatus("All changes saved on this device");
-        }
-        catch(Exception e){_savePending=true;SetStatus("Recovery could not be saved. Export a catalog backup. "+e.Message);}
-        finally{_saving=false;}
     }
     private Task CreateAlbumAsync()=>TextPromptAsync("New album","Album name","Untitled album",value=>{Session.CreateAlbum(value);SetStatus("Album created from the current selection.");});
     private Task SaveVersionAsync()=>TextPromptAsync("Create version","Version name","Version "+((Session.Active?.Versions.Count??0)+1),Session.SaveVersion);
@@ -111,7 +97,7 @@ public sealed partial class StudioView
     private void CloseDialog(){if(_dialogOverlay is null)return;if(Content is Grid root)root.Children.Remove(_dialogOverlay);_dialogOverlay=null;PublishDiagnostics();}
     private void Keyboard(object sender,KeyRoutedEventArgs e)
     {
-        if(FocusManager.GetFocusedElement(XamlRoot) is TextBox)return;
+        if(XamlRoot is { } root && FocusManager.GetFocusedElement(root) is TextBox)return;
         if(_dialogOverlay is not null){if(e.Key==VirtualKey.Escape){CloseDialog();e.Handled=true;}return;}
         bool Down(VirtualKey key)=>Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
         var control=Down(VirtualKey.Control)||Down(VirtualKey.LeftWindows)||Down(VirtualKey.RightWindows);var shift=Down(VirtualKey.Shift);var handled=true;

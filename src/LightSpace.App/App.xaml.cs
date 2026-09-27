@@ -31,13 +31,16 @@ public sealed partial class App : Application
 #endif
             CatalogDocument? catalog=null;string? warning=null;
             try{var recovery=await storage.ReadRecoveryAsync();if(!string.IsNullOrWhiteSpace(recovery))catalog=CatalogSerializer.Deserialize(recovery);}catch(Exception e){warning="Recovery could not be opened; stored data has not been deleted. "+e.Message;}
+            var recovered = catalog is not null;
             catalog??=LoadSamples();
-            _studio=new StudioView(new EditorSession(catalog),storage);
+            _studio=new StudioView(new EditorSession(catalog),storage,recovered);
 #if __WASM__
+            _studio.UnsavedChangesChanged += BrowserFiles.SetDirty;
+            BrowserFiles.SetDirty(_studio.Recovery.HasUnsavedChanges);
             _studio.DiagnosticsChanged+=diagnostics=>BrowserFiles.PublishDiagnostics(JsonSerializer.Serialize(diagnostics,AppJsonContext.Default.StudioDiagnostics));
             _studio.GotFocus+=(_,_)=>BrowserFiles.FocusCanvasUnlessEditing();
 #endif
-            _window.Content=_studio;_window.Closed+=(_,_)=>_studio.Dispose();if(warning is not null)_studio.SetStatus(warning);
+            _window.Content=_studio;_window.Closed+=(_,_)=>_studio.Dispose();if(warning is not null)_studio.ProtectExistingRecovery(warning);
         }
         catch(Exception e)
         {

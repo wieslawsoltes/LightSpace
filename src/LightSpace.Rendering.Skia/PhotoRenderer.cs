@@ -5,9 +5,11 @@ namespace LightSpace.Rendering.Skia;
 
 public sealed class PhotoRenderer : IDisposable
 {
-    private sealed class CachedPhoto(SKImage image) : IDisposable
+    private sealed class CachedPhoto(SKImage image, byte[] original) : IDisposable
     {
         public SKImage Image { get; } = image;
+        public byte[] Original { get; } = original;
+        public PhotoState? State { get; set; }
         public SKShader? Shader { get; set; }
         public long Revision { get; set; } = -1;
         public long Used { get; set; }
@@ -26,15 +28,19 @@ public sealed class PhotoRenderer : IDisposable
     }
     private CachedPhoto Get(PhotoDocument photo)
     {
+        if (_cache.TryGetValue(photo.Id, out var stale) && !ReferenceEquals(stale.Original, photo.Original))
+        {
+            stale.Dispose(); _cache.Remove(photo.Id);
+        }
         if (!_cache.TryGetValue(photo.Id, out var value))
         {
             while (_cache.Count >= 5) { var oldest = _cache.MinBy(p => p.Value.Used); oldest.Value.Dispose(); _cache.Remove(oldest.Key); }
-            value = new(PhotoCodec.Decode(photo.Original)); _cache.Add(photo.Id, value);
+            value = new(PhotoCodec.Decode(photo.Original), photo.Original); _cache.Add(photo.Id, value);
         }
         value.Used = ++_clock;
-        if (value.Shader is null || value.Revision != photo.Revision)
+        if (value.Shader is null || value.Revision != photo.Revision || !ReferenceEquals(value.State, photo.State))
         {
-            value.Shader?.Dispose(); value.Shader = CreateShader(value.Image, photo.State); value.Revision = photo.Revision;
+            value.Shader?.Dispose(); value.Shader = CreateShader(value.Image, photo.State); value.Revision = photo.Revision; value.State = photo.State;
         }
         return value;
     }
@@ -44,7 +50,7 @@ public sealed class PhotoRenderer : IDisposable
     }
     private static void DrawSource(SKCanvas canvas, SKImage image, SKShader shader, CropSettings crop, SKRect destination, bool original)
     {
-        canvas.Save(); canvas.ClipRect(destination); var matrix = PhotoTransform.SourceToView(crop, image.Width, image.Height, destination); canvas.Concat(ref matrix);
+        canvas.Save(); canvas.ClipRect(destination); var matrix = PhotoTransform.SourceToView(crop, image.Width, image.Height, destination); canvas.Concat(in matrix);
         if (original) canvas.DrawImage(image, 0, 0);
         else { using var paint = new SKPaint { Shader = shader, IsAntialias = false }; canvas.DrawRect(0, 0, image.Width, image.Height, paint); }
         canvas.Restore();
