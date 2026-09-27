@@ -17,12 +17,19 @@ test.afterEach(async ({ page }, info) => {
     try { console.log('Browser state:', await page.evaluate(() => ({ ready: globalThis.lightSpaceReady, startupError: globalThis.lightSpaceStartupError, diagnostics: globalThis.lightSpaceDiagnostics, filesAvailable: !!globalThis.lightSpaceFiles, text: document.body.innerText }))); } catch {}
   }
 });
+async function settled(page) {
+  // Arranged control geometry can precede the compositor's presented frame.
+  await page.locator('.uno-loader').waitFor({ state: 'hidden', timeout: 120000 });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.waitForTimeout(250);
+}
 async function boot(page) {
   await page.goto(base + (base.includes('?') ? '&' : '?') + 'diagnostics=1', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => globalThis.lightSpaceDiagnostics || globalThis.lightSpaceStartupError, null, { timeout: 120000 });
   const error = await page.evaluate(() => globalThis.lightSpaceStartupError);
   expect(error, 'The real Uno application must initialize').toBeFalsy();
   await expect.poll(async () => (await state(page))?.widgets?.some(w => w.id === 'slider-Exposure')).toBeTruthy();
+  await settled(page);
 }
 async function bounds(page, id) {
   await expect.poll(async () => (await state(page))?.widgets?.some(w => w.id === id && w.width > 1)).toBeTruthy();
@@ -36,7 +43,10 @@ async function exposure(page, fraction) {
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
   await page.mouse.move(box.x + 5 + (box.width - 10) * fraction, box.y + box.height / 2, { steps: 5 }); await page.mouse.up();
 }
-async function screenshot(page, name) { await mkdir('artifacts/screenshots', { recursive: true }); await page.screenshot({ path: `artifacts/screenshots/${name}.png` }); }
+async function screenshot(page, name) {
+  await settled(page); await mkdir('artifacts/screenshots', { recursive: true });
+  await page.screenshot({ path: `artifacts/screenshots/${name}.png` });
+}
 
 test('real Uno layout, development gestures, undo, presets and rendered JPEG export', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
@@ -44,7 +54,7 @@ test('real Uno layout, development gestures, undo, presets and rendered JPEG exp
   await screenshot(page, 'workspace');
   const before = await page.screenshot();
   await exposure(page, .62); await expect.poll(async () => (await state(page)).exposure).toBeGreaterThan(.8);
-  const after = await page.screenshot(); expect(before.equals(after)).toBeFalsy();
+  await settled(page); const after = await page.screenshot(); expect(before.equals(after)).toBeFalsy();
   await click(page, 'Undo'); await expect.poll(async () => (await state(page)).exposure).toBe(0);
   await click(page, 'Redo'); await expect.poll(async () => (await state(page)).exposure).toBeGreaterThan(.8);
   await click(page, 'Presets'); await click(page, 'Preset Alpine light');
