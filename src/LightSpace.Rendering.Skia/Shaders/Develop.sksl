@@ -55,10 +55,10 @@ float hueAt(int i) {
     if (i == 3) return 1.0/3; if (i == 4) return .5; if (i == 5) return 2.0/3;
     if (i == 6) return .75; return 5.0/6;
 }
-float maskWeight(int i, float2 uv, float sourceLuma) {
-    float4 control = maskControl[i];
+// Pass vectors rather than an index: ES2 runtime effects require uniform-array
+// accesses to remain in the statically unrolled caller, not a function parameter.
+float maskWeight(float4 control, float4 g, float4 a, float4 range, float2 uv, float sourceLuma) {
     if (control.w <= 0) return 0;
-    float4 g = maskGeometry[i]; float4 a = maskAdjust[i]; float4 range = maskRange[i];
     float aspect = sourceSize.x / sourceSize.y;
     float2 delta = (uv - g.xy) * float2(aspect, 1);
     float2 q = float2(control.x * delta.x + control.y * delta.y, -control.y * delta.x + control.x * delta.y);
@@ -133,7 +133,7 @@ half4 main(float2 p) {
     for (int i = 0; i < 8; i++) {
         if (i >= maskCount) break;
         float4 a = maskAdjust[i]; float4 extra = maskExtra[i];
-        float weight = maskWeight(i, uv, sourceLuma);
+        float weight = maskWeight(maskControl[i], maskGeometry[i], a, maskRange[i], uv, sourceLuma);
         if (i == overlayMask) coverage = weight;
         if (weight <= 0) continue;
         float3 local = linearize(max(rgb, float3(0))) * exp2(a.x);

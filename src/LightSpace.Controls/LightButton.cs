@@ -8,8 +8,8 @@ public sealed class LightButton : Button
     private bool _selected;
     private bool _hover;
     private static ControlTemplate? _template;
-    public bool Selected { get => _selected; set { _selected = value; Refresh(); } }
-    public string Text { get => _label?.Text ?? ""; set { if (_label is not null) _label.Text = value; } }
+    public bool Selected { get => _selected; set { if (_selected == value) return; _selected = value; Refresh(); } }
+    public string Text { get => _label?.Text ?? ""; set { if (_label is not null && _label.Text != value) _label.Text = value; } }
     public LightButton(string name, Glyph glyph = Glyph.None, string? text = null, Action? action = null)
     {
         _template ??= (ControlTemplate)XamlReader.Load("""
@@ -21,7 +21,6 @@ public sealed class LightButton : Button
             """);
         Template = _template; FontFamily = Theme.Font; FontSize = 12; Foreground = Theme.TextColor;
         Padding = new(10, 7, 10, 7); CornerRadius = new(4); BorderThickness = new(1); BorderBrush = Theme.Brush("#00000000"); MinHeight = 32; MinWidth = 32;
-        // Custom content such as photo-card grids must fill the available slot.
         HorizontalContentAlignment = HorizontalAlignment.Stretch; VerticalContentAlignment = VerticalAlignment.Stretch;
         var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         if (glyph != Glyph.None) { _icon = new(glyph); content.Children.Add(_icon); }

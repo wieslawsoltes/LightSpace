@@ -9,6 +9,8 @@ public sealed class PhotoCard : UserControl
     private readonly TextBlock _caption;
     private readonly bool _grid;
     private PhotoDocument _photo;
+    private bool? _selected;
+    private string? _name;
     public PhotoDocument Photo => _photo;
     public event Action<PhotoDocument>? Selected;
     public PhotoCard(PhotoDocument photo, ThumbnailCache cache, bool grid)
@@ -32,7 +34,7 @@ public sealed class PhotoCard : UserControl
         _photo = photo; _thumbnail.Update(photo);
         var text = _grid ? photo.Name : new string('★', photo.State.Rating);
         if (_caption.Text != text) _caption.Text = text;
-        _button.BorderBrush = selected ? Theme.Brush("#b4b4b4") : Theme.Line;
-        ToolTipService.SetToolTip(_button, photo.Name);
+        if (_selected != selected) { _selected = selected; _button.BorderBrush = selected ? Theme.Brush("#b4b4b4") : Theme.Line; }
+        if (_name != photo.Name) { _name = photo.Name; ToolTipService.SetToolTip(_button, photo.Name); AutomationProperties.SetName(_button, "Select " + photo.Name); }
     }
 }

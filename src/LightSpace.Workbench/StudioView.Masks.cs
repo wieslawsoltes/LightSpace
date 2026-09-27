@@ -11,8 +11,10 @@ public sealed partial class StudioView
         create.Children.Add(Button("Luminance range", text: "Luminance", action: CreateRangeMask)); panel.Children.Add(create);
         panel.Children.Add(Note("Drag to create a gradient. Drag its pin, edge handles or rotation handle to refine it. Shift-drag starts a new mask over an existing pin."));
         var overlays = Row(); overlays.Spacing = 3;
-        var outline = Button("Toggle mask overlay", Glyph.Mask, "Outline", () => { Viewport.MaskOverlay = !Viewport.MaskOverlay; Viewport.Invalidate(); }); outline.Selected = Viewport.MaskOverlay;
-        var coverage = Button("Mask coverage", text: "Coverage", action: () => { Viewport.ShowMaskCoverage = !Viewport.ShowMaskCoverage; Viewport.Invalidate(); }); coverage.Selected = Viewport.ShowMaskCoverage;
+        var outline = Button("Toggle mask overlay", Glyph.Mask, "Outline"); outline.Selected = Viewport.MaskOverlay;
+        outline.Click += (_, _) => { Viewport.MaskOverlay = !Viewport.MaskOverlay; outline.Selected = Viewport.MaskOverlay; Viewport.Invalidate(); };
+        var coverage = Button("Mask coverage", text: "Coverage"); coverage.Selected = Viewport.ShowMaskCoverage;
+        coverage.Click += (_, _) => { Viewport.ShowMaskCoverage = !Viewport.ShowMaskCoverage; coverage.Selected = Viewport.ShowMaskCoverage; Viewport.Invalidate(); };
         overlays.Children.Add(outline); overlays.Children.Add(coverage); panel.Children.Add(overlays);
         for (var i = 0; i < photo.State.Masks.Length; i++)
         {
@@ -28,7 +30,11 @@ public sealed partial class StudioView
         manage.Children.Add(Button("Duplicate mask", text: "Duplicate", action: () =>
         {
             if (photo.State.Masks.Length >= 8) { SetStatus("The eight-mask limit has been reached."); return; }
-            Session.Edit("Duplicate mask", s => s with { Masks = [.. s.Masks, mask with { Id = Guid.NewGuid(), Name = mask.Name + " copy" }] });
+            // Settings change without rebuilding this inspector. Resolve the latest
+            // snapshot by identity instead of copying the captured construction state.
+            var current = photo.State.Masks.FirstOrDefault(m => m.Id == mask.Id);
+            if (current is null) return;
+            Session.Edit("Duplicate mask", s => s with { Masks = [.. s.Masks, current with { Id = Guid.NewGuid(), Name = current.Name + " copy" }] });
             Viewport.SetActiveMask(photo.State.Masks.Length - 1);
         }));
         manage.Children.Add(Button("Delete mask", Glyph.Trash, null, () => Session.Edit("Delete mask", s => s with { Masks = s.Masks.Where(m => m.Id != mask.Id).ToArray() }))); panel.Children.Add(manage);
