@@ -15,8 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Resolve version
@@ -42,7 +42,7 @@ jobs:
           dotnet publish src/LightSpace.App -c Release -f net10.0-browserwasm -p:Version="$VERSION" -o artifacts/publish -p:WasmShellWebAppBasePath=/LightSpace/
           python3 scripts/collect-site.py artifacts/publish artifacts/site
           cd artifacts/site && zip -r ../release/LightSpace-browser.zip .
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-libraries-browser
           path: artifacts/release
@@ -60,8 +60,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - run: python scripts/fetch-assets.py
@@ -73,7 +73,7 @@ jobs:
         run: |
           import os, shutil
           shutil.make_archive('LightSpace-'+os.environ['RID'], 'zip', 'artifacts/native')
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.rid }}
           path: LightSpace-${{ matrix.rid }}.zip
@@ -83,8 +83,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           merge-multiple: true
