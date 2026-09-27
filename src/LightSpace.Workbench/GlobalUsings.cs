@@ -1,0 +1,14 @@
+global using Microsoft.UI.Xaml;
+global using Microsoft.UI.Xaml.Controls;
+global using Microsoft.UI.Xaml.Input;
+global using Microsoft.UI.Xaml.Media;
+global using Microsoft.UI.Xaml.Automation;
+global using Windows.Foundation;
+global using Windows.System;
+global using LightSpace.Core;
+global using LightSpace.Editing;
+global using LightSpace.Controls;
+global using LightSpace.Catalog;
+global using LightSpace.Storage;
+global using LightSpace.Rendering.Skia;
+global using SkiaSharp;
