@@ -47,14 +47,16 @@ public sealed class EditorSession
     public void Preview(Func<PhotoState, PhotoState> edit)
     {
         if (Active is not { } photo) return;
-        BeginGesture(); photo.State = edit(photo.State).Normalize(); photo.Revision++; ViewChanged?.Invoke();
+        BeginGesture(); var next = edit(photo.State).Normalize();
+        if (PhotoStateEquality.All(photo.State, next)) return;
+        photo.State = next; photo.Revision++; ViewChanged?.Invoke();
     }
     public void CommitGesture(string name)
     {
         if (_gestureBefore is null) return;
         var before = _gestureBefore; _gestureBefore = null;
         var photo = Catalog.Photos.FirstOrDefault(p => p.Id == _gesturePhoto);
-        if (photo is not null && CatalogSerializer.SerializeSettings(before) != CatalogSerializer.SerializeSettings(photo.State))
+        if (photo is not null && !PhotoStateEquality.All(before, photo.State))
         { Push(new(name, [new(photo.Id, before, photo.State)])); Notify(); }
         else ViewChanged?.Invoke();
     }
@@ -69,7 +71,7 @@ public sealed class EditorSession
     {
         CommitGesture("Adjustment");
         var targets = selected ? Catalog.Photos.Where(p => Selection.Contains(p.Id)).ToArray() : Active is { } active ? [active] : Array.Empty<PhotoDocument>();
-        var changes = targets.Select(p => new Change(p.Id, p.State, edit(p.State).Normalize())).Where(c => CatalogSerializer.SerializeSettings(c.Before) != CatalogSerializer.SerializeSettings(c.After)).ToArray();
+        var changes = targets.Select(p => new Change(p.Id, p.State, edit(p.State).Normalize())).Where(c => !PhotoStateEquality.All(c.Before, c.After)).ToArray();
         if (changes.Length == 0) return;
         foreach (var change in changes) { var target = Catalog.Photos.First(p => p.Id == change.Id); target.State = change.After; target.Revision++; }
         Push(new(name, changes)); Notify();
@@ -108,20 +110,12 @@ public sealed class EditorSession
     {
         var album = Catalog.Albums.First(a => a.Id == id); album.Photos = album.Photos.Concat(Selection).Distinct().ToList(); Notify();
     }
-    /// <summary>
-    /// Captures a committed revision without temporarily rolling back the visible
-    /// preview. Original bytes are shared only during synchronous serialization.
-    /// </summary>
     public CommittedCatalogSnapshot CaptureCommittedSnapshot()
     {
         var committed = new CatalogDocument
         {
-            SchemaVersion = Catalog.SchemaVersion,
-            ActivePhoto = Catalog.ActivePhoto,
-            Albums = Catalog.Albums.Select(album => new Album
-            {
-                Id = album.Id, Name = album.Name, Photos = [.. album.Photos]
-            }).ToList(),
+            SchemaVersion = Catalog.SchemaVersion, ActivePhoto = Catalog.ActivePhoto,
+            Albums = Catalog.Albums.Select(album => new Album { Id = album.Id, Name = album.Name, Photos = [.. album.Photos] }).ToList(),
             Photos = Catalog.Photos.Select(photo => new PhotoDocument
             {
                 Id = photo.Id, Name = photo.Name, Original = photo.Original,
@@ -133,6 +127,5 @@ public sealed class EditorSession
         };
         return new(Revision, CatalogSerializer.Serialize(committed));
     }
-
     public void Notify() { Revision++; Changed?.Invoke(); ViewChanged?.Invoke(); }
 }

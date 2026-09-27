@@ -22,18 +22,32 @@ public sealed record DevelopSettings
     public bool Monochrome { get; init; }
     public ToneCurve Curve { get; init; } = new();
     public ColorBand[] Mixer { get; init; } = Enumerable.Range(0, 8).Select(_ => new ColorBand()).ToArray();
+    public ColorGradingSettings Grading { get; init; } = new();
     public static DevelopSettings Default { get; } = new();
 
-    public DevelopSettings Normalize() => this with
+    public DevelopSettings Normalize()
     {
-        Exposure = Numeric.Clamp(Exposure, -5, 5), Contrast = Percent(Contrast), Highlights = Percent(Highlights),
-        Shadows = Percent(Shadows), Whites = Percent(Whites), Blacks = Percent(Blacks), Temperature = Percent(Temperature),
-        Tint = Percent(Tint), Vibrance = Percent(Vibrance), Saturation = Percent(Saturation), Texture = Percent(Texture),
-        Clarity = Percent(Clarity), Dehaze = Percent(Dehaze), Vignette = Percent(Vignette),
-        Grain = Numeric.Clamp(Grain, 0, 100), Sharpening = Numeric.Clamp(Sharpening, 0, 100), NoiseReduction = Numeric.Clamp(NoiseReduction, 0, 100),
-        Curve = (Curve ?? new()).Normalize(),
-        Mixer = Enumerable.Range(0, 8).Select(i => Mixer is not null && i < Mixer.Length ? (Mixer[i] ?? new()).Normalize() : new ColorBand()).ToArray()
-    };
+        ColorBand[]? mixer = Mixer;
+        if (mixer is null || mixer.Length != 8)
+            mixer = Enumerable.Range(0, 8).Select(i => Mixer is not null && i < Mixer.Length ? Mixer[i] ?? new() : new ColorBand()).ToArray();
+        for (var i = 0; i < 8; i++)
+        {
+            var band = (mixer[i] ?? new()).Normalize();
+            if (ReferenceEquals(band, mixer[i])) continue;
+            if (ReferenceEquals(mixer, Mixer)) mixer = (ColorBand[])mixer.Clone();
+            mixer[i] = band;
+        }
+        var result = this with
+        {
+            Exposure = Numeric.Clamp(Exposure, -5, 5), Contrast = Percent(Contrast), Highlights = Percent(Highlights),
+            Shadows = Percent(Shadows), Whites = Percent(Whites), Blacks = Percent(Blacks), Temperature = Percent(Temperature),
+            Tint = Percent(Tint), Vibrance = Percent(Vibrance), Saturation = Percent(Saturation), Texture = Percent(Texture),
+            Clarity = Percent(Clarity), Dehaze = Percent(Dehaze), Vignette = Percent(Vignette),
+            Grain = Numeric.Clamp(Grain, 0, 100), Sharpening = Numeric.Clamp(Sharpening, 0, 100), NoiseReduction = Numeric.Clamp(NoiseReduction, 0, 100),
+            Curve = (Curve ?? new()).Normalize(), Mixer = mixer, Grading = (Grading ?? new()).Normalize()
+        };
+        return result == this ? this : result;
+    }
     public static float Percent(float value) => Numeric.Clamp(value, -100, 100);
     public float Get(string key) => key switch
     {
@@ -62,23 +76,38 @@ public sealed record DevelopSettings
 
 public sealed record ColorBand(float Hue = 0, float Saturation = 0, float Luminance = 0)
 {
-    public ColorBand Normalize() => new(DevelopSettings.Percent(Hue), DevelopSettings.Percent(Saturation), DevelopSettings.Percent(Luminance));
+    public ColorBand Normalize()
+    {
+        var h = DevelopSettings.Percent(Hue); var s = DevelopSettings.Percent(Saturation); var l = DevelopSettings.Percent(Luminance);
+        return h == Hue && s == Saturation && l == Luminance ? this : new(h, s, l);
+    }
 }
-
 public sealed record ToneCurve(float Black = 0, float Shadow = .25f, float Mid = .5f, float Light = .75f, float White = 1)
 {
-    public ToneCurve Normalize() => new(Numeric.Unit(Black), Numeric.Unit(Shadow), Numeric.Unit(Mid), Numeric.Unit(Light), Numeric.Unit(White));
+    public bool IsIdentity => Black == 0 && Shadow == .25f && Mid == .5f && Light == .75f && White == 1;
+    public ToneCurve Normalize()
+    {
+        var b = Numeric.Unit(Black); var s = Numeric.Unit(Shadow); var m = Numeric.Unit(Mid); var l = Numeric.Unit(Light); var w = Numeric.Unit(White);
+        return b == Black && s == Shadow && m == Mid && l == Light && w == White ? this : new(b, s, m, l, w);
+    }
     public float Evaluate(float x)
     {
         x = Numeric.Unit(x) * 4;
-        float[] points = [Black, Shadow, Mid, Light, White];
-        var i = Math.Min(3, (int)x); var t = x - i;
-        return points[i] + (points[i + 1] - points[i]) * t;
+        var (a, b, t) = x switch
+        {
+            < 1 => (Black, Shadow, x), < 2 => (Shadow, Mid, x - 1),
+            < 3 => (Mid, Light, x - 2), _ => (Light, White, x - 3)
+        };
+        return a + (b - a) * t;
     }
 }
-
 public static class Numeric
 {
     public static float Clamp(float value, float min, float max) => Math.Clamp(float.IsFinite(value) ? value : 0, min, max);
     public static float Unit(float value) => Clamp(value, 0, 1);
+    public static float Angle(float value) => float.IsFinite(value) ? (value % 360 + 360) % 360 : 0;
+    public static float Smooth(float a, float b, float value)
+    {
+        var t = Unit((value - a) / MathF.Max(.000001f, b - a)); return t * t * (3 - 2 * t);
+    }
 }
