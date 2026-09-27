@@ -28,13 +28,20 @@ jobs:
   browser:
     needs: engine
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - name: Install browser toolchain and assets
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: LightSpace-engine-validation
+          path: artifacts/fixtures
+      - name: Install browser toolchain and licensed assets
         run: |
           dotnet workload install wasm-tools --skip-manifest-update
           python3 scripts/fetch-assets.py
@@ -42,6 +49,18 @@ jobs:
         run: |
           dotnet publish src/LightSpace.App -f net10.0-browserwasm -c Release -o artifacts/publish -p:WasmShellWebAppBasePath=/LightSpace/
           python3 scripts/collect-site.py artifacts/publish artifacts/site
+      - name: Exercise real browser controls and exports
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          python3 scripts/serve-site.py --directory artifacts/site --port 4173 > artifacts/server.log 2>&1 &
+          npm run test:browser
+      - name: Package eight reusable libraries
+        run: |
+          for project in src/*/*.csproj; do
+            case "$project" in */LightSpace.App/*) continue;; esac
+            dotnet pack "$project" -c Release -o artifacts/packages
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -52,6 +71,27 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: LightSpace-assets
-          path: artifacts/demo-assets.json
+          name: LightSpace-browser-validation
+          path: |
+            artifacts/screenshots
+            artifacts/playwright-report
+            artifacts/test-results
+            artifacts/browser-results.xml
+            artifacts/browser-exports
+            artifacts/server.log
+            artifacts/demo-assets.json
           if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: LightSpace-packages
+          path: artifacts/packages
+          if-no-files-found: ignore
+      - name: Source snapshot
+        if: always()
+        run: git archive --format=zip --output=/tmp/LightSpace-source.zip HEAD
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: LightSpace-source
+          path: /tmp/LightSpace-source.zip

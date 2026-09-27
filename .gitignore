@@ -10,3 +10,5 @@ TestResults/
 *.user
 *.suo
 src/LightSpace.App/Assets/Samples/*.jpg
+src/LightSpace.App/Assets/Fonts/*.ttf
+src/LightSpace.App/Assets/Fonts/OFL.txt

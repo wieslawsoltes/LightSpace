@@ -1,0 +1,100 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the v prefix
+        required: true
+        default: 0.1.0-alpha.1
+permissions:
+  contents: read
+jobs:
+  libraries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Resolve version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="${INPUT_VERSION:-${GITHUB_REF_NAME#v}}"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+      - run: dotnet run --project tests/LightSpace.Engine.Tests -c Release
+      - run: dotnet workload install wasm-tools --skip-manifest-update
+      - run: python3 scripts/fetch-assets.py
+      - name: Package reusable libraries and browser application
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          mkdir -p artifacts/release
+          for project in src/*/*.csproj; do
+            case "$project" in */LightSpace.App/*) continue;; esac
+            dotnet pack "$project" -c Release -p:Version="$VERSION" -o artifacts/release
+          done
+          dotnet publish src/LightSpace.App -c Release -f net10.0-browserwasm -p:Version="$VERSION" -o artifacts/publish -p:WasmShellWebAppBasePath=/LightSpace/
+          python3 scripts/collect-site.py artifacts/publish artifacts/site
+          cd artifacts/site && zip -r ../release/LightSpace-browser.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-libraries-browser
+          path: artifacts/release
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: python scripts/fetch-assets.py
+      - run: dotnet publish src/LightSpace.App -c Release -f net10.0-desktop -p:LightSpaceDesktopOnly=true -r ${{ matrix.rid }} --self-contained true -o artifacts/native
+      - name: Archive desktop host
+        shell: python
+        env:
+          RID: ${{ matrix.rid }}
+        run: |
+          import os, shutil
+          shutil.make_archive('LightSpace-'+os.environ['RID'], 'zip', 'artifacts/native')
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.rid }}
+          path: LightSpace-${{ matrix.rid }}.zip
+  publish:
+    needs: [libraries, desktop]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release
+      - name: Checksums and GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          VERSION="${INPUT_VERSION:-${GITHUB_REF_NAME#v}}"
+          (cd release && sha256sum * > SHA256SUMS.txt)
+          gh release create "v$VERSION" release/* --target "$GITHUB_SHA" --title "LightSpace $VERSION" --notes-file docs/RELEASE-NOTES.md --prerelease

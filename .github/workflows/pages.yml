@@ -1,0 +1,94 @@
+name: Pages
+on:
+  workflow_run:
+    workflows: [Build]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages-main
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event != 'pull_request')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Resolve validated main build
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          REQUESTED_RUN: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          RUN="$REQUESTED_RUN"
+          if [ -z "$RUN" ]; then RUN=$(gh api "repos/$REPOSITORY/actions/workflows/build.yml/runs?branch=main&status=success&per_page=20" --jq '[.workflow_runs[] | select(.event != "pull_request")][0].id'); fi
+          gh api "repos/$REPOSITORY/actions/runs/$RUN" > /tmp/build.json
+          jq -e '.conclusion == "success" and .head_branch == "main" and .event != "pull_request" and .path == ".github/workflows/build.yml"' /tmp/build.json
+          echo "run_id=$RUN" >> "$GITHUB_OUTPUT"
+          echo "sha=$(jq -r .head_sha /tmp/build.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.build.outputs.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: LightSpace-browser
+          run-id: ${{ steps.build.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: site
+      - name: Validate provenance
+        env:
+          EXPECTED_SHA: ${{ steps.build.outputs.sha }}
+        run: jq -e --arg sha "$EXPECTED_SHA" '.commit == $sha and .host == "Uno WebAssembly"' site/build-info.json
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: LightSpace-engine-validation
+          run-id: ${{ steps.build.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: artifacts/fixtures
+      - name: Verify the public application
+        env:
+          LIGHTSPACE_URL: ${{ steps.deployment.outputs.page_url }}
+          EXPECTED_SHA: ${{ steps.build.outputs.sha }}
+        run: |
+          set -euo pipefail
+          verified=false
+          for attempt in $(seq 1 15); do
+            if curl --fail --silent --max-time 20 "${LIGHTSPACE_URL}build-info.json?sha=$EXPECTED_SHA&attempt=$attempt" -o /tmp/live.json && jq -e --arg sha "$EXPECTED_SHA" '.commit == $sha' /tmp/live.json; then verified=true; break; fi
+            sleep 5
+          done
+          test "$verified" = true
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: LightSpace-public-validation
+          path: |
+            artifacts/screenshots
+            artifacts/playwright-report
+            artifacts/test-results
+            artifacts/browser-results.xml
+            artifacts/browser-exports
+          if-no-files-found: ignore
