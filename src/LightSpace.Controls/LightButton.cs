@@ -21,8 +21,9 @@ public sealed class LightButton : Button
             """);
         Template = _template; FontFamily = Theme.Font; FontSize = 12; Foreground = Theme.TextColor;
         Padding = new(10, 7, 10, 7); CornerRadius = new(4); BorderThickness = new(1); BorderBrush = Theme.Brush("#00000000"); MinHeight = 32; MinWidth = 32;
-        HorizontalContentAlignment = HorizontalAlignment.Center; VerticalContentAlignment = VerticalAlignment.Center;
-        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9, VerticalAlignment = VerticalAlignment.Center };
+        // Custom content such as photo-card grids must fill the available slot.
+        HorizontalContentAlignment = HorizontalAlignment.Stretch; VerticalContentAlignment = VerticalAlignment.Stretch;
+        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         if (glyph != Glyph.None) { _icon = new(glyph); content.Children.Add(_icon); }
         if (text is not null) { _label = Theme.Text(text); content.Children.Add(_label); }
         Content = content; AutomationProperties.SetName(this, name); AutomationProperties.SetAutomationId(this, name); ToolTipService.SetToolTip(this, name);
