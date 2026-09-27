@@ -2,6 +2,21 @@ import { test, expect } from '@playwright/test';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 const base = process.env.LIGHTSPACE_URL || 'http://127.0.0.1:4173/LightSpace/';
 const state = page => page.evaluate(() => globalThis.lightSpaceDiagnostics);
+const logs = new WeakMap();
+test.beforeEach(async ({ page }) => {
+  const messages = []; logs.set(page, messages);
+  page.on('console', message => messages.push(`${message.type()}: ${message.text()}`));
+  page.on('pageerror', error => messages.push(`pageerror: ${error.stack || error.message}`));
+  page.on('requestfailed', request => messages.push(`requestfailed: ${request.url()} ${request.failure()?.errorText}`));
+});
+test.afterEach(async ({ page }, info) => {
+  const messages = logs.get(page) || [];
+  await info.attach('browser-console', { body: messages.join('\n'), contentType: 'text/plain' });
+  if (info.status !== info.expectedStatus) {
+    console.log(messages.join('\n'));
+    try { console.log('Browser state:', await page.evaluate(() => ({ ready: globalThis.lightSpaceReady, startupError: globalThis.lightSpaceStartupError, diagnostics: globalThis.lightSpaceDiagnostics, filesAvailable: !!globalThis.lightSpaceFiles, text: document.body.innerText }))); } catch {}
+  }
+});
 async function boot(page) {
   await page.goto(base + (base.includes('?') ? '&' : '?') + 'diagnostics=1', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => globalThis.lightSpaceDiagnostics || globalThis.lightSpaceStartupError, null, { timeout: 120000 });

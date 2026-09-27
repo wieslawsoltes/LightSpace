@@ -12,10 +12,10 @@ This ledger distinguishes implemented functionality from Lightroom features that
 | Point curve | Five editable fixed-X points with identity reset | Piecewise linear RGB curve; no per-channel curves or arbitrary control points |
 | Color mixing | Eight weighted hue bands with hue/saturation/luminance controls | HSV approximation; no perceptual color-space guarantees or point-color selection |
 | Detail/effects | Sharpening, spatial smoothing, texture/clarity/dehaze approximation, vignette and grain | No AI denoise, super-resolution, calibrated lens corrections; spatial effects are resolution-dependent |
-| Crop | Free rectangle, edge/corner handles, movement, common centered ratios, quarter turns, flips | No arbitrary straightening angle, perspective/Upright or continuous aspect locking while dragging |
+| Crop | Free rectangle, edge/corner handles, movement, common centered ratios, quarter turns, flips; click-without-drag protection | No arbitrary straightening angle, perspective/Upright or continuous aspect locking while dragging |
 | Local masks | Up to eight radial and vertical linear gradients, feather/exposure/saturation, inversion and deletion | No brush, object/sky/subject AI selection, arbitrary gradient angle, range masks or mask boolean composition |
 | Clone | Up to 32 feathered source stamps; Alt-click source | Not healing, content-aware or generative removal; stamps sample the original source |
-| Navigation | Fit-relative zoom/pan, pointer-anchored wheel zoom, keyboard photo navigation | The 100% toolbar label currently represents 2× fit, not true source-pixel zoom; no navigator minimap |
+| Navigation | Fit and source-pixel zoom geometry, display-scale awareness, bounded pan, pointer-anchored wheel zoom, keyboard photo navigation | Preview decoding is capped at 2560 pixels, so larger sources lack native-resolution detail inspection; no navigator minimap |
 | Comparison | Original toggle and fixed midpoint split | No draggable split divider, side-by-side reference photo or multi-photo survey view |
 | Undo/versions | Coalesced gesture transactions, atomic batch changes, 100-step undo, named snapshots | Undo history is session-only; imports and album structural changes are not undoable |
 | Metadata | Captions, keywords, ratings, picks/rejects; source bytes retained | No EXIF/IPTC browser, metadata sidecars, copyright templates, face/location indexing |
@@ -31,4 +31,4 @@ A production photo pipeline needs a separately licensed/implemented RAW decoding
 
 A production catalog needs durable indexed storage, incremental source management, thumbnails outside the main catalog blob, asynchronous bounded decode scheduling, and a concurrency-aware write journal. Existing `IWorkspaceStorage` is intentionally a small starting contract rather than a full database abstraction.
 
-The next UI milestones are true source-pixel zoom, complete keyboard/assistive-technology coverage, robust panel-resize persistence, arbitrary-angle crop/straightening, richer mask manipulation, and more fully extracted public workbench subcomponents.
+The next UI milestones are native-resolution tiled inspection, complete keyboard/assistive-technology coverage, robust panel-resize persistence, arbitrary-angle crop/straightening, richer mask manipulation, and more fully extracted public workbench subcomponents.

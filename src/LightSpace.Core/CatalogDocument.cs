@@ -1,6 +1,7 @@
 namespace LightSpace.Core;
 
 public enum PhotoFlag { None, Pick, Reject }
+
 public sealed record PhotoState
 {
     public DevelopSettings Develop { get; init; } = new();
@@ -14,10 +15,20 @@ public sealed record PhotoState
     public string Caption { get; init; } = "";
     public PhotoState Normalize() => this with
     {
-        Develop = (Develop ?? new()).Normalize(), Crop = (Crop ?? new()).Normalize(),
-        Masks = (Masks ?? []).Take(8).Select(m => m.Normalize()).ToArray(),
-        CloneSpots = (CloneSpots ?? []).Take(64).Select(s => s.Normalize()).ToArray(), Rating = Math.Clamp(Rating, 0, 5),
-        Keywords = (Keywords ?? []).Where(k => !string.IsNullOrWhiteSpace(k)).Select(k => k.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(100).ToArray()
+        Develop = (Develop ?? new()).Normalize(),
+        Crop = (Crop ?? new()).Normalize(),
+        Masks = (Masks ?? []).Where(mask => mask is not null).Take(8).Select(mask => mask.Normalize()).ToArray(),
+        CloneSpots = (CloneSpots ?? []).Where(spot => spot is not null).Take(32).Select(spot => spot.Normalize()).ToArray(),
+        Rating = Math.Clamp(Rating, 0, 5),
+        Flag = Enum.IsDefined(Flag) ? Flag : PhotoFlag.None,
+        Label = (Label ?? "")[..Math.Min(Label?.Length ?? 0, 64)],
+        Caption = (Caption ?? "")[..Math.Min(Caption?.Length ?? 0, 16384)],
+        Keywords = (Keywords ?? [])
+            .Where(keyword => !string.IsNullOrWhiteSpace(keyword))
+            .Select(keyword => keyword.Trim())
+            .Select(keyword => keyword[..Math.Min(keyword.Length, 200)])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(100).ToArray()
     };
 }
 
@@ -34,15 +45,19 @@ public sealed class PhotoDocument
     public string ExposureInfo { get; set; } = "";
     public PhotoState State { get; set; } = new();
     public List<NamedVersion> Versions { get; set; } = [];
-    [System.Text.Json.Serialization.JsonIgnore] public long Revision { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public long Revision { get; set; }
 }
+
 public sealed record NamedVersion(string Name, PhotoState State, DateTimeOffset CreatedAt);
+
 public sealed class Album
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "New album";
     public List<Guid> Photos { get; set; } = [];
 }
+
 public sealed class CatalogDocument
 {
     public int SchemaVersion { get; set; } = 1;
@@ -52,6 +67,7 @@ public sealed class CatalogDocument
 }
 
 public sealed record DevelopPreset(string Name, string Group, DevelopSettings Settings);
+
 public static class BuiltInPresets
 {
     public static IReadOnlyList<DevelopPreset> All { get; } = [

@@ -22,7 +22,7 @@ Copy/Paste and Sync operate on edit settings; syncing retains each target's rati
 
 ## Crop, masks and clone
 
-Choose Crop from the tool rail or press R. Drag a new crop rectangle, resize an edge/corner, or move an existing crop. Aspect buttons create centered crops. Quarter-turn rotations and flips are applied after cropping. In crop mode the unrotated source is shown to make source coordinates explicit; Done displays the transformed result.
+Choose Crop from the tool rail or press R. Drag a new crop rectangle, resize an edge/corner, or move an existing crop. A click without a meaningful drag does not replace the crop. Aspect buttons create centered crops. Quarter-turn rotations and flips are applied after cropping. In crop mode the unrotated source is shown to make source coordinates explicit; Done displays the transformed result.
 
 Choose Masking, select Radial or Linear, and drag on the photograph. The current release supports up to eight radial or vertical linear gradients. Select a mask in the panel to change exposure, saturation, feathering and position, invert it, or remove it. The outline toggle controls the editing guide, not the mask's effect.
 
@@ -30,7 +30,9 @@ The Clone tool supports up to 32 feathered source stamps. Alt-click chooses a so
 
 ## Compare and preserve looks
 
-The comparison control splits the image into original and edited halves. Original toggles the complete original view while preserving crop placement. Fit resets zoom and pan; the zoom button toggles a 2× fit-relative view. Mouse-wheel zoom is anchored to the pointer. The button currently labeled 100% is fit-relative, not a calibrated source-pixel zoom; this distinction is tracked in the coverage document.
+The comparison control splits the image into original and edited halves. Original toggles the complete original view while preserving crop placement. Fit resets zoom and pan. **100%** toggles between fit and one source pixel per display pixel, accounting for the host's rasterization scale. Wheel zoom is anchored to the pointer, and panning retains a reachable portion of the photograph.
+
+Viewport decoding is currently limited to a 2560-pixel long edge. Consequently, source-pixel zoom provides correct geometry but cannot reveal full native-resolution detail for larger photographs; tiled/full-resolution inspection remains an extension point. Export decodes the retained original rather than exporting the preview.
 
 Versions preserve complete photo-state snapshots, including catalog metadata. Restoring a version creates a new undoable transaction. Undo/redo history is bounded to 100 transactions and lives in the current session; named versions are included in catalog backups.
 
@@ -50,7 +52,7 @@ The footer reports when recovery has been saved. Do not treat an edit still awai
 | E / D | Edit/detail |
 | R | Crop |
 | M | Masking |
-| Z | Toggle fit-relative zoom |
+| Z | Toggle fit / source-pixel zoom |
 | Y | Before/after split |
 | Backslash | Toggle original |
 | 0–5 | Rating |

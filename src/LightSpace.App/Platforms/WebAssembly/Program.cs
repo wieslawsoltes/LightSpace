@@ -1,6 +1,14 @@
-using Microsoft.UI.Xaml;
+using Uno.UI.Hosting;
 namespace LightSpace.App;
+
 internal static class Program
 {
-    public static void Main(string[] args)=>Application.Start(_=>new App());
+    public static async Task Main(string[] args)
+    {
+        await UnoPlatformHostBuilder.Create()
+            .App(() => new App())
+            .UseWebAssembly()
+            .Build()
+            .RunAsync();
+    }
 }
