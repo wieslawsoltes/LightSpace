@@ -56,7 +56,7 @@ jobs:
         with:
           path: site
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
