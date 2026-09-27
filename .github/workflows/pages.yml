@@ -36,7 +36,7 @@ jobs:
           jq -e '.conclusion == "success" and .head_branch == "main" and .event != "pull_request" and .path == ".github/workflows/build.yml"' /tmp/build.json
           echo "run_id=$RUN" >> "$GITHUB_OUTPUT"
           echo "sha=$(jq -r .head_sha /tmp/build.json)" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ steps.build.outputs.sha }}
       - uses: actions/download-artifact@v4
