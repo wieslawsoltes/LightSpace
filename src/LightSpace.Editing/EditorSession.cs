@@ -27,10 +27,8 @@ public sealed class EditorSession
     }
     public void Select(Guid id, bool extend = false)
     {
-        CommitGesture("Adjustment");
-        if (!Catalog.Photos.Any(p => p.Id == id)) return;
-        Catalog.ActivePhoto = id;
-        if (!extend) Selection.Clear();
+        CommitGesture("Adjustment"); if (!Catalog.Photos.Any(p => p.Id == id)) return;
+        Catalog.ActivePhoto = id; if (!extend) Selection.Clear();
         if (extend && Selection.Contains(id) && Selection.Count > 1) Selection.Remove(id); else Selection.Add(id);
         ViewChanged?.Invoke();
     }
@@ -55,9 +53,7 @@ public sealed class EditorSession
         var before = _gestureBefore; _gestureBefore = null;
         var photo = Catalog.Photos.FirstOrDefault(p => p.Id == _gesturePhoto);
         if (photo is not null && CatalogSerializer.SerializeSettings(before) != CatalogSerializer.SerializeSettings(photo.State))
-        {
-            Push(new(name, [new(photo.Id, before, photo.State)])); Notify();
-        }
+        { Push(new(name, [new(photo.Id, before, photo.State)])); Notify(); }
     }
     public void CancelGesture()
     {
@@ -69,10 +65,10 @@ public sealed class EditorSession
     public void Edit(string name, Func<PhotoState, PhotoState> edit, bool selected = false)
     {
         CommitGesture("Adjustment");
-        var targets = selected ? Catalog.Photos.Where(p => Selection.Contains(p.Id)).ToArray() : Active is { } p ? [p] : Array.Empty<PhotoDocument>();
+        var targets = selected ? Catalog.Photos.Where(p => Selection.Contains(p.Id)).ToArray() : Active is { } active ? [active] : Array.Empty<PhotoDocument>();
         var changes = targets.Select(p => new Change(p.Id, p.State, edit(p.State).Normalize())).Where(c => CatalogSerializer.SerializeSettings(c.Before) != CatalogSerializer.SerializeSettings(c.After)).ToArray();
         if (changes.Length == 0) return;
-        foreach (var c in changes) { var p = Catalog.Photos.First(p => p.Id == c.Id); p.State = c.After; p.Revision++; }
+        foreach (var change in changes) { var target = Catalog.Photos.First(p => p.Id == change.Id); target.State = change.After; target.Revision++; }
         Push(new(name, changes)); Notify();
     }
     private void Push(Transaction transaction) { _undo.Add(transaction); if (_undo.Count > 100) _undo.RemoveAt(0); _redo.Clear(); }
