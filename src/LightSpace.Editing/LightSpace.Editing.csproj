@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework><Description>Non-destructive editing sessions, gesture transactions, batch synchronization, undo and named versions.</Description></PropertyGroup><ItemGroup><ProjectReference Include="../LightSpace.Catalog/LightSpace.Catalog.csproj" /></ItemGroup></Project>

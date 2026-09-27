@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/Libraries/">
+    <Project Path="src/LightSpace.Core/LightSpace.Core.csproj" />
+    <Project Path="src/LightSpace.Catalog/LightSpace.Catalog.csproj" />
+    <Project Path="src/LightSpace.Editing/LightSpace.Editing.csproj" />
+    <Project Path="src/LightSpace.Imaging/LightSpace.Imaging.csproj" />
+    <Project Path="src/LightSpace.Rendering.Skia/LightSpace.Rendering.Skia.csproj" />
+    <Project Path="src/LightSpace.Storage/LightSpace.Storage.csproj" />
+    <Project Path="src/LightSpace.Controls/LightSpace.Controls.csproj" />
+    <Project Path="src/LightSpace.Workbench/LightSpace.Workbench.csproj" />
+  </Folder>
+  <Project Path="src/LightSpace.App/LightSpace.App.csproj" />
+  <Project Path="tests/LightSpace.Engine.Tests/LightSpace.Engine.Tests.csproj" />
+</Solution>

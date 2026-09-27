@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+.vs/
+.idea/
+.DS_Store
+node_modules/
+artifacts/
+site/
+TestResults/
+*.user
+*.suo
+src/LightSpace.App/Assets/Samples/*.jpg
