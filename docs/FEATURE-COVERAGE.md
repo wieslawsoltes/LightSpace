@@ -1,34 +1,30 @@
 # Feature coverage and boundaries
 
-This ledger distinguishes implemented functionality from Lightroom features that are absent or approximate. No entry claims pixel-identical UI or Adobe processing parity.
+## 0.2.0-alpha.1
 
-| Area | Implemented | Boundary |
+LightSpace is a functional independent Uno photography workspace. It does not claim exact visual reproduction or Adobe processing/catalog compatibility. The current implementation and its boundaries are listed below.
+
+| Area | Implemented | Remaining boundary |
 | --- | --- | --- |
-| Application shell | Dark photography workspace, library rail/sidebar, photo center, filmstrip, right inspector/tool rail, custom iconography/chrome | Desktop Lightroom-inspired; not exact branded or pixel-identical UI; no Lightroom Classic modules |
-| Reuse | Eight independently packable libraries; shared browser/native host | Some workbench subviews are assembled inside StudioView rather than standalone controls |
-| Image input | JPEG, PNG, WebP, BMP, first GIF frame; EXIF orientation and sRGB decode | No camera RAW/demosaic, HEIF/HEIC, TIFF, video or animated-image workflow |
-| Catalog | Source retention, albums, selection, token search, star/flag filters, paged grid/filmstrip | In-memory JSON catalog, not an indexed million-photo database; no folder watcher, relinking or Lightroom catalog import |
-| Development | Tonal sliders, relative white balance, vibrance/saturation, monochrome | Original approximations; no camera calibration, DCP/ICC profile authoring, eyedropper, RAW processing versions |
-| Point curve | Five editable fixed-X points with identity reset | Piecewise linear RGB curve; no per-channel curves or arbitrary control points |
-| Color mixing | Eight weighted hue bands with hue/saturation/luminance controls | HSV approximation; no perceptual color-space guarantees or point-color selection |
-| Detail/effects | Sharpening, spatial smoothing, texture/clarity/dehaze approximation, vignette and grain | No AI denoise, super-resolution, calibrated lens corrections; spatial effects are resolution-dependent |
-| Crop | Free rectangle, edge/corner handles, movement, common centered ratios, quarter turns, flips; click-without-drag protection | No arbitrary straightening angle, perspective/Upright or continuous aspect locking while dragging |
-| Local masks | Up to eight radial and vertical linear gradients, feather/exposure/saturation, inversion and deletion | No brush, object/sky/subject AI selection, arbitrary gradient angle, range masks or mask boolean composition |
-| Clone | Up to 32 feathered source stamps; Alt-click source | Not healing, content-aware or generative removal; stamps sample the original source |
-| Navigation | Fit and source-pixel zoom geometry, display-scale awareness, bounded pan, pointer-anchored wheel zoom, keyboard photo navigation | Preview decoding is capped at 2560 pixels, so larger sources lack native-resolution detail inspection; no navigator minimap |
-| Comparison | Original toggle and fixed midpoint split | No draggable split divider, side-by-side reference photo or multi-photo survey view |
-| Undo/versions | Coalesced gesture transactions, atomic batch changes, 100-step undo, named snapshots | Undo history is session-only; imports and album structural changes are not undoable |
-| Metadata | Captions, keywords, ratings, picks/rejects; source bytes retained | No EXIF/IPTC browser, metadata sidecars, copyright templates, face/location indexing |
-| Export | JPEG/PNG/WebP, quality/size selection, ZIP batch, portable native catalog | 8-bit sRGB, maximum 8192-pixel long edge, metadata stripped from rendered copies; no print/soft proof/tethering |
-| Recovery | IndexedDB browser recovery and atomic native recovery file | No cloud synchronization, encrypted vault, concurrent-tab merge, crash journal or instant close-time flush |
-| Rendering | Skia runtime shader on the Uno canvas, bounded source and thumbnail caches | Actual GPU backend is host-dependent; CPU decode/thumbnails/histogram/export; no separate WebGPU compute graph |
-| Validation | Engine suite and real pointer-driven browser acceptance suite; desktop compile matrix | CI SwiftShader is not physical-GPU certification; full native accessibility and device testing remain open |
-| Distribution | Build, desktop, Pages and release workflows; NuGet package artifacts | No NuGet.org publication, signed installers, macOS notarization or automatic updater |
+| Shell | Dark library/sidebar, centered photo canvas, filmstrip, histogram, inspector, tool rail, original iconography and custom controls | Not pixel-identical Lightroom; no Lightroom Classic modules; some standard Uno input primitives remain |
+| Reuse | Eight packable libraries; independent grading wheel/editor, mixer, mask editor, cards, slider, curves, histogram and viewport | Not every workbench section is a standalone public control |
+| Import | JPEG, PNG, WebP, BMP, first GIF frame; EXIF orientation and sRGB conversion; original bytes retained | No RAW/demosaic, HEIF, TIFF or video workflow |
+| Catalog | Albums, multi-selection, text/keyword search, ratings, flags, 60-photo pages | No indexed large-catalog database, folder watching, relinking or Lightroom catalog import |
+| Light and color | Tonal sliders, relative white balance, vibrance/saturation, monochrome, presets | Original approximations; no calibrated camera profiles or processing parity |
+| Curves and mixer | Five-point RGB curve, eight-band HSV-based mixer | No arbitrary/per-channel curves or perceptual point-color selection |
+| Color grading | Shadows/midtones/highlights/global wheels, hue/saturation/luminance, blending, balance, range reset; undo/copy/sync/recovery | Original LDR grading model, not Adobe pixels or scene-referred RAW/HDR grading |
+| Crop | Free crop, handles, movement, common centered ratios, quarter turns and flips | No free-angle straightening, perspective correction or continuously locked aspect while dragging |
+| Local masks | Rotatable radial/linear gradients with live move/resize/rotation handles; standalone luminance ranges; spatial/range intersection; local exposure/contrast/WB/saturation; opacity, disable, inversion, rename/duplicate/delete | Eight-mask limit; no brush/color-range/AI selection or general boolean-composition graph |
+| Mask inspection | Outlines and selected-mask weighted red coverage; no overlay in export or histogram | No generalized mask raster editor |
+| Clone | Up to 32 feathered source stamps, Alt-click source | Not healing, content-aware or generative removal |
+| Detail/effects | Sharpening/spatial smoothing, texture/clarity/dehaze approximations, vignette/grain | No AI denoise, super-resolution or calibrated lens correction; limited preview spatial information |
+| Navigation | Fit/source-pixel zoom geometry, wheel anchor, bounded pan, photo keyboard navigation | Preview capped at 2560-pixel long edge; no native-resolution tiled inspection/minimap |
+| Comparison | Original toggle and draggable before/after split without a document edit | No second-reference-photo, side-by-side/survey workflow |
+| Undo and versions | One-gesture transactions, batch edits, 100-step undo and persistent named snapshots | Undo session-only; imports/album structural changes not undoable |
+| Metadata/export | Captions/keywords/ratings/flags; JPEG/PNG/WebP and batch ZIP; portable catalog | Rendered exports 8-bit sRGB, cap8192, source EXIF/IPTC not copied; no print/soft proof/tethering |
+| Recovery | Committed-revision single writer, retry, protected unreadable recovery, browser unsaved-change warnings | Single JSON record; no cross-tab merge, cloud sync, encryption or guaranteed close-time flush |
+| Performance | Pixel-aware caches, neutral processing bypasses, bounded thumbnail decode, stable page controls, direct state equality, bounded auto-tone sampling | Synchronous CPU decode/export; not a separate WebGPU compute graph or hardware performance certification |
+| Interchange | Schema-1 import migration and schema-2 saves preserving new processing parameters | Older builds reject schema2; no Adobe presets/profiles, XMP or .lrcat compatibility |
+| Delivery | Engine/pixel/recovery tests, pointer-driven browser tests, desktop build matrix, gated Pages publishing, NuGet package artifacts | No NuGet.org publication, signed installers, notarization or auto-update service |
 
-## Priority extension points
-
-A production photo pipeline needs a separately licensed/implemented RAW decoding and color-management layer, floating-point working buffers, calibrated camera/lens profiles, and a tiled multi-resolution render graph. Those changes should preserve the normalized coordinate system and version the serialized processing contract.
-
-A production catalog needs durable indexed storage, incremental source management, thumbnails outside the main catalog blob, asynchronous bounded decode scheduling, and a concurrency-aware write journal. Existing `IWorkspaceStorage` is intentionally a small starting contract rather than a full database abstraction.
-
-The next UI milestones are native-resolution tiled inspection, complete keyboard/assistive-technology coverage, robust panel-resize persistence, arbitrary-angle crop/straightening, richer mask manipulation, and more fully extracted public workbench subcomponents.
+See [color and mask workflows](COLOR-AND-MASKS.md), [performance evidence and limits](PERFORMANCE.md), [architecture](ARCHITECTURE.md) and [recovery invariants](RECOVERY.md). Remaining features are not represented as completed merely because an extension point exists.

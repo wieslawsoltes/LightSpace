@@ -166,6 +166,7 @@ public sealed partial class StudioView : UserControl, IDisposable
             if (_displayedPhoto != photo.Id) { _displayedPhoto = photo.Id; Viewport.Fit(); BuildInspector(); RefreshCatalog(); }
             foreach (var (name, slider) in _sliders) slider.Value = photo.State.Develop.Get(name);
             if (_curve is not null) _curve.Curve = photo.State.Develop.Curve;
+            if (_mixerEditor is not null) _mixerEditor.Value = photo.State.Develop.Mixer;
             if (_gradingEditor is not null) _gradingEditor.Value = photo.State.Develop.Grading;
             if (_maskEditor is not null && Viewport.ActiveMask >= 0 && Viewport.ActiveMask < photo.State.Masks.Length) _maskEditor.Value = photo.State.Masks[Viewport.ActiveMask];
             for (var i = 0; i < _ratingButtons.Count; i++) _ratingButtons[i].Selected = i < photo.State.Rating;

@@ -1,7 +1,9 @@
-# LightSpace 0.1.1-alpha.1
+# LightSpace 0.2.0-alpha.1
 
-Revision-safe local recovery, explicit save/retry status, browser unsaved-change warnings, protected unreadable recovery, cancelable slider gestures, and source/state-aware rendering and thumbnail caches.
+Four-way color grading with a custom interactive wheel; rotatable and directly editable linear/radial gradients; luminance-range masks and spatial/range intersection; local contrast/white balance, opacity and mask enable/disable; mask rename/duplicate/delete; selected-mask coverage overlay; draggable before/after comparison.
 
-The recovery coordinator captures committed catalog snapshots rather than live previews and acknowledges only completed storage writes. Controlled asynchronous tests cover write races and failures. Real browser regressions hold a slider gesture across an earlier edit's autosave deadline, verify the actual IndexedDB payload, cancel with Escape, and protect unsupported recovery schemas until explicit replacement.
+Performance work includes semantic state comparisons instead of JSON serialization, pixel-aware shader/thumbnail invalidation, neutral processing bypasses, independently budgeted 384-pixel thumbnail decoding, bounded auto-tone sampling, and stable catalog controls for unchanged page membership. Tests report managed allocations, scoped CPU timings and work counters rather than claiming physical-GPU frame rates.
 
-The shared Uno browser/desktop workspace and its eight reusable libraries remain independent of Adobe. This is an early functional implementation, not complete Lightroom parity. RAW, AI processing, calibrated lens correction, HDR/panorama merging, cloud services and signed native distribution are not included. See CHANGELOG.md, docs/RECOVERY.md and docs/FEATURE-COVERAGE.md.
+Schema-1 catalogs migrate on import. New catalog saves use schema2 to preserve grading and extended masks and prevent older builds from silently dropping those settings. Keep a pre-upgrade backup when needed.
+
+The prior committed-revision recovery guarantees remain. RAW, AI tools, calibrated lens corrections, HDR/panorama merge, native-resolution tiled inspection, Adobe catalog compatibility and complete Lightroom parity remain outside this release. See docs/FEATURE-COVERAGE.md and docs/PERFORMANCE.md.

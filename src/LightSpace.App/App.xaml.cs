@@ -37,7 +37,10 @@ public sealed partial class App : Application
 #if __WASM__
             _studio.UnsavedChangesChanged += BrowserFiles.SetDirty;
             BrowserFiles.SetDirty(_studio.Recovery.HasUnsavedChanges);
-            _studio.DiagnosticsChanged+=diagnostics=>BrowserFiles.PublishDiagnostics(JsonSerializer.Serialize(diagnostics,AppJsonContext.Default.StudioDiagnostics));
+            // Normal sessions do not walk the arranged UI tree or serialize
+            // diagnostic snapshots on a periodic timer.
+            if (BrowserDiagnostics.Enabled())
+                _studio.DiagnosticsChanged+=diagnostics=>BrowserFiles.PublishDiagnostics(JsonSerializer.Serialize(diagnostics,AppJsonContext.Default.StudioDiagnostics));
             _studio.GotFocus+=(_,_)=>BrowserFiles.FocusCanvasUnlessEditing();
 #endif
             _window.Content=_studio;_window.Closed+=(_,_)=>_studio.Dispose();if(warning is not null)_studio.ProtectExistingRecovery(warning);
