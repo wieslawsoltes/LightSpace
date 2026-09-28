@@ -19,25 +19,15 @@ Non-destructive editing · Custom Uno controls · GPU-capable Skia effects · Re
 
 LightSpace is a shared Uno desktop/WebAssembly photography application: browse a local catalog, develop a photograph, refine its composition and masks, and export a rendered copy while retaining the original bytes. The dark workspace combines a library sidebar, centered photo canvas, filmstrip, histogram, development inspector and vertical tool rail.
 
-**Current version: 0.4.0-alpha.1.** This is independent, functional early-stage software—not a pixel-identical or feature-complete Adobe Lightroom replacement. No Adobe artwork, camera profiles, proprietary processing code or cloud services are included. [Implemented behavior and remaining boundaries →](docs/FEATURE-COVERAGE.md)
+**Current version: 0.4.1-alpha.1.** This is independent, functional early-stage software—not a pixel-identical or feature-complete Adobe Lightroom replacement. No Adobe artwork, camera profiles, proprietary processing code or cloud services are included. [Implemented behavior and remaining boundaries →](docs/FEATURE-COVERAGE.md)
 
-## New in 0.4
+## 0.4.1 stability hotfix
 
-**Sampled color selections.** Select up to five source colors with click/Shift-click, remove pins with Alt-click, and refine tolerance and smoothness. A reusable color-range editor supports standalone masks and intersections with gradient, luminance or brush coverage. The original Oklab-based selection runs in the existing Skia effect and is evaluated before development, without feeding a local correction back into its own selection.
+Fixes the reproduced fatal WebAssembly failure during repeated edit-slider changes. Compiled shader output now has explicit ownership independent of native staging cleanup; uniform and child resources are deterministically released. Rendering features remain enabled.
 
-**Content-addressed recovery.** Immutable originals are stored separately under SHA-256 keys. Warm metadata saves serialize the edit manifest without rewriting, reading or rehashing unchanged source blobs. Browser commits atomically publish the manifest and newly staged blobs; native storage stages sources before replacing the manifest. Source integrity is checked on restore, failed commits remain dirty, and explicit retry can restage missing originals. The portable catalog format still embeds originals.
+The regression suite drives all 17 development sliders through extremes and neutral crossings, verifies one transaction per gesture, decodes an exported JPEG, checks every saved adjustment, and reloads recovery. Native tests force finalization and replay deferred draws after cache disposal. CI and Pages preserve one combined report including the stress test. [Investigation, evidence and limits](docs/WASM-SLIDER-FIX.md)
 
-**Compatibility and evidence.** Schemas 1–3 migrate to schema 4; the previous source-inclusive recovery is read without destructive migration. New saves use the source-separated store. New engine and browser tests exercise exported pixels, crop/rotation-aware sampling, source-cache reuse, actual IndexedDB transactions, missing-source protection, retry and legacy migration. [Color-selection behavior](docs/COLOR-AND-MASKS.md) · [Recovery storage contract](docs/RECOVERY.md) · [Performance evidence](docs/PERFORMANCE.md)
-
-## Advanced editing, completed and merged
-
-**Arbitrary RGB curves.** Edit master, red, green and blue curves with up to 32 points each. Add/drag/delete points, enter numeric values, choose linear or shape-preserving smooth interpolation, and undo each gesture. A separate floating-point lookup cache avoids rebuilding curves when unrelated adjustment values change.
-
-**Freehand masks.** Paint and erase with size, feather, flow, density and pen-pressure inputs. Arc-length resampling avoids pointer-event-dependent stroke density. Add/subtract brush coverage from existing analytic masks or create a new brush mask. Incremental coverage caching processes appended dabs rather than replaying the whole stroke on every update. Local adjustment changes reuse coverage.
-
-**XMP sidecars.** Import standard metadata and an explicit Camera Raw parameter/curve subset with a compatibility report before applying it. Metadata-only import preserves processing. Export standard metadata, supported development values and an optional native extension for complete LightSpace settings round trips. Unknown Adobe processing is reported, not claimed as equivalent.
-
-**Reliable delivery.** The outstanding Actions and Playwright updates were validated and merged. New engine/browser tests cover curve interpolation and pixels, brush replay equivalence, XMP parsing and round trips, gesture cancellation, schema migration and cache work counters. [Advanced editing semantics and safety limits →](docs/ADVANCED-EDITING.md)
+Reload an old or crashed browser tab after deployment. **Do not clear site data** to load this fix: existing catalog schema 4 and recovery database version 2 are unchanged. `build-info.json` identifies the loaded version and commit.
 
 ## Photography workflow
 
@@ -49,6 +39,20 @@ LightSpace is a shared Uno desktop/WebAssembly photography application: browse a
 
 **Preserve.** Each completed gesture is one transaction. Undo/redo, named versions, selected-photo synchronization, catalog backups and recovery preserve the settings. Export JPEG/PNG/WebP copies, ZIP a selection or create an XMP sidecar. Recovery acknowledges committed revisions only and protects unreadable prior data from automatic replacement.
 
+## Advanced editing and recovery
+
+**Arbitrary RGB curves.** Edit master, red, green and blue curves with up to 32 points each. Add/drag/delete points, enter numeric values, choose linear or shape-preserving smooth interpolation, and undo each gesture. A separate floating-point lookup cache avoids rebuilding curves when unrelated adjustment values change.
+
+**Freehand masks.** Paint and erase with size, feather, flow, density and pen-pressure inputs. Arc-length resampling avoids pointer-event-dependent stroke density. Add/subtract brush coverage from existing analytic masks or create a new brush mask. Incremental coverage caching processes appended dabs rather than replaying the whole stroke on every update. Local adjustment changes reuse coverage.
+
+**Sampled color selections.** Select up to five source colors with click/Shift-click, remove pins with Alt-click, and refine tolerance and smoothness. A reusable color-range editor supports standalone masks and intersections with gradient, luminance or brush coverage. The original Oklab-based selection runs in the existing Skia effect and is evaluated before development, without feeding a local correction back into its own selection.
+
+**XMP sidecars.** Import standard metadata and an explicit Camera Raw parameter/curve subset with a compatibility report before applying it. Metadata-only import preserves processing. Export standard metadata, supported development values and an optional native extension for complete LightSpace settings round trips. Unknown Adobe processing is reported, not claimed as equivalent.
+
+**Content-addressed recovery.** Immutable originals are stored separately under SHA-256 keys. Warm metadata saves serialize the edit manifest without rewriting, reading or rehashing unchanged source blobs. Browser commits atomically publish the manifest and newly staged blobs; native storage stages sources before replacing the manifest. Source integrity is checked on restore, failed commits remain dirty, and explicit retry can restage missing originals. Portable catalog exports still embed originals.
+
+[Advanced editing/XMP](docs/ADVANCED-EDITING.md) · [Color selections](docs/COLOR-AND-MASKS.md) · [Recovery contract](docs/RECOVERY.md) · [Performance evidence](docs/PERFORMANCE.md)
+
 ## Eight reusable libraries
 
 | Library | Responsibility | Target |
@@ -57,8 +61,8 @@ LightSpace is a shared Uno desktop/WebAssembly photography application: browse a
 | `LightSpace.Catalog` | Schema migration, serialization, queries, XMP metadata/settings interchange | .NET 10 |
 | `LightSpace.Editing` | Gesture transactions, bounded undo/redo, versions, synchronization, revision-aware recovery | .NET 10 |
 | `LightSpace.Imaging` | Bounded decoding, EXIF orientation, sRGB conversion, fallback artwork | .NET 10 |
-| `LightSpace.Rendering.Skia` | Runtime effects, decoded-image cache, floating-point curve tables, incremental brush coverage, histogram/export | .NET 10 |
-| `LightSpace.Storage` | Import/export contracts, atomic native recovery store and optional sidecar-picker capability | .NET 10 |
+| `LightSpace.Rendering.Skia` | Runtime effects, image cache, floating-point curve tables, incremental brush coverage, histogram/export | .NET 10 |
+| `LightSpace.Storage` | Import/export contracts, atomic native recovery store, optional sidecar-picker capability | .NET 10 |
 | `LightSpace.Controls` | Original Uno chrome/icons, sliders, cards, grading/mixer/curve/mask/brush controls and photo canvas | Uno browser / desktop |
 | `LightSpace.Workbench` | Composable workspace, inspectors, commands, dialogs and save UX | Uno browser / desktop |
 
@@ -70,7 +74,7 @@ Pinned versions are **.NET SDK 10.0.401**, **Uno SDK 6.7.30** and matched **Skia
 
 The viewport uses `Uno.WinUI.Graphics2DSK.SKCanvasElement` and compiled SkSL runtime effects within Uno's Skia composition path. Hardware execution depends on the host supplying a GPU-backed canvas. Software rendering remains available for deterministic tests and export. This release does **not** have a separate WebGPU compute backend.
 
-CPU/native decode, manifest serialization, first-use source hashing, brush texture publication and export remain synchronous. Storage writes are asynchronous; warm manifest commits exclude original bytes. Viewport sources have a 2560-pixel preview target; thumbnails decode at 384 pixels; brush coverage is capped at 1024 pixels even during export. Curves use 2048-entry floating-point lookup images. Cache budgets bound retained buffers, not all transient allocations or GPU copies. [Architecture](docs/ARCHITECTURE.md) · [Performance methods and evidence](docs/PERFORMANCE.md)
+CPU/native decode, manifest serialization, first-use source hashing, brush texture publication and export remain synchronous. Storage writes are asynchronous; warm manifest commits exclude original bytes. Viewport sources have a 2560-pixel preview target; thumbnails decode at 384 pixels; brush coverage is capped at 1024 pixels even during export. Curves use 2048-entry floating-point lookup images. Cache budgets bound retained buffers, not all transient allocations or GPU copies. [Architecture](docs/ARCHITECTURE.md) · [Performance methods](docs/PERFORMANCE.md)
 
 ## Build and run
 
@@ -82,7 +86,7 @@ cd LightSpace
 python3 scripts/fetch-assets.py
 dotnet workload install wasm-tools --skip-manifest-update
 
-# Model, processing, recovery, XMP and performance checks
+# Model, processing, lifetime, recovery, XMP and performance checks
 dotnet run --project tests/LightSpace.Engine.Tests -c Release
 
 # Shared native desktop host
@@ -132,7 +136,7 @@ Dispose workspaces and native-resource caches. Use copy-on-write arrays for snap
 
 ## Tests and workflows
 
-`Build` runs the engine suite, publishes WebAssembly, exercises actual Uno controls with Playwright, verifies exports/recovery and packages all libraries. Reports include screenshots, failure traces, machine-readable test results and performance counters. `Desktop` compiles Windows, Linux and macOS hosts. `Pages` deploys a successful trusted main build, checks commit provenance and repeats acceptance tests against the public URL. `Release` packages libraries and browser/native archives with checksums.
+`Build` runs the engine suite, publishes WebAssembly, exercises actual Uno controls with Playwright, verifies exports/recovery and packages all libraries. Reports include screenshots, failure traces, machine-readable test results, slider-stability evidence and performance counters. `Desktop` compiles Windows, Linux and macOS hosts. `Pages` deploys a successful trusted main build, checks commit provenance and repeats acceptance tests against the public URL. `Release` packages libraries and browser/native archives with checksums.
 
 ```bash
 npm ci --ignore-scripts
@@ -140,20 +144,23 @@ npx playwright install --with-deps chromium
 mkdir -p artifacts/fixtures
 cp artifacts/engine/*.png artifacts/fixtures/
 npm run test:browser
+
+# Focused fatal-crash regression
+npx playwright test slider-stability.spec.mjs
 ```
 
-CI browser testing uses Chromium/SwiftShader. It is not physical-GPU or pen-hardware certification. Microbenchmarks and work-avoidance counters are scoped evidence, not claims of universal application speedup. Native signing/notarization, installers, NuGet.org publication and automatic updates are not configured.
+CI browser testing uses Chromium/SwiftShader. It is not physical-GPU or pen-hardware certification. Microbenchmarks, linear-memory capacity and work-avoidance counters are scoped evidence, not claims of universal application speedup or absence of every memory leak. Signing/notarization, installers, NuGet.org publication and automatic updates are not configured.
 
 ## Compatibility and data safety
 
-Catalog schema **4** preserves sampled colors, curves and brush data. Schemas 1–3 migrate with neutral defaults; older applications reject unsupported new files. Keep pre-upgrade backups when old-version interoperability matters.
+Catalog schema **4** preserves sampled colors, curves and brush data. Schemas 1–3 migrate with neutral defaults; older applications reject unsupported new files. The 0.4.1 hotfix does not change that schema or recovery layout. Keep pre-upgrade backups when old-version interoperability matters.
 
 Import limits are 64 MiB per source, 100 megapixels decoded and 256 MiB of encoded originals per catalog. Image output is 8-bit sRGB with an 8192-pixel long-edge cap; source EXIF/IPTC is not embedded in rendered copies. XMP supports a documented subset, not Lightroom catalogs/profiles or pixel-equivalent Adobe development.
 
-RAW/DNG/HEIF/TIFF, AI tools, calibrated camera/lens correction, HDR/panorama merging, arbitrary crop straightening, native-resolution tiled inspection, indexed durable catalog storage, printing/proofing and cloud synchronization remain unimplemented. Recovery is an unencrypted local manifest and source store, not a cross-tab merge system or a substitute for original-file backups. The browser database upgrades to version 2; older builds requesting version 1 cannot open it. [Complete boundary ledger](docs/FEATURE-COVERAGE.md)
+RAW/DNG/HEIF/TIFF, AI tools, calibrated camera/lens correction, HDR/panorama merging, arbitrary crop straightening, native-resolution tiled inspection, indexed durable catalog storage, printing/proofing and cloud synchronization remain unimplemented. Recovery is an unencrypted local manifest and source store, not a cross-tab merge system or a substitute for original-file backups. Browser database version 2 cannot be opened by older builds requesting version 1. [Complete boundary ledger](docs/FEATURE-COVERAGE.md)
 
 ## Documentation and license
 
-[Guide](docs/GETTING-STARTED.md) · [Advanced editing/XMP](docs/ADVANCED-EDITING.md) · [Architecture](docs/ARCHITECTURE.md) · [Performance](docs/PERFORMANCE.md) · [Recovery](docs/RECOVERY.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Third-party notices](THIRD-PARTY-NOTICES.md)
+[Guide](docs/GETTING-STARTED.md) · [Advanced editing/XMP](docs/ADVANCED-EDITING.md) · [Architecture](docs/ARCHITECTURE.md) · [Performance](docs/PERFORMANCE.md) · [Recovery](docs/RECOVERY.md) · [Slider hotfix](docs/WASM-SLIDER-FIX.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Third-party notices](THIRD-PARTY-NOTICES.md)
 
 LightSpace source is [MIT licensed](LICENSE). Dependencies, the OFL font and optional Unsplash photographs retain their licenses; photos are not relicensed as MIT. Adobe and Lightroom are trademarks of their owners and are used only as comparative workflow references. No endorsement or proprietary catalog compatibility is claimed.

@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 
 source, destination = map(Path, sys.argv[1:3])
 candidates = [p for p in source.rglob('index.html') if (p.parent / 'uno-config.js').exists() or list(p.parent.glob('package_*'))]
@@ -38,11 +39,14 @@ metadata = '''
 html = html.replace('</head>', metadata + '</head>')
 (destination / 'index.html').write_text(html)
 (destination / 'index.html.gz').write_bytes(gzip.compress(html.encode(), mtime=0))
-# Avoid serving a stale precompressed entry point after modifying the loader.
 (destination / 'index.html.br').unlink(missing_ok=True)
 (destination / 'lightspace.svg').write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#142d3c"/><text x="12" y="45" font-family="system-ui,sans-serif" font-size="38" fill="#a9d6ef">Ls</text></svg>')
 (destination / '.nojekyll').write_text('')
 commit = os.environ.get('GITHUB_SHA') or subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-(destination / 'build-info.json').write_text(json.dumps({'name': 'LightSpace', 'commit': commit, 'host': 'Uno WebAssembly', 'unoSdk': '6.7.30', 'skiaSharp': '3.119.4'}))
+props = ET.parse(Path(__file__).resolve().parents[1] / 'Directory.Build.props')
+version = props.findtext('.//Version')
+if not version:
+    raise SystemExit('Missing application version in Directory.Build.props.')
+(destination / 'build-info.json').write_text(json.dumps({'name': 'LightSpace', 'version': version, 'commit': commit, 'host': 'Uno WebAssembly', 'unoSdk': '6.7.30', 'skiaSharp': '3.119.4'}))
 (destination / '404.html').write_text(html)
-print(f'Collected {index.parent} -> {destination}')
+print(f'Collected {index.parent} -> {destination} ({version})')

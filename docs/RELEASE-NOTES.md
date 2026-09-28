@@ -1,11 +1,9 @@
-# LightSpace 0.4.0-alpha.1
+# LightSpace 0.4.1-alpha.1
 
-Completes the advanced RGB-curve, freehand-brush and XMP work in PR #9, then adds sampled color-range masks and content-addressed recovery in PR #10.
+Hotfix for fatal WebAssembly failures during repeated edit-slider changes. PR #11 isolates compiled-shader ownership from native staging cleanup, releases uniform/child inputs deterministically and simplifies the hot neutral-comparison path without disabling rendering features.
 
-Color selection supports up to five averaged source-preview samples, click/Shift-click/Alt-click editing, tolerance, smoothness, local restrictions and viewport-only coverage. Existing mask operations, undo, native settings interchange and versions preserve these settings. The Oklab-based selection is original processing, not Adobe algorithm equivalence.
+Adds forced-finalization/deferred-draw lifetime regressions and a real-pointer sweep of every development slider, including histogram updates, undo/redo, actual JPEG and catalog export, final-value verification and recovery reload. CI and public Pages validation retain one combined acceptance report. Published build information includes the version and commit.
 
-Recovery separates immutable SHA-256-addressed originals from committed edit manifests. Warm metadata changes avoid original-byte serialization, rehashing and rewrites. Restore verifies length and hash; missing/damaged recovery remains protected until explicit replacement. Browser publication aborts on missing references and both asynchronous and synchronous failures. IndexedDB requests strict durability as a hint, not a power-loss guarantee. An explicit retry can restage missing originals.
+Catalog schema 4 and recovery database version 2 are unchanged. Existing originals, edits and recovery do not need to be cleared. Reload an old or fatally terminated tab to load the patch.
 
-Catalog schema 4 migrates versions 1–3. Native XMP settings version 4 accepts version 3. IndexedDB upgrades to version 2; older builds requesting database version 1 cannot open that upgraded store. Portable catalog exports still embed original bytes. Preserve portable pre-upgrade backups for older-version interoperability.
-
-All eight libraries and shared Uno hosts retain build, desktop, Pages and release workflows. Full RAW/AI, calibrated profiles, HDR/panorama, native-resolution tiling, print/proofing, cloud synchronization and signed distribution remain outside this release. See FEATURE-COVERAGE.md, RECOVERY.md and PERFORMANCE.md for the precise boundaries.
+See [the crash investigation and evidence](WASM-SLIDER-FIX.md). The application-level reproduction is fixed; the exact upstream runtime mechanism is not claimed proven. Physical GPU drivers and every browser engine are not certified by Chromium/SwiftShader tests. Existing feature-parity boundaries remain documented in FEATURE-COVERAGE.md.
