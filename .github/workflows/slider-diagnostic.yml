@@ -1,0 +1,43 @@
+name: Slider baseline diagnostic
+on:
+  pull_request:
+    paths: ['tests/browser/slider-stability.spec.mjs', '.github/workflows/slider-diagnostic.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v8
+        with:
+          name: LightSpace-browser
+          run-id: 36408386674
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Verify the immutable reported baseline
+        run: jq -e '.commit == "fe1df0bb9ffdd99a8e05abe68f9a51b582ccbfd7"' baseline/build-info.json
+      - name: Probe original sliders and retain first-fault evidence
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          mkdir -p artifacts
+          python3 scripts/serve-site.py --directory baseline --port 4173 > artifacts/baseline-server.log 2>&1 &
+          set +e
+          npx playwright test slider-stability.spec.mjs > artifacts/baseline-probe.log 2>&1
+          status=$?
+          cat artifacts/baseline-probe.log
+          echo "$status" > artifacts/baseline-exit-code.txt
+          # Diagnostic evidence only. The Build workflow separately requires the
+          # same regression against the changed application to pass.
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: LightSpace-slider-baseline
+          path: artifacts
