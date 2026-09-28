@@ -6,8 +6,9 @@ const fatalPattern = /memory access out of bounds|runtime already exited|unreach
 
 test('all development sliders survive repeated extremes, histogram updates, undo and export', async ({ page }, info) => {
   test.setTimeout(600000);
-  const errors = [], steps = [];
+  const errors = [], steps = [], samples = [];
   let current = 'startup';
+  page.on('crash', () => { const entry = { current, type: 'crash', message: 'Browser renderer process crashed' }; errors.push(entry); console.error(JSON.stringify(entry)); });
   page.on('pageerror', error => { const entry = { current, type: 'pageerror', message: error.stack || error.message }; errors.push(entry); if (errors.length <= 3) console.error(JSON.stringify(entry)); });
   page.on('console', message => {
     if (fatalPattern.test(message.text()) && errors.length < 8) { const entry = { current, type: message.type(), message: message.text() }; errors.push(entry); console.error(JSON.stringify(entry)); }
@@ -18,15 +19,29 @@ test('all development sliders survive repeated extremes, histogram updates, undo
     expect(snapshot).toBeTruthy();
     return snapshot;
   };
+  async function measure(fraction) {
+    const memory = await page.evaluate(() => {
+      const runtime = globalThis.getDotnetRuntime?.(0);
+      const module = runtime?.Module ?? globalThis.Module;
+      return { heapBytes: module?.HEAPU8?.byteLength ?? module?.HEAP8?.byteLength ?? null,
+        jsHeapBytes: performance.memory?.usedJSHeapSize ?? null,
+        runtimeKeys: runtime ? Object.keys(runtime) : [], modulePresent: !!module };
+    });
+    const snapshot = await healthy();
+    const sample = { current, fraction, exposure: snapshot.exposure, memory, renderer: snapshot.performance.viewport };
+    samples.push(sample); console.log('SLIDER_SAMPLE', JSON.stringify(sample));
+  }
   async function sweep(name) {
     current = name; console.log('SLIDER_STRESS_START', name);
     await reveal(page, 'slider-' + name);
     const b = await stableBox(page, 'slider-' + name), y = b.y + b.height / 2;
+    await measure(null);
     await page.mouse.move(b.x + b.width / 2, y); await page.mouse.down();
     for (const fraction of [.9, .1, .8, .2, .99, .01, .6, .4, .5, .75]) {
+      console.log('SLIDER_MOVE', name, fraction);
       await page.mouse.move(b.x + 5 + (b.width - 10) * fraction, y, { steps: 6 });
       await page.waitForTimeout(70);
-      await healthy();
+      await measure(fraction);
     }
     await page.mouse.up(); await page.waitForTimeout(250);
     const snapshot = await healthy();
@@ -49,7 +64,7 @@ test('all development sliders survive repeated extremes, histogram updates, undo
     current = 'reload'; await boot(page); await healthy();
   } finally {
     await mkdir('artifacts/browser-exports', { recursive: true });
-    const result = { current, steps, errors };
+    const result = { current, steps, samples, errors };
     await writeFile('artifacts/browser-exports/slider-stability.json', JSON.stringify(result, null, 2));
     await info.attach('slider-stability', { body: JSON.stringify(result, null, 2), contentType: 'application/json' });
   }

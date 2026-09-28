@@ -30,12 +30,12 @@ jobs:
           mkdir -p artifacts
           python3 scripts/serve-site.py --directory baseline --port 4173 > artifacts/baseline-server.log 2>&1 &
           set +e
-          npx playwright test slider-stability.spec.mjs > artifacts/baseline-probe.log 2>&1
+          DEBUG=pw:browser npx playwright test slider-stability.spec.mjs > artifacts/baseline-probe.log 2>&1
           status=$?
           cat artifacts/baseline-probe.log
           echo "$status" > artifacts/baseline-exit-code.txt
-          # Diagnostic evidence only. The Build workflow separately requires the
-          # same regression against the changed application to pass.
+          # Diagnostic evidence only. Build separately requires the same
+          # regression against the changed application to pass.
       - uses: actions/upload-artifact@v7
         if: always()
         with:
