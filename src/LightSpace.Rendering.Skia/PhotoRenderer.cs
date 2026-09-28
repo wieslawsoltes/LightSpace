@@ -94,7 +94,9 @@ public sealed partial class PhotoRenderer : IDisposable
         var scale = Math.Min(1f, 1024f / Math.Max(image.Width, image.Height));
         var brushWidth = Math.Max(1, (int)MathF.Round(image.Width * scale));
         var brushHeight = Math.Max(1, (int)MathF.Round(image.Height * scale));
-        var u = new SKRuntimeEffectUniforms(_effect)
+        // Uniforms own native SKData. Each returned shader receives an immutable
+        // copy; the staging allocation must not wait for a later finalizer pass.
+        using var u = new SKRuntimeEffectUniforms(_effect)
         {
             ["size"] = new float[] { image.Width, image.Height },
             ["sourceSize"] = new float[] { sourceWidth > 0 ? sourceWidth : image.Width, sourceHeight > 0 ? sourceHeight : image.Height },
@@ -138,7 +140,7 @@ public sealed partial class PhotoRenderer : IDisposable
         u["spotCount"] = state.CloneSpots.Length; u["spots"] = spotData; u["radii"] = radii;
         using var original = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
         using var lookup = _curves.Get(s.Channels).ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
-        var children = new SKRuntimeEffectChildren(_effect) { ["original"] = original, ["toneLookup"] = lookup };
+        using var children = new SKRuntimeEffectChildren(_effect) { ["original"] = original, ["toneLookup"] = lookup };
         var brushShaders = new SKShader[8];
         try
         {

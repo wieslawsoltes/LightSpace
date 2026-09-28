@@ -1,17 +1,11 @@
 name: Slider baseline diagnostic
 on:
-  pull_request:
-    paths: ['tests/browser/slider-stability.spec.mjs', '.github/workflows/slider-diagnostic.yml']
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 jobs:
   baseline:
-    strategy:
-      fail-fast: false
-      matrix:
-        mode: [interpreter, no-simd]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -25,36 +19,18 @@ jobs:
           run-id: 36408386674
           github-token: ${{ github.token }}
           path: baseline
-      - name: Verify and isolate runtime execution modes on identical app binaries
-        env:
-          MODE: ${{ matrix.mode }}
-        run: |
-          jq -e '.commit == "fe1df0bb9ffdd99a8e05abe68f9a51b582ccbfd7"' baseline/build-info.json
-          python3 - <<'PY'
-          from pathlib import Path
-          import json, os
-          options = ['--no-jiterpreter-simd-enabled'] if os.environ['MODE'] == 'no-simd' else ['--no-jiterpreter-traces-enabled', '--no-jiterpreter-interp-entry-enabled', '--no-jiterpreter-jit-call-enabled']
-          config = next(Path('baseline').glob('package_*/uno-config.js'))
-          text = config.read_text()
-          assert 'config.uno_runtime_options = [];' in text
-          config.write_text(text.replace('config.uno_runtime_options = [];', 'config.uno_runtime_options = ' + json.dumps(options) + ';'))
-          for extension in ['.br', '.gz']: Path(str(config) + extension).unlink(missing_ok=True)
-          print(options)
-          PY
-      - name: Probe original sliders and retain first-fault evidence
+      - name: Verify original application provenance
+        run: jq -e '.commit == "fe1df0bb9ffdd99a8e05abe68f9a51b582ccbfd7"' baseline/build-info.json
+      - name: Reproduce the original failure without suppressing its exit code
         run: |
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
           mkdir -p artifacts
           python3 scripts/serve-site.py --directory baseline --port 4173 > artifacts/baseline-server.log 2>&1 &
-          set +e
-          DEBUG=pw:browser npx playwright test slider-stability.spec.mjs > artifacts/baseline-probe.log 2>&1
-          status=$?
-          cat artifacts/baseline-probe.log
-          echo "$status" > artifacts/baseline-exit-code.txt
-          # Diagnostic evidence only. Build independently gates changed binaries.
+          set -o pipefail
+          DEBUG=pw:browser npx playwright test slider-stability.spec.mjs 2>&1 | tee artifacts/baseline-probe.log
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: LightSpace-slider-baseline-${{ matrix.mode }}
+          name: LightSpace-slider-baseline
           path: artifacts

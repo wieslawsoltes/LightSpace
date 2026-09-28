@@ -28,7 +28,7 @@ jobs:
   browser:
     needs: engine
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
@@ -54,7 +54,8 @@ jobs:
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
           python3 scripts/serve-site.py --directory artifacts/site --port 4173 > artifacts/server.log 2>&1 &
-          npm run test:browser
+          npx playwright test slider-stability.spec.mjs
+          npm run test:browser -- --grep-invert 'all development sliders survive'
       - name: Package eight reusable libraries
         run: |
           for project in src/*/*.csproj; do
