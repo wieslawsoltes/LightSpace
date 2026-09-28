@@ -5,6 +5,7 @@ namespace LightSpace.Controls;
 public sealed class MaskSettingsEditor : UserControl
 {
     private LocalMask _value = new();
+    private readonly ColorRangeEditor _colors = new();
     private readonly Dictionary<string, (AdjustmentSlider Slider, Func<LocalMask, float> Read)> _sliders = [];
     private readonly Dictionary<string, FrameworkElement> _widgets = [];
     private readonly LightButton _rangeButton, _enabledButton, _invertButton;
@@ -13,6 +14,7 @@ public sealed class MaskSettingsEditor : UserControl
     public event Action<LocalMask>? Previewed;
     public event Action? Committed;
     public event Action? Canceled;
+    public event Action? SampleColorsRequested;
 
     public MaskSettingsEditor()
     {
@@ -39,6 +41,11 @@ public sealed class MaskSettingsEditor : UserControl
         Add("Angle", 0, 359, 1, m => m.Angle, (m, v) => m with { Angle = v });
         Add("Horizontal position", 0, 100, 1, m => m.X * 100, (m, v) => m with { X = v / 100 });
         Add("Vertical position", 0, 100, 1, m => m.Y * 100, (m, v) => m with { Y = v / 100 });
+        root.Children.Insert(2, _colors);
+        _colors.Previewed += value => { _value = _value with { ColorRange = value }; Previewed?.Invoke(_value); };
+        _colors.Committed += () => Committed?.Invoke(); _colors.Canceled += () => Canceled?.Invoke();
+        _colors.SampleRequested += () => SampleColorsRequested?.Invoke();
+        foreach (var (id, widget) in _colors.Widgets) _widgets[id] = widget;
         Content = root; Refresh();
         void Add(string name, double minimum, double maximum, double step, Func<LocalMask, float> read, Func<LocalMask, float, LocalMask> edit)
         {
@@ -51,13 +58,14 @@ public sealed class MaskSettingsEditor : UserControl
     private void Commit(LocalMask value) { _value = value.Normalize(); Refresh(); Previewed?.Invoke(_value); Committed?.Invoke(); }
     private void Refresh()
     {
+        _colors.Value = _value.ColorRange; _colors.Required = _value.Kind == MaskKind.ColorRange;
         foreach (var (slider, read) in _sliders.Values) slider.Value = read(_value);
         _enabledButton.Selected = _value.Enabled; _enabledButton.Text = _value.Enabled ? "Enabled" : "Disabled";
         _invertButton.Selected = _value.Inverted;
         var ranged = _value.RangeEnabled || _value.Kind == MaskKind.LuminanceRange;
         _rangeButton.Selected = ranged; _rangeButton.IsEnabled = _value.Kind != MaskKind.LuminanceRange;
         foreach (var name in new[] { "Range minimum", "Range maximum", "Range smoothness" }) _sliders[name].Slider.IsEnabled = ranged;
-        foreach (var name in new[] { "Angle", "Horizontal position", "Vertical position" }) _sliders[name].Slider.Visibility = _value.Kind is MaskKind.LuminanceRange or MaskKind.Brush ? Visibility.Collapsed : Visibility.Visible;
+        foreach (var name in new[] { "Angle", "Horizontal position", "Vertical position" }) _sliders[name].Slider.Visibility = _value.Kind is MaskKind.LuminanceRange or MaskKind.Brush or MaskKind.ColorRange ? Visibility.Collapsed : Visibility.Visible;
         _sliders["Feather"].Slider.Visibility = _value.Kind == MaskKind.Radial ? Visibility.Visible : Visibility.Collapsed;
     }
 }

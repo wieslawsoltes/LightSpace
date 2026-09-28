@@ -110,7 +110,9 @@ public sealed class EditorSession
     {
         var album = Catalog.Albums.First(a => a.Id == id); album.Photos = album.Photos.Concat(Selection).Distinct().ToList(); Notify();
     }
-    public CommittedCatalogSnapshot CaptureCommittedSnapshot()
+    public CommittedCatalogSnapshot CaptureCommittedSnapshot() => new(Revision, CatalogSerializer.Serialize(CopyCommittedCatalog()));
+
+    public CatalogDocument CopyCommittedCatalog()
     {
         var committed = new CatalogDocument
         {
@@ -125,7 +127,7 @@ public sealed class EditorSession
                 Versions = [.. photo.Versions]
             }).ToList()
         };
-        return new(Revision, CatalogSerializer.Serialize(committed));
+        return committed;
     }
     public void Notify() { Revision++; Changed?.Invoke(); ViewChanged?.Invoke(); }
 }

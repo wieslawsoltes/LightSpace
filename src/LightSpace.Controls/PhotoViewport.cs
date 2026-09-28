@@ -3,7 +3,7 @@ using LightSpace.Editing;
 using LightSpace.Rendering.Skia;
 namespace LightSpace.Controls;
 
-public enum PhotoTool { Edit, Crop, RadialMask, LinearMask, Clone, Brush }
+public enum PhotoTool { Edit, Crop, RadialMask, LinearMask, Clone, Brush, ColorRange }
 public sealed record ViewportHandle(string Id, float X, float Y);
 
 /// <summary>Source-normalized, transaction-aware photography canvas shared by native and browser hosts.</summary>
@@ -38,7 +38,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     public Rect ImageBounds => new(_imageRect.Left, _imageRect.Top, _imageRect.Width, _imageRect.Height);
     public event Action? ViewChanged;
     public event Action<string>? Status;
-    private bool IsMaskTool => Tool is PhotoTool.RadialMask or PhotoTool.LinearMask or PhotoTool.Brush;
+    private bool IsMaskTool => Tool is PhotoTool.RadialMask or PhotoTool.LinearMask or PhotoTool.Brush or PhotoTool.ColorRange;
     private CropSettings DisplayCrop => Tool == PhotoTool.Crop ? new() : _session.Active?.State.Crop ?? new();
 
     public PhotoViewport(EditorSession session, PhotoRenderer renderer)
@@ -130,6 +130,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     }
     private void Press(object sender, PointerRoutedEventArgs e)
     {
+        if (Tool == PhotoTool.ColorRange) { PressColorRange(e); return; }
         if (Tool == PhotoTool.Brush) { PressBrush(e); return; }
         if (_session.Active is not { } photo) return; var screen = e.GetCurrentPoint(_surface).Position;
         Focus(FocusState.Pointer); e.Handled = true; var p = ToSource(screen);

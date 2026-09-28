@@ -13,7 +13,10 @@ public sealed partial class StudioView
         brushes.Children.Add(Button("New brush mask", Glyph.Add, "New brush", () => ChooseBrush(true)));
         var paint = Button("Paint selected mask", text: "Paint selected", action: () => ChooseBrush(false));
         paint.Selected = Viewport.Tool == PhotoTool.Brush; brushes.Children.Add(paint); panel.Children.Add(brushes);
-        panel.Children.Add(Note(Viewport.Tool == PhotoTool.Brush
+        panel.Children.Add(Button("Color range", Glyph.Search, "Color range", CreateColorMask));
+        panel.Children.Add(Note(Viewport.Tool == PhotoTool.ColorRange
+            ? "Click a source color. Shift-click adds up to five samples; Alt-click a pin removes it. Refine tolerance and smoothness below."
+            : Viewport.Tool == PhotoTool.Brush
             ? "Paint or erase the selected mask. Alt temporarily erases; Escape cancels the stroke."
             : "Drag to create a gradient; refine its pin and handles. Shift-drag starts another mask."));
         var overlays = Row(); overlays.Spacing = 3;
@@ -48,9 +51,21 @@ public sealed partial class StudioView
         manage.Children.Add(Button("Delete mask", Glyph.Trash, null, () => Session.Edit("Delete mask", s => s with { Masks = s.Masks.Where(m => m.Id != mask.Id).ToArray() }))); panel.Children.Add(manage);
         _maskEditor = new MaskSettingsEditor { Value = mask };
         _maskEditor.Previewed += value => Session.Preview(s => s with { Masks = s.Masks.Select(m => m.Id == value.Id ? value : m).ToArray() });
+        _maskEditor.SampleColorsRequested += () => { Viewport.ShowMaskCoverage = true; ChooseTool(PhotoTool.ColorRange); };
         _maskEditor.Committed += () => Session.CommitGesture("Mask settings"); _maskEditor.Canceled += Session.CancelGesture;
         foreach (var (name, widget) in _maskEditor.Widgets) Register(name, widget);
         panel.Children.Add(_maskEditor); _inspector.Children.Add(panel);
+    }
+    private void CreateColorMask()
+    {
+        if (Session.Active is not { } photo) return;
+        if (photo.State.Masks.Length >= 8) { SetStatus("The eight-mask limit has been reached."); return; }
+        Session.Edit("Create color range", state => state with
+        {
+            Masks = [.. state.Masks, new LocalMask { Kind = MaskKind.ColorRange, Name = "Color range " + (state.Masks.Length + 1), ColorRange = new() { Enabled = true } }]
+        });
+        Viewport.SetActiveMask(photo.State.Masks.Length - 1); Viewport.ShowMaskCoverage = true; ChooseTool(PhotoTool.ColorRange);
+        SetStatus("Click on the photograph to sample the original source color.");
     }
     private void CreateRangeMask()
     {

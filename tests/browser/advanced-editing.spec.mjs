@@ -109,7 +109,7 @@ test('XMP sidecar import reports unsupported fields, applies undoably and export
   await click(page, 'Export XMP'); const pending = page.waitForEvent('download'); await click(page, 'Save XMP'); const download = await pending;
   await mkdir('artifacts/browser-exports', { recursive: true }); const path = 'artifacts/browser-exports/roundtrip.xmp'; await download.saveAs(path);
   const xml = await readFile(path, 'utf8'); expect(xml).toContain('ls:Settings'); expect(xml).toContain('crs:Exposure2012="0.75"');
-  expect(xml).toContain('Światło &amp; mountains'); expect(xml).toContain('ls:SchemaVersion="3"');
+  expect(xml).toContain('Światło &amp; mountains'); expect(xml).toContain('ls:SchemaVersion="4"');
   await expect.poll(async () => (await state(page)).recovery.state).toBe('Saved'); const expected = await state(page);
   await importFixture(page, xml); await click(page, 'Apply XMP');
   await expect.poll(async () => (await state(page)).curves).toEqual(expected.curves);

@@ -35,7 +35,7 @@ public sealed partial class StudioView
             Session.Catalog.Photos.Count, masks.Length, p?.State.CloneSpots.Length ?? 0, Session.CanUndo, Session.CanRedo, Session.Revision, _status.Text,
             list.ToArray(), _recovery.Status, p?.State.Develop.Grading ?? new(), summaries, Viewport.ComparisonPosition,
             new(_renderer.Statistics, _thumbnails.Statistics, _thumbnails.Renders, _cardBuilds, _libraryBuilds, _inspectorBuilds),
-            p?.State.Develop.Channels ?? new(), brush, _renderer.BrushStatistics, _renderer.CurveLookupBuilds, p?.State.Caption ?? "", p?.State.Keywords ?? []));
+            p?.State.Develop.Channels ?? new(), brush, _renderer.BrushStatistics, _renderer.CurveLookupBuilds, p?.State.Caption ?? "", p?.State.Keywords ?? [], _persistence?.Statistics, _renderer.SourceSamplePixels));
     }
     private void AdvancedKeyboard(object sender, KeyRoutedEventArgs e)
     {

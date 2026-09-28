@@ -19,9 +19,17 @@ Non-destructive editing · Custom Uno controls · GPU-capable Skia effects · Re
 
 LightSpace is a shared Uno desktop/WebAssembly photography application: browse a local catalog, develop a photograph, refine its composition and masks, and export a rendered copy while retaining the original bytes. The dark workspace combines a library sidebar, centered photo canvas, filmstrip, histogram, development inspector and vertical tool rail.
 
-**Current version: 0.3.0-alpha.1.** This is independent, functional early-stage software—not a pixel-identical or feature-complete Adobe Lightroom replacement. No Adobe artwork, camera profiles, proprietary processing code or cloud services are included. [Implemented behavior and remaining boundaries →](docs/FEATURE-COVERAGE.md)
+**Current version: 0.4.0-alpha.1.** This is independent, functional early-stage software—not a pixel-identical or feature-complete Adobe Lightroom replacement. No Adobe artwork, camera profiles, proprietary processing code or cloud services are included. [Implemented behavior and remaining boundaries →](docs/FEATURE-COVERAGE.md)
 
-## New in 0.3
+## New in 0.4
+
+**Sampled color selections.** Select up to five source colors with click/Shift-click, remove pins with Alt-click, and refine tolerance and smoothness. A reusable color-range editor supports standalone masks and intersections with gradient, luminance or brush coverage. The original Oklab-based selection runs in the existing Skia effect and is evaluated before development, without feeding a local correction back into its own selection.
+
+**Content-addressed recovery.** Immutable originals are stored separately under SHA-256 keys. Warm metadata saves serialize the edit manifest without rewriting, reading or rehashing unchanged source blobs. Browser commits atomically publish the manifest and newly staged blobs; native storage stages sources before replacing the manifest. Source integrity is checked on restore, failed commits remain dirty, and explicit retry can restage missing originals. The portable catalog format still embeds originals.
+
+**Compatibility and evidence.** Schemas 1–3 migrate to schema 4; the previous source-inclusive recovery is read without destructive migration. New saves use the source-separated store. New engine and browser tests exercise exported pixels, crop/rotation-aware sampling, source-cache reuse, actual IndexedDB transactions, missing-source protection, retry and legacy migration. [Color-selection behavior](docs/COLOR-AND-MASKS.md) · [Recovery storage contract](docs/RECOVERY.md) · [Performance evidence](docs/PERFORMANCE.md)
+
+## Advanced editing, completed and merged
 
 **Arbitrary RGB curves.** Edit master, red, green and blue curves with up to 32 points each. Add/drag/delete points, enter numeric values, choose linear or shape-preserving smooth interpolation, and undo each gesture. A separate floating-point lookup cache avoids rebuilding curves when unrelated adjustment values change.
 
@@ -37,7 +45,7 @@ LightSpace is a shared Uno desktop/WebAssembly photography application: browse a
 
 **Develop.** Adjust light, relative white balance, vibrance/saturation, monochrome, curves and eight color bands. Four-way grading controls shadows, midtones, highlights and global color with blending and balance. Creative presets, texture/clarity/dehaze approximations, sharpening, spatial smoothing, vignette and grain provide additional tools.
 
-**Refine.** Drag crop rectangles and handles, choose centered ratios, rotate in quarter turns and flip. Work with radial/linear gradients, luminance ranges and brush masks. Local exposure, contrast, temperature, tint and saturation remain non-destructive. Clone stamps use an explicit source; comparison has a draggable divider.
+**Refine.** Drag crop rectangles and handles, choose centered ratios, rotate in quarter turns and flip. Work with radial/linear gradients, sampled color/luminance ranges and brush masks. Local exposure, contrast, temperature, tint and saturation remain non-destructive. Clone stamps use an explicit source; comparison has a draggable divider.
 
 **Preserve.** Each completed gesture is one transaction. Undo/redo, named versions, selected-photo synchronization, catalog backups and recovery preserve the settings. Export JPEG/PNG/WebP copies, ZIP a selection or create an XMP sidecar. Recovery acknowledges committed revisions only and protects unreadable prior data from automatic replacement.
 
@@ -50,7 +58,7 @@ LightSpace is a shared Uno desktop/WebAssembly photography application: browse a
 | `LightSpace.Editing` | Gesture transactions, bounded undo/redo, versions, synchronization, revision-aware recovery | .NET 10 |
 | `LightSpace.Imaging` | Bounded decoding, EXIF orientation, sRGB conversion, fallback artwork | .NET 10 |
 | `LightSpace.Rendering.Skia` | Runtime effects, decoded-image cache, floating-point curve tables, incremental brush coverage, histogram/export | .NET 10 |
-| `LightSpace.Storage` | Import/export/recovery contracts and optional sidecar-picker capability | .NET 10 |
+| `LightSpace.Storage` | Import/export contracts, atomic native recovery store and optional sidecar-picker capability | .NET 10 |
 | `LightSpace.Controls` | Original Uno chrome/icons, sliders, cards, grading/mixer/curve/mask/brush controls and photo canvas | Uno browser / desktop |
 | `LightSpace.Workbench` | Composable workspace, inspectors, commands, dialogs and save UX | Uno browser / desktop |
 
@@ -62,7 +70,7 @@ Pinned versions are **.NET SDK 10.0.401**, **Uno SDK 6.7.30** and matched **Skia
 
 The viewport uses `Uno.WinUI.Graphics2DSK.SKCanvasElement` and compiled SkSL runtime effects within Uno's Skia composition path. Hardware execution depends on the host supplying a GPU-backed canvas. Software rendering remains available for deterministic tests and export. This release does **not** have a separate WebGPU compute backend.
 
-CPU/native decode, recovery, brush texture publication and export remain synchronous. Viewport sources have a 2560-pixel preview target; thumbnails decode at 384 pixels; brush coverage is capped at 1024 pixels even during export. Curves use 2048-entry floating-point lookup images. Cache budgets bound retained buffers, not all transient allocations or GPU copies. [Architecture](docs/ARCHITECTURE.md) · [Performance methods and evidence](docs/PERFORMANCE.md)
+CPU/native decode, manifest serialization, first-use source hashing, brush texture publication and export remain synchronous. Storage writes are asynchronous; warm manifest commits exclude original bytes. Viewport sources have a 2560-pixel preview target; thumbnails decode at 384 pixels; brush coverage is capped at 1024 pixels even during export. Curves use 2048-entry floating-point lookup images. Cache budgets bound retained buffers, not all transient allocations or GPU copies. [Architecture](docs/ARCHITECTURE.md) · [Performance methods and evidence](docs/PERFORMANCE.md)
 
 ## Build and run
 
@@ -118,7 +126,7 @@ File.WriteAllBytes("mountains-edited.jpg",
 session.Undo(); // Original encoded bytes are untouched.
 ```
 
-Embed `StudioView(session, storage, recoveryLoaded)` or individual public controls. `PointCurveEditor`, `ColorGradingEditor` and `MaskSettingsEditor` expose preview/commit/cancel contracts without owning the host's transaction policy. `BrushSettingsEditor` changes tool settings, not existing strokes. `ISidecarStorage` is optional for embedded hosts.
+Embed `StudioView(session, storage, recoveryLoaded)` or individual public controls. `PointCurveEditor`, `ColorGradingEditor`, `ColorRangeEditor` and `MaskSettingsEditor` expose preview/commit/cancel contracts without owning the host's transaction policy. `BrushSettingsEditor` changes tool settings, not existing strokes. `ISidecarStorage` is optional for embedded hosts.
 
 Dispose workspaces and native-resource caches. Use copy-on-write arrays for snapshots and retain original bytes read-only; mutation in place violates the cache contract. Objects are confined to one logical owner, normally the UI synchronization context. [Component API](docs/ADVANCED-EDITING.md) · [Recovery invariants](docs/RECOVERY.md)
 
@@ -130,7 +138,7 @@ Dispose workspaces and native-resource caches. Use copy-on-write arrays for snap
 npm ci --ignore-scripts
 npx playwright install --with-deps chromium
 mkdir -p artifacts/fixtures
-cp artifacts/engine/import-fixture.png artifacts/fixtures/
+cp artifacts/engine/*.png artifacts/fixtures/
 npm run test:browser
 ```
 
@@ -138,11 +146,11 @@ CI browser testing uses Chromium/SwiftShader. It is not physical-GPU or pen-hard
 
 ## Compatibility and data safety
 
-Catalog schema **3** preserves curves and brush data. Schemas 1 and 2 migrate with neutral defaults; older applications reject unsupported new files. Keep pre-upgrade backups when old-version interoperability matters.
+Catalog schema **4** preserves sampled colors, curves and brush data. Schemas 1–3 migrate with neutral defaults; older applications reject unsupported new files. Keep pre-upgrade backups when old-version interoperability matters.
 
 Import limits are 64 MiB per source, 100 megapixels decoded and 256 MiB of encoded originals per catalog. Image output is 8-bit sRGB with an 8192-pixel long-edge cap; source EXIF/IPTC is not embedded in rendered copies. XMP supports a documented subset, not Lightroom catalogs/profiles or pixel-equivalent Adobe development.
 
-RAW/DNG/HEIF/TIFF, AI tools, calibrated camera/lens correction, HDR/panorama merging, arbitrary crop straightening, native-resolution tiled inspection, indexed durable catalog storage, printing/proofing and cloud synchronization remain unimplemented. Recovery is an unencrypted local JSON record, not a cross-tab merge system or a substitute for original-file backups. [Complete boundary ledger](docs/FEATURE-COVERAGE.md)
+RAW/DNG/HEIF/TIFF, AI tools, calibrated camera/lens correction, HDR/panorama merging, arbitrary crop straightening, native-resolution tiled inspection, indexed durable catalog storage, printing/proofing and cloud synchronization remain unimplemented. Recovery is an unencrypted local manifest and source store, not a cross-tab merge system or a substitute for original-file backups. The browser database upgrades to version 2; older builds requesting version 1 cannot open it. [Complete boundary ledger](docs/FEATURE-COVERAGE.md)
 
 ## Documentation and license
 

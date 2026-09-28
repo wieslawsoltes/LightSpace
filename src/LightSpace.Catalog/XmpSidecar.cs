@@ -13,7 +13,7 @@ public sealed record XmpExportResult(string Xml, string[] Warnings);
 public static partial class XmpSidecar
 {
     public const int MaximumBytes = 16 * 1024 * 1024;
-    public const int NativeSchemaVersion = 3;
+    public const int NativeSchemaVersion = 4;
     public static readonly XNamespace Rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
     public static readonly XNamespace Xmp = "http://ns.adobe.com/xap/1.0/";
     public static readonly XNamespace Dc = "http://purl.org/dc/elements/1.1/";

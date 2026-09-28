@@ -46,6 +46,16 @@ Diagnostic registrations use weak references, avoiding ownership of discarded co
 
 ## Remaining performance boundaries
 
-Decode, image encoding, brush texture publication and catalog serialization still perform synchronous CPU/native work. Recovery includes original image data in one JSON record. Photos are not tiled; source-pixel zoom cannot reveal information absent from the bounded preview. Browsing uses 60-photo pages rather than an indexed durable catalog.
+Decode, image encoding, brush texture publication and catalog serialization still perform synchronous CPU/native work. Recovery now serializes a source-free metadata manifest on the incremental store path. First-use source hashing/staging and restore still process originals; the legacy embedded-host snapshot writer still includes them. Photos are not tiled; source-pixel zoom cannot reveal information absent from the bounded preview. Browsing uses 60-photo pages rather than an indexed durable catalog.
 
-Source-relative detail/grain coordinates improve consistency, but downsampling changes available information and brush rasterization is bounded, so preview/full-resolution export are not guaranteed identical for fine details. Native-resolution tiled processing, asynchronous decode/export scheduling, incremental original storage and target-device profiling remain separate workstreams.
+Source-relative detail/grain coordinates improve consistency, but downsampling changes available information and brush rasterization is bounded, so preview/full-resolution export are not guaranteed identical for fine details. Native-resolution tiled processing, asynchronous decode/export scheduling, source paging/compaction and target-device profiling remain separate workstreams.
+
+## Source-separated recovery and bounded color sampling (0.4)
+
+`RecoveryPersistence` weakly memoizes encoded-original SHA-256 keys by immutable array identity. After a successful initial write, a metadata-only capture contains source references and metadata but no encoded-original payload. Known sources are not hashed or resent. A failed commit clears the known-key set so retry can restage missing data; restore validates hashes and primes the warm cache. Native commits still check source-file existence, and browser commits perform key-only IndexedDB requests. This is avoided original-byte work, not zero storage I/O.
+
+The engine report `recovery-performance.json` measures 20 warm metadata commits with one 8 MiB source using an in-memory store. It includes additional bytes hashed, blob writes, manifest bytes, CPU elapsed time and thread-local managed allocations. Browser acceptance emits its own `browser-exports/recovery-performance.json` for real rating edits and real IndexedDB transactions, including original-value reads and bytes written. Timings from the in-memory test are not claims about native disks or browser persistence latency.
+
+Source color picking reads a maximum 5×5 patch at the default radius, not `bitmap.Pixels` for a full decoded image. The public sampler permits radius 0–8 and counts the actual patch pixels. It reads the retained preview before development, avoiding full-original decode for each click. Color-range samples are transformed to Oklab when uniforms are prepared; the shader converts source color once per pixel only when a range is active. Masks retain existing brush/curve cache separation.
+
+Manifest metadata still scales with photo, stroke and version counts. Startup still restores all referenced originals. First writes can have substantial interop and encoding allocation, and this release does not implement source paging, automatic orphan cleanup, texture tiling or a transactional indexed catalog database.

@@ -7,4 +7,4 @@ public sealed record BrushDiagnostic(Guid MaskId, int Strokes, int Dabs, bool La
 public sealed record StudioDiagnostics(string ActivePhoto, string View, string Tool, float Exposure, int Rating, int Photos,
     int Masks, int CloneSpots, bool CanUndo, bool CanRedo, long Revision, string Status, WidgetBounds[] Widgets,
     RecoveryStatus Recovery, ColorGradingSettings Grading, LocalMask[] MaskSettings, float ComparisonPosition, WorkbenchPerformance Performance,
-    ChannelCurves Curves, BrushDiagnostic[] Brushes, BrushCacheStatistics BrushCache, long CurveLookupBuilds, string Caption, string[] Keywords);
+    ChannelCurves Curves, BrushDiagnostic[] Brushes, BrushCacheStatistics BrushCache, long CurveLookupBuilds, string Caption, string[] Keywords, RecoveryPersistenceStatistics? Persistence, long SourceSamplePixels);

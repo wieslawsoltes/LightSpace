@@ -29,11 +29,20 @@ public sealed partial class App : Application
 #else
             IWorkspaceStorage storage=new DesktopWorkspaceStorage();
 #endif
+            var persistence = storage is IRecoveryStore store ? new RecoveryPersistence(store) : null;
             CatalogDocument? catalog=null;string? warning=null;
-            try{var recovery=await storage.ReadRecoveryAsync();if(!string.IsNullOrWhiteSpace(recovery))catalog=CatalogSerializer.Deserialize(recovery);}catch(Exception e){warning="Recovery could not be opened; stored data has not been deleted. "+e.Message;}
+            try
+            {
+                if (persistence is not null) catalog = await persistence.RestoreAsync();
+                if (catalog is null)
+                {
+                    var recovery = await storage.ReadRecoveryAsync();
+                    if (!string.IsNullOrWhiteSpace(recovery)) catalog = CatalogSerializer.Deserialize(recovery);
+                }
+            }catch(Exception e){warning="Recovery could not be opened; stored data has not been deleted. "+e.Message;}
             var recovered = catalog is not null;
             catalog??=LoadSamples();
-            _studio=new StudioView(new EditorSession(catalog),storage,recovered);
+            _studio=new StudioView(new EditorSession(catalog),storage,recovered,persistence);
 #if __WASM__
             _studio.UnsavedChangesChanged += BrowserFiles.SetDirty;
             BrowserFiles.SetDirty(_studio.Recovery.HasUnsavedChanges);
