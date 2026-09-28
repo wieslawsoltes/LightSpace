@@ -28,7 +28,7 @@ public sealed record CropSettings(float Left = 0, float Top = 0, float Right = 1
     }
 }
 
-public enum MaskKind { Radial, Linear, LuminanceRange }
+public enum MaskKind { Radial, Linear, LuminanceRange, Brush }
 public sealed record LocalMask
 {
     public Guid Id { get; init; } = Guid.NewGuid();
@@ -52,6 +52,7 @@ public sealed record LocalMask
     public float RangeMin { get; init; }
     public float RangeMax { get; init; } = 1;
     public float RangeSmoothness { get; init; } = .1f;
+    public BrushStroke[] Strokes { get; init; } = [];
 
     public LocalMask Normalize()
     {
@@ -65,11 +66,12 @@ public sealed record LocalMask
             Angle = Numeric.Angle(Angle), Feather = Numeric.Clamp(Feather, .01f, 1),
             Exposure = Numeric.Clamp(Exposure, -5, 5), Saturation = DevelopSettings.Percent(Saturation),
             Contrast = DevelopSettings.Percent(Contrast), Temperature = DevelopSettings.Percent(Temperature), Tint = DevelopSettings.Percent(Tint),
-            Opacity = Numeric.Unit(Opacity), RangeMin = low, RangeMax = high, RangeSmoothness = Numeric.Clamp(RangeSmoothness, .001f, 1)
+            Opacity = Numeric.Unit(Opacity), RangeMin = low, RangeMax = high, RangeSmoothness = Numeric.Clamp(RangeSmoothness, .001f, 1),
+            Strokes = BrushStroke.NormalizeAll(Strokes)
         };
         return normalized == this ? this : normalized;
     }
-    /// <summary>Coverage in source coordinates; luminance comes from the imported sRGB source, before edits.</summary>
+    /// <summary>Coverage in source coordinates. Brushing modifies spatial coverage before range restriction and inversion.</summary>
     public float Weight(float x, float y, float sourceLuminance = .5f, float aspect = 1)
     {
         var m = Normalize(); if (!m.Enabled) return 0;
@@ -77,13 +79,14 @@ public sealed record LocalMask
         var a = m.Angle * MathF.PI / 180; var cos = MathF.Cos(a); var sin = MathF.Sin(a);
         var dx = (x - m.X) * aspect; var dy = y - m.Y;
         var qx = cos * dx + sin * dy; var qy = -sin * dx + cos * dy;
-        var value = 1f;
+        var value = m.Kind == MaskKind.Brush ? 0f : 1f;
         if (m.Kind == MaskKind.Radial)
         {
             var rx = qx / (m.RadiusX * aspect); var ry = qy / m.RadiusY;
             value = 1 - Numeric.Smooth(1 - m.Feather, 1, MathF.Sqrt(rx * rx + ry * ry));
         }
         else if (m.Kind == MaskKind.Linear) value = Numeric.Smooth(-m.RadiusY, m.RadiusY, qy);
+        if (m.Strokes.Length > 0) value = BrushStroke.Apply(value, m.Strokes, x, y, aspect);
         if (m.RangeEnabled || m.Kind == MaskKind.LuminanceRange)
         {
             var lower = m.RangeMin <= 0 ? 1 : Numeric.Smooth(m.RangeMin - m.RangeSmoothness, m.RangeMin, sourceLuminance);
@@ -92,18 +95,18 @@ public sealed record LocalMask
         }
         return (m.Inverted ? 1 - value : value) * m.Opacity;
     }
-    /// <summary>Map local pixel-isotropic offsets, measured in image-height units, into source UV.</summary>
     public PointD LocalToSource(float dx, float dy, float aspect)
     {
         var a = Angle * Math.PI / 180; var c = Math.Cos(a); var s = Math.Sin(a);
         return new(X + (c * dx - s * dy) / Math.Max(.0001, aspect), Y + s * dx + c * dy);
     }
-    public bool PixelEquals(LocalMask other) =>
+    public bool PixelEquals(LocalMask other) => ReferenceEquals(this, other) ||
         Kind == other.Kind && X == other.X && Y == other.Y && RadiusX == other.RadiusX && RadiusY == other.RadiusY
         && Angle == other.Angle && Feather == other.Feather && Exposure == other.Exposure && Saturation == other.Saturation
         && Contrast == other.Contrast && Temperature == other.Temperature && Tint == other.Tint && Inverted == other.Inverted
         && Enabled == other.Enabled && Opacity == other.Opacity && RangeEnabled == other.RangeEnabled
-        && RangeMin == other.RangeMin && RangeMax == other.RangeMax && RangeSmoothness == other.RangeSmoothness;
+        && RangeMin == other.RangeMin && RangeMax == other.RangeMax && RangeSmoothness == other.RangeSmoothness
+        && BrushStroke.SequenceEquals(Strokes, other.Strokes);
 }
 
 public sealed record CloneSpot(float X, float Y, float SourceX, float SourceY, float Radius = .03f)

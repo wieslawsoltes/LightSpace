@@ -46,10 +46,10 @@ internal static class ParityTests
             s.Edit("Grade", p => p with { Develop = p.Develop with { Grading = grading } }); var saved = CatalogSerializer.Deserialize(CatalogSerializer.Serialize(s.Catalog));
             Check(saved.Photos[0].State.Develop.Grading == grading); s.Undo(); Check(s.Active!.State.Develop.Grading.IsNeutral); s.Redo(); Check(s.Active.State.Develop.Grading == grading);
         });
-        Test("Legacy schema migrates to explicit processing schema 2", () =>
+        Test("Legacy schema migrates to the current explicit processing schema", () =>
         {
-            var legacy = CatalogSerializer.Serialize(Catalog()).Replace("\"SchemaVersion\":2", "\"SchemaVersion\":1");
-            var migrated = CatalogSerializer.Deserialize(legacy); Check(migrated.SchemaVersion == 2 && migrated.Photos[0].State.Develop.Grading.IsNeutral);
+            var legacy = CatalogSerializer.Serialize(Catalog()).Replace($"\"SchemaVersion\":{CatalogDocument.CurrentSchemaVersion}", "\"SchemaVersion\":1");
+            var migrated = CatalogSerializer.Deserialize(legacy); Check(migrated.SchemaVersion == CatalogDocument.CurrentSchemaVersion && migrated.Photos[0].State.Develop.Grading.IsNeutral);
         });
         Test("Rotated linear gradient reverses its normal", () => { var m = new LocalMask { Kind = MaskKind.Linear, Angle = 90 }; Check(m.Weight(.1f, .5f) > .99 && m.Weight(.9f, .5f) < .01); });
         Test("Radial rotation uses pixel-isotropic coordinates", () =>

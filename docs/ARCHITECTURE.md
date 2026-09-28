@@ -1,12 +1,12 @@
 # Architecture
 
-## Dependency graph
+## Package boundaries
 
 ```text
-LightSpace.App (browser / native startup and storage)
-  └─ LightSpace.Workbench
-       ├─ LightSpace.Storage
-       └─ LightSpace.Controls
+LightSpace.App — native/browser startup and platform storage
+  └─ LightSpace.Workbench — shell, catalog views, inspectors, commands, recovery UX
+       ├─ LightSpace.Storage — storage and optional XMP-picker contracts
+       └─ LightSpace.Controls — original reusable Uno controls
             ├─ LightSpace.Editing
             │    └─ LightSpace.Catalog
             │         └─ LightSpace.Core
@@ -15,55 +15,66 @@ LightSpace.App (browser / native startup and storage)
                       └─ LightSpace.Core
 ```
 
-Core, Catalog, Editing and Storage do not require a graphics/UI host. Imaging and Rendering.Skia require matched SkiaSharp native assets. Controls and Workbench target Uno browser and desktop.
+Core, Catalog, Editing and Storage are UI-independent. Imaging and Rendering.Skia use SkiaSharp with matching native assets. Controls and Workbench target Uno desktop and browser. No new proprietary or copyleft image-processing dependency was introduced for curves, brush masks or XMP; their implementations are original project code.
 
-## Models and transactions
+## Model and transactions
 
-`CatalogDocument` owns original image bytes, identities, albums and active photo identity. Each `PhotoDocument` holds a replaceable `PhotoState`: development/grading, crop, masks, clone spots and catalog metadata. These records use array-backed members; consumers must treat arrays as read-only and edit by replacement. Normalization preserves valid references and clones only collections needing repairs.
+`CatalogDocument` owns original source bytes, photo identities, albums and the active-photo ID. A `PhotoDocument` has a replaceable `PhotoState` containing development, crop, masks, clone spots and metadata. Grading, arbitrary-point RGB curves and brush strokes are part of that state.
 
-`EditorSession.Preview` opens/updates a gesture. `CommitGesture` adds one before/after transaction, and `CancelGesture` restores the opening snapshot. Batch changes form one transaction. Undo is limited to 100 transactions and redo is cleared by a new committed edit. Imports and album structure changes are not currently undoable.
+Records and array-backed collections follow a copy-on-write contract: never mutate arrays or source bytes in place after publication. Normalization retains valid references and repairs invalid data into new collections. `PhotoStateEquality.All` compares the complete state without JSON allocation. `Shader` excludes metadata/crop and `Pixels` adds crop, giving each cache the appropriate invalidation policy.
 
-`PhotoStateEquality.All` compares complete normalized values without JSON serialization. `Shader` excludes crop and metadata; `Pixels` adds crop. The renderer also checks source identity. This prevents ratings, captions and mask names from rebuilding identical processing resources while retaining invalidation for replaced images.
+`EditorSession.Preview` opens a gesture and replaces visible state. `CommitGesture` records one before/after transaction; cancellation restores the opening state. Batch edit transactions cover all selected photographs atomically. Undo/redo is bounded to 100 transactions in the running session. Named versions are serialized snapshots. Imports and album structural operations are currently outside undo history.
 
-`Changed` reports committed mutations; `ViewChanged` also reports previews and selection. The workbench keeps catalog cards alive while the current page's photo-ID sequence is unchanged. Structural mask selection/list changes rebuild the relevant inspector; parameter previews update controls in place.
+`Changed` denotes committed catalog changes. `ViewChanged` also covers live previews and selection. Controls use preview events for responsive editing; durability follows the separate committed-revision contract. See [recovery architecture](RECOVERY.md).
 
-## Original image-processing model
+## Processing sequence
 
-Encoded inputs are bounded before `SKCodec` inspects size/orientation. Decode normalizes all eight EXIF orientations and converts to sRGB RGBA. Main previews target a 2560-pixel long edge; thumbnail source previews target384.
+1. Bounded input inspection verifies encoded size and decoded dimensions. `SKCodec` decodes the image, normalizes EXIF orientation and converts to sRGB.
+2. The viewport keeps a bounded decoded preview; the thumbnail renderer uses a smaller decode target. Original bytes remain retained for later export.
+3. Clone stamps sample the source; lightweight neighboring taps implement spatial effects. Source-relative coordinates preserve geometric intent, but preview downsampling still changes available detail.
+4. Exposure, relative white balance and tonal adjustments operate after the sRGB transfer conversion into linear values. The current pipeline returns to bounded display-encoded RGB for curves and mixing; it is not a scene-referred RAW/HDR pipeline.
+5. The legacy five-point curve is followed by the arbitrary-point master curve and independent R/G/B curves. A separately cached 2048-entry floating-point table stores the master/channel composition.
+6. Hue-weighted color mixing, saturation/vibrance, monochrome and four-way grading are applied. All algorithms are original approximations, not Adobe pixel-equivalence implementations.
+7. Each mask starts with analytic radial/linear coverage, unrestricted range coverage, or zero brush coverage. Cached paint/erase coefficients modify spatial coverage as `M * analytic + B`. Luminance restrictions, inversion and amount follow. The mask applies local tone/color adjustments.
+8. Vignette and grain finish the image. Optional selected-mask coverage is a preview-only overlay.
+9. Source-normalized crop, quarter turns and flips produce the view/export matrix. Its inverse maps pointer input to source geometry.
+10. Export decodes original bytes, evaluates processing on an offscreen raster surface and encodes an 8-bit sRGB copy. Preview guides, mask overlay and comparison do not enter exported pixels.
 
-The runtime effect evaluates clone stamps, lightweight spatial detail, transfer decoding, exposure/relative white balance/tone, transfer encoding, curve/color mixing, saturation/monochrome, color grading, local masks, vignette and grain. Spatial tap/grain coordinates are source-relative. Color grading follows monochrome so black-and-white looks can be tinted.
+[Detailed curve/brush/XMP semantics](ADVANCED-EDITING.md) and [grading/range behavior](COLOR-AND-MASKS.md) define units, limits and approximation boundaries.
 
-Mask geometry uses image-height units with aspect-correct rotation. Luminance selection uses imported sRGB-encoded source brightness before clone/global edits. Spatial and range coverage are intersected, optionally inverted, then scaled by amount. Local exposure/contrast/white balance/saturation are combined with that weight. CPU reference coverage and actual shader pixels are compared by tests.
+## Why the existing Skia composition path
 
-Skia's portable runtime-effect profile requires uniform-array indices to be constant or statically unrollable. Mask helpers receive vector parameters from the fixed-count loop rather than dynamically indexing arrays through a function argument.
+Uno already owns the `SKCanvasElement` drawing surface. SkSL runtime effects integrate photo processing into that composition path, with hardware execution when the host has a GPU-backed canvas and a software execution path for portable tests/export. A separate WebGPU device would require explicit device lifetime, texture-sharing, synchronization and platform hosting work; it is not implemented in this version.
 
-Crop, quarter turns and display-space flips form a source-to-view matrix; inverse mapping drives pointer gestures. Handles and coverage use the same source coordinates. Before/after divider position is viewport state, not a document edit. Coverage overlay is absent from histogram/export paths.
+SkiaSharp managed/native packages remain aligned at 3.119.4 with Uno SDK 6.7.30. Upgrading one package independently can violate the native ABI. CI's Chromium/SwiftShader run demonstrates functionality, not physical-GPU performance. Decode, brush texture publication, catalog serialization and image encoding remain synchronous CPU/native operations.
 
-This is an original LDR approximation, not Adobe's pipeline, calibrated RAW processing or HDR scene-referred color. Smaller previews lack native-resolution spatial information, so fine-detail preview and full-resolution export may differ. [Color/mask semantics →](COLOR-AND-MASKS.md)
+## Cache ownership and invalidation
 
-## Skia integration and budgets
+`PhotoRenderer` owns decoded-image, shader, curve-table and brush-coverage caches. Original array identity prevents source reuse after reopening a catalog under an existing photo ID. Pixel-aware equality prevents metadata-only work from rebuilding identical processing.
 
-`SKCanvasElement` places photo development in Uno's existing Skia composition path. The runtime shader can execute on a hardware-backed canvas when the host provides one and supports software raster execution otherwise. There is no separate WebGPU device/context or compute graph in this release. Managed/native Skia packages are pinned together at3.119.4 with Uno SDK6.7.30.
+`ToneLookupCache` retains up to eight semantic curve tables independently of exposure/mask parameters. `BrushCoverageCache` retains floating-point accumulators and detects appended dab prefixes. It updates only new dab regions, while an earlier-stroke edit or undo triggers replay. It publishes an immutable coefficient texture after changes; this is not an incremental GPU upload or native-resolution tiled brush engine.
 
-`PhotoRenderer` is owner-thread-confined and exposes count/byte-budget settings. Main previews retain at most five images under a128MiB decoded-image budget. The thumbnail renderer retains at most two384-pixel sources under8MiB; final thumbnail cache has128 entries. These are retained-cache budgets, not peak codec/CPU/GPU memory limits. Auto tone samples96×64 pixels; histogram sampling uses192×128.
+Viewport previews target 2560 pixels; thumbnail decode targets 384 pixels; final thumbnails are bounded to 240×160. Brush coverage is capped at a 1024-pixel long edge including export. Retained cache budgets do not bound all temporary arrays, codec scratch allocations, GPU copies or original source memory. See [performance methods and evidence](PERFORMANCE.md).
 
-Decode, offscreen thumbnail rendering, histogram sampling and export retain synchronous CPU/native work. CI uses SwiftShader, not physical-GPU timing. [Performance measurements and remaining work →](PERFORMANCE.md)
+## Controls and workbench
 
-## Controls
+Original controls include `LightButton`, `IconView`, `AdjustmentSlider`, `ToneCurveView`, `PointCurveEditor`, `ColorWheel`, `ColorGradingEditor`, `ColorMixerEditor`, `MaskSettingsEditor`, `BrushSettingsEditor`, `PhotoCard`, `HistogramView` and `PhotoViewport`. Standard Uno TextBox/ComboBox/CheckBox/ScrollViewer and OS file pickers remain deliberate primitives.
 
-`LightButton` uses original chrome and vector `IconView` paths. `AdjustmentSlider` supplies custom rails/knobs, pointer capture, numeric input, keyboard editing, cancellation and a range-value automation peer. `ToneCurveView`, `HistogramView`, `ColorWheel`, `ColorGradingEditor`, `ColorMixerEditor`, `MaskSettingsEditor` and `PhotoCard` are reusable public controls.
+The value editors emit preview/commit/cancel events without owning a catalog. Pointer capture keeps each gesture coherent; Escape cancels an active gesture before a later command can leave its tool. Brush settings are tool parameters captured when a new stroke starts, not destructive rewrites of earlier strokes.
 
-Value editors expose Previewed/Committed/Canceled events so hosts choose their transaction policy. Controls are refreshed after external changes such as undo and photo/preset selection. Panel expansion is retained within the running workbench. Standard Uno TextBox, ComboBox, CheckBox, ScrollViewer and native file pickers remain in use; not every primitive is custom.
+Workbench layout, catalog view maintenance, diagnostics, commands, XMP, masking and advanced-editor integration live in separate partial files. Photo cards and parameter editors survive value-only updates. Mask selection/structural changes rebuild the relevant inspector. Diagnostic registrations are weak references, and snapshots omit potentially large brush coordinate arrays. Periodic diagnostics are opt-in rather than a normal-session UI-tree walk.
 
-The grid uses60-photo pages rather than an indexed/fully virtualized database. Narrow desktop widths collapse the library sidebar. Mobile UX and full accessibility parity remain open.
+Catalog browsing uses 60-photo pages, not a virtualized durable database. The sidebar collapses at narrower widths; the application does not claim complete mobile photography UX or assistive-technology parity.
 
-## Storage and migration
+## Storage and XMP trust boundaries
 
-`IWorkspaceStorage` separates the shell from user-authorized platform file handling. Browser input uses an HTML file chooser and export uses Blob downloads; recovery waits for an IndexedDB transaction to commit. Native recovery uses temporary-file replacement in the local application-data directory.
+`IWorkspaceStorage` supplies image/catalog picking, explicit exports and recovery. `ISidecarStorage` optionally supplies a user-authorized XMP picker. Browser images/sidecars enter through a native file input and exports use Blob downloads. Native storage uses OS pickers and bounded stream reads; recovery uses temporary-file replacement. Browser recovery acknowledges IndexedDB transaction completion.
 
-`RecoveryCoordinator` acknowledges only committed revisions, excludes active previews, serializes writes and drains newer commits after an in-flight write. Unreadable previous recovery is protected until explicit replacement. Browser unload warnings track unsaved state immediately. This is not a concurrent-tab database or a close-time durability guarantee. [Recovery contract →](RECOVERY.md)
+Catalog serialization is source-generated for trimmed WebAssembly. Schema 3 preserves RGB curves and strokes; schemas 1 and 2 migrate with neutral defaults. Unknown schemas, malformed identities and oversized source/brush data are rejected. Source bytes remain unmodified.
 
-Source-generated JSON supports trimmed WebAssembly builds. Deserialization validates schema, dimensions, sizes and identities and removes orphan album references. Schema1 imports receive neutral defaults for new parameters; all new saves use schema2. Older applications reject schema2 instead of dropping new grading/mask edits. Retain portable backups.
+XMP parses namespace-qualified metadata and a specific Camera Raw parameter/curve subset. Native LightSpace state is stored separately. UI import shows a report before applying a single transaction to the intended photo. DTDs/external resolution are disabled, bytes/nesting are bounded, and conflicting scalar fields or multiple RDF subjects are rejected. Unsupported fields are reported, not interpreted as equivalent Adobe processing. Unknown third-party properties are not retained on re-export.
+
+There is no telemetry, account, cloud photo upload, inference service or licensing server. Local recovery is unencrypted and origin/profile-specific. Multiple browser tabs do not merge competing catalog writes. Static hosting receives ordinary asset requests. Optional photographs/fonts are retrieved at build time, not from user photo sessions.
 
 ## Embedding and ownership
 
@@ -71,27 +82,27 @@ Source-generated JSON supports trimmed WebAssembly builds. Deserialization valid
 var session = new EditorSession(catalog);
 var workspace = new StudioView(session, storage, recoveryLoaded: restoredFromRecovery);
 window.Content = workspace;
-// Dispose workspace when the containing host closes.
+// Dispose the workspace when its containing host closes.
 ```
 
-`PhotoRenderer`, `ThumbnailCache`, `PhotoViewport` and `StudioView` own native resources or subscriptions and require disposal. A standalone viewport does not dispose an externally supplied renderer. The workbench owns its private renderers/caches. Original arrays remain owned by the catalog and must not be mutated in place.
+`StudioView` owns its renderer, thumbnail cache, timers and event subscriptions. A standalone `PhotoViewport` receives an external renderer and does not dispose it. `PhotoRenderer`, `BrushCoverageCache`, `ToneLookupCache` and `ThumbnailCache` must be disposed by their owners. Model snapshots and encoded originals remain catalog-owned.
 
 ```csharp
-using var renderer = new PhotoRenderer();
-var viewport = new PhotoViewport(session, renderer);
-var slider = new AdjustmentSlider("Exposure", -5, 5, 0, 0.01);
-slider.ValueChanged += value => session.Preview(state => state with
+var editor = new PointCurveEditor { Value = session.Active!.State.Develop.Channels };
+editor.Previewed += curves => session.Preview(state => state with
 {
-    Develop = state.Develop with { Exposure = value }
+    Develop = state.Develop with { Channels = curves }
 });
-slider.ValueCommitted += () => session.CommitGesture("Exposure");
-slider.GestureCanceled += session.CancelGesture;
+editor.Committed += () => session.CommitGesture("RGB curves");
+editor.Canceled += session.CancelGesture;
 ```
 
-## Validation and deployment
+Hosts also refresh the editor's Value after undo, presets or photo selection. The workbench attaches/detaches that subscription with editor lifetime. State, controls and caches are owner-thread-confined; the recovery coordinator serializes asynchronous storage completion on that logical owner.
 
-Engine tests exercise actual pixels, coverage geometry, normalization, catalog migration, semantic equality, transactions, recovery races and cache behavior. The performance report explicitly labels CPU microbenchmarks and managed allocations.
+## Verification and delivery boundaries
 
-Playwright reads arranged control bounds and sends actual pointer, keyboard and file-chooser input. It does not modify photo state through a test-only mutation API. Read-only diagnostics are enabled by the `diagnostics` query parameter; normal browser sessions do not periodically walk/serialize the UI tree.
+The engine runner covers normalization, comparisons, transactions, actual exported pixels, curve interpolation, scalar/raster brush equivalence, cache invalidation/reuse, XMP namespace and malformed-input cases, migration and delayed recovery writes. Reports are machine-readable and failures return a nonzero exit code.
 
-Build artifacts carry commit identity in `build-info.json`. Pages deploys only a successful trusted main-branch artifact, validates provenance, verifies the live identity and reruns browser tests. Desktop CI certifies compilation, not every native input/accessibility/GPU combination.
+Playwright observes read-only arranged-control bounds, then sends real pointer, keyboard, file-picker and download input. It does not use a mutation-only testing API for edits. Screenshots and clipped photo comparisons check actual output; cache counters verify avoided work. Native CI currently certifies compilation on three operating systems, not physical input devices or GPU drivers.
+
+Published bundles include `build-info.json`. Pages downloads only trusted successful main-build artifacts, verifies their commit, deploys and repeats browser tests against the public identity. Release packaging is separate from native signing/notarization and NuGet.org publication, neither of which is configured.

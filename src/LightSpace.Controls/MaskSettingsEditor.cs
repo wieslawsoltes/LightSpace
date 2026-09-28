@@ -1,7 +1,7 @@
 using LightSpace.Core;
 namespace LightSpace.Controls;
 
-/// <summary>Reusable, live-bindable gradient/range-mask settings with a transaction-neutral event contract.</summary>
+/// <summary>Reusable local-mask parameter editor with a transaction-neutral event contract.</summary>
 public sealed class MaskSettingsEditor : UserControl
 {
     private LocalMask _value = new();
@@ -57,8 +57,7 @@ public sealed class MaskSettingsEditor : UserControl
         var ranged = _value.RangeEnabled || _value.Kind == MaskKind.LuminanceRange;
         _rangeButton.Selected = ranged; _rangeButton.IsEnabled = _value.Kind != MaskKind.LuminanceRange;
         foreach (var name in new[] { "Range minimum", "Range maximum", "Range smoothness" }) _sliders[name].Slider.IsEnabled = ranged;
-        foreach (var name in new[] { "Angle", "Horizontal position", "Vertical position" }) _sliders[name].Slider.Visibility = _value.Kind == MaskKind.LuminanceRange ? Visibility.Collapsed : Visibility.Visible;
-        // Linear falloff is set by its transition handles, not a radial feather.
+        foreach (var name in new[] { "Angle", "Horizontal position", "Vertical position" }) _sliders[name].Slider.Visibility = _value.Kind is MaskKind.LuminanceRange or MaskKind.Brush ? Visibility.Collapsed : Visibility.Visible;
         _sliders["Feather"].Slider.Visibility = _value.Kind == MaskKind.Radial ? Visibility.Visible : Visibility.Collapsed;
     }
 }

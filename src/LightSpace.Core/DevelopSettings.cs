@@ -21,6 +21,7 @@ public sealed record DevelopSettings
     public float NoiseReduction { get; init; }
     public bool Monochrome { get; init; }
     public ToneCurve Curve { get; init; } = new();
+    public ChannelCurves Channels { get; init; } = new();
     public ColorBand[] Mixer { get; init; } = Enumerable.Range(0, 8).Select(_ => new ColorBand()).ToArray();
     public ColorGradingSettings Grading { get; init; } = new();
     public static DevelopSettings Default { get; } = new();
@@ -44,7 +45,7 @@ public sealed record DevelopSettings
             Tint = Percent(Tint), Vibrance = Percent(Vibrance), Saturation = Percent(Saturation), Texture = Percent(Texture),
             Clarity = Percent(Clarity), Dehaze = Percent(Dehaze), Vignette = Percent(Vignette),
             Grain = Numeric.Clamp(Grain, 0, 100), Sharpening = Numeric.Clamp(Sharpening, 0, 100), NoiseReduction = Numeric.Clamp(NoiseReduction, 0, 100),
-            Curve = (Curve ?? new()).Normalize(), Mixer = mixer, Grading = (Grading ?? new()).Normalize()
+            Curve = (Curve ?? new()).Normalize(), Channels = (Channels ?? new()).Normalize(), Mixer = mixer, Grading = (Grading ?? new()).Normalize()
         };
         return result == this ? this : result;
     }

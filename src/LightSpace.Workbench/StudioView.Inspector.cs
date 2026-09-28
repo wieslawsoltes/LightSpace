@@ -30,15 +30,21 @@ public sealed partial class StudioView
                 case "Crop": BuildCrop(photo); return;
                 case "Masks": BuildMasks(photo); return;
                 case "Clone": BuildClone(photo); return;
+                case "RGB curves":
+                    var curves = CreatePointCurves(photo); curves.Margin = new(18, 0, 18, 18); _inspector.Children.Add(curves); return;
                 case "Color grading":
                     var grading = CreateGrading(photo); grading.Margin = new(18, 0, 18, 18); _inspector.Children.Add(grading); return;
             }
             _histogram.Margin = new(18, 0, 18, 10); _inspector.Children.Add(_histogram);
             var profile = Row(); profile.Margin = new(18, 0, 18, 15); profile.Children.Add(Theme.Text("Profile", 11, true)); profile.Children.Add(Theme.Text(photo.State.Develop.Monochrome ? "LightSpace Monochrome" : "LightSpace Color", 12)); _inspector.Children.Add(profile);
+            var quick = Row(); quick.Margin = new(18, 0, 18, 10); quick.Spacing = 4;
+            quick.Children.Add(Button("RGB curves", text: "RGB curves", action: () => ShowInspector("RGB curves")));
+            quick.Children.Add(Button("Brush tool", text: "Brush", action: () => ChooseBrush(false)));
+            quick.Children.Add(Button("XMP sidecars", text: "XMP", action: () => ShowInspector("Info"))); _inspector.Children.Add(quick);
             var light = new StackPanel(); foreach (var name in new[] { "Exposure", "Contrast", "Highlights", "Shadows", "Whites", "Blacks" }) light.Children.Add(DevelopSlider(name)); _inspector.Children.Add(Section("Light", light));
             var curve = new StackPanel(); _curve = new ToneCurveView { Curve = photo.State.Develop.Curve }; Register("tone-curve", _curve);
             _curve.CurveChanged += value => Session.Preview(s => s with { Develop = s.Develop with { Curve = value } }); _curve.Committed += () => Session.CommitGesture("Point curve"); _curve.Canceled += Session.CancelGesture;
-            curve.Children.Add(_curve); curve.Children.Add(Note("Drag the five points. Double-click to reset.")); _inspector.Children.Add(Section("Point curve", curve, false));
+            curve.Children.Add(_curve); curve.Children.Add(Note("Legacy five-point curve, applied before RGB curves. Double-click to reset.")); _inspector.Children.Add(Section("Point curve", curve, false));
             var color = new StackPanel(); var wb = Row(); wb.Margin = new(0, 0, 0, 8); wb.Children.Add(Theme.Text("White balance", 11, true));
             wb.Children.Add(Button("Reset white balance", text: "As imported", action: () => Session.Edit("Reset white balance", s => s with { Develop = s.Develop with { Temperature = 0, Tint = 0 } }))); color.Children.Add(wb);
             foreach (var name in new[] { "Temperature", "Tint", "Vibrance", "Saturation" }) color.Children.Add(DevelopSlider(name)); _inspector.Children.Add(Section("Color", color));
@@ -104,12 +110,15 @@ public sealed partial class StudioView
         var info = new StackPanel { Spacing = 12, Margin = new(18, 0, 18, 18) };
         var filename = Theme.Text(photo.Name, 14); filename.TextWrapping = TextWrapping.Wrap; info.Children.Add(filename);
         info.Children.Add(Theme.Text($"{photo.Width:N0} × {photo.Height:N0} pixels", 12, true)); info.Children.Add(Theme.Text($"{photo.Original.Length / 1048576d:0.0} MiB · source retained", 11, true));
+        var sidecars = Row(); sidecars.Spacing = 4;
+        sidecars.Children.Add(Button("Import XMP", Glyph.Import, "Import XMP", () => Run(ImportXmpAsync)));
+        sidecars.Children.Add(Button("Export XMP", Glyph.Export, "Export XMP", () => Run(ExportXmpAsync))); info.Children.Add(sidecars);
         if (!string.IsNullOrEmpty(photo.Camera)) info.Children.Add(Note(photo.Camera)); if (!string.IsNullOrEmpty(photo.ExposureInfo)) info.Children.Add(Note(photo.ExposureInfo));
         info.Children.Add(Theme.Text("Caption", 11, true)); var caption = Theme.Input("Add a caption", "Photo caption", photo.State.Caption); caption.AcceptsReturn = true; caption.Height = 84; caption.TextWrapping = TextWrapping.Wrap; info.Children.Add(caption);
         info.Children.Add(Theme.Text("Keywords", 11, true)); var keywords = Theme.Input("landscape, mountains, travel", "Photo keywords", string.Join(", ", photo.State.Keywords)); info.Children.Add(keywords);
         info.Children.Add(Button("Save photo information", Glyph.Check, "Save information", () => Session.Edit("Photo information", s => s with { Caption = caption.Text, Keywords = keywords.Text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) })));
         if (Session.Catalog.Albums.Count > 0) { info.Children.Add(Theme.Text("Add selection to album", 11, true)); foreach (var album in Session.Catalog.Albums) info.Children.Add(Button("Add to " + album.Name, Glyph.Folder, album.Name, () => { Session.AddSelectionToAlbum(album.Id); SetStatus("Added selection to " + album.Name); })); }
-        info.Children.Add(Note("Rendered image exports do not retain EXIF/IPTC metadata. Catalog backups retain the original bytes.")); _inspector.Children.Add(info);
+        info.Children.Add(Note("Rendered image exports do not retain EXIF/IPTC metadata. XMP sidecars transfer the supported metadata and editing subset; catalog backups retain original bytes.")); _inspector.Children.Add(info);
     }
     private void BuildCrop(PhotoDocument photo)
     {

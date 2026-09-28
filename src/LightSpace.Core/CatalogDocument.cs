@@ -35,8 +35,7 @@ public sealed record PhotoState
             return items.Where(item => item is not null).Take(max).Select(normalize).ToArray();
         for (var i = 0; i < items.Length; i++)
         {
-            var item = normalize(items[i]);
-            if (ReferenceEquals(item, items[i])) continue;
+            var item = normalize(items[i]); if (ReferenceEquals(item, items[i])) continue;
             copy ??= (T[])items.Clone(); copy[i] = item;
         }
         return copy ?? items;
@@ -81,7 +80,7 @@ public sealed class Album
 }
 public sealed class CatalogDocument
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public Guid ActivePhoto { get; set; }
     public List<PhotoDocument> Photos { get; set; } = [];
@@ -102,6 +101,8 @@ public static class BuiltInPresets
         new("High key", "Black & white", new() { Monochrome = true, Exposure = .65f, Blacks = 18, Contrast = -12 }),
         new("Nightfall", "Creative", new() { Exposure = -.4f, Temperature = -20, Highlights = -28, Shadows = 18, Saturation = -10, Vignette = -32 }),
         new("Teal & amber", "Color grading", new() { Grading = new() { Shadows = new(195, 22), Highlights = new(40, 18), Blending = 60 } }),
-        new("Warm silver", "Color grading", new() { Monochrome = true, Grading = new() { Shadows = new(220, 8), Highlights = new(38, 14), Balance = 12 } })
+        new("Warm silver", "Color grading", new() { Monochrome = true, Grading = new() { Shadows = new(220, 8), Highlights = new(38, 14), Balance = 12 } }),
+        new("Soft cinema", "RGB curves", new() { Channels = new() { Master = new() { Points = [new(0,.035f),new(.25f,.2f),new(.75f,.8f),new(1,.97f)] }, Blue = new() { Points = [new(0,.025f),new(.5f,.5f),new(1,.98f)] } } }),
+        new("Crisp contrast", "RGB curves", new() { Channels = new() { Master = new() { Points = [new(0,0),new(.22f,.12f),new(.78f,.88f),new(1,1)] } } })
     ];
 }

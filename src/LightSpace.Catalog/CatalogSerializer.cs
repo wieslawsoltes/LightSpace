@@ -17,7 +17,7 @@ public static class CatalogSerializer
     {
         if (json.Length > MaxCatalogBytes * 1.4) throw new InvalidDataException("Catalog exceeds the 256 MiB safety limit.");
         var result = JsonSerializer.Deserialize(json, CatalogJsonContext.Default.CatalogDocument) ?? throw new InvalidDataException("Empty catalog.");
-        if (result.SchemaVersion is not (1 or CatalogDocument.CurrentSchemaVersion)) throw new InvalidDataException($"Unsupported catalog version {result.SchemaVersion}.");
+        if (result.SchemaVersion is < 1 or > CatalogDocument.CurrentSchemaVersion) throw new InvalidDataException($"Unsupported catalog version {result.SchemaVersion}.");
         if (result.Photos is null || result.Albums is null || result.Photos.Count > 5000 || result.Albums.Count > 5000) throw new InvalidDataException("Invalid catalog structure.");
         long bytes = 0; var ids = new HashSet<Guid>();
         foreach (var photo in result.Photos)
@@ -38,8 +38,8 @@ public static class CatalogSerializer
             album.Name ??= "Album"; album.Photos = (album.Photos ?? []).Where(ids.Contains).Distinct().ToList();
         }
         if (!ids.Contains(result.ActivePhoto)) result.ActivePhoto = result.Photos.FirstOrDefault()?.Id ?? Guid.Empty;
-        // Schema 1 omitted grading/range fields; their neutral defaults preserve legacy processing.
-        // Emitting schema 2 prevents older applications from silently dropping new edits.
+        // Missing schema-1/2 curve and brush fields have neutral defaults. New saves
+        // use schema 3, preventing older applications from silently dropping edits.
         result.SchemaVersion = CatalogDocument.CurrentSchemaVersion;
         return result;
     }

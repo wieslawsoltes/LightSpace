@@ -1,30 +1,36 @@
-# Feature coverage and boundaries
+# Feature coverage and compatibility boundaries
 
-## 0.2.0-alpha.1
-
-LightSpace is a functional independent Uno photography workspace. It does not claim exact visual reproduction or Adobe processing/catalog compatibility. The current implementation and its boundaries are listed below.
+**0.3.0-alpha.1** is an independent, functional Uno photography workspace. This ledger is a scope statement, not a claim of exact Lightroom UI, processing, file-format or feature parity.
 
 | Area | Implemented | Remaining boundary |
 | --- | --- | --- |
-| Shell | Dark library/sidebar, centered photo canvas, filmstrip, histogram, inspector, tool rail, original iconography and custom controls | Not pixel-identical Lightroom; no Lightroom Classic modules; some standard Uno input primitives remain |
-| Reuse | Eight packable libraries; independent grading wheel/editor, mixer, mask editor, cards, slider, curves, histogram and viewport | Not every workbench section is a standalone public control |
-| Import | JPEG, PNG, WebP, BMP, first GIF frame; EXIF orientation and sRGB conversion; original bytes retained | No RAW/demosaic, HEIF, TIFF or video workflow |
-| Catalog | Albums, multi-selection, text/keyword search, ratings, flags, 60-photo pages | No indexed large-catalog database, folder watching, relinking or Lightroom catalog import |
-| Light and color | Tonal sliders, relative white balance, vibrance/saturation, monochrome, presets | Original approximations; no calibrated camera profiles or processing parity |
-| Curves and mixer | Five-point RGB curve, eight-band HSV-based mixer | No arbitrary/per-channel curves or perceptual point-color selection |
-| Color grading | Shadows/midtones/highlights/global wheels, hue/saturation/luminance, blending, balance, range reset; undo/copy/sync/recovery | Original LDR grading model, not Adobe pixels or scene-referred RAW/HDR grading |
-| Crop | Free crop, handles, movement, common centered ratios, quarter turns and flips | No free-angle straightening, perspective correction or continuously locked aspect while dragging |
-| Local masks | Rotatable radial/linear gradients with live move/resize/rotation handles; standalone luminance ranges; spatial/range intersection; local exposure/contrast/WB/saturation; opacity, disable, inversion, rename/duplicate/delete | Eight-mask limit; no brush/color-range/AI selection or general boolean-composition graph |
-| Mask inspection | Outlines and selected-mask weighted red coverage; no overlay in export or histogram | No generalized mask raster editor |
-| Clone | Up to 32 feathered source stamps, Alt-click source | Not healing, content-aware or generative removal |
-| Detail/effects | Sharpening/spatial smoothing, texture/clarity/dehaze approximations, vignette/grain | No AI denoise, super-resolution or calibrated lens correction; limited preview spatial information |
-| Navigation | Fit/source-pixel zoom geometry, wheel anchor, bounded pan, photo keyboard navigation | Preview capped at 2560-pixel long edge; no native-resolution tiled inspection/minimap |
-| Comparison | Original toggle and draggable before/after split without a document edit | No second-reference-photo, side-by-side/survey workflow |
-| Undo and versions | One-gesture transactions, batch edits, 100-step undo and persistent named snapshots | Undo session-only; imports/album structural changes not undoable |
-| Metadata/export | Captions/keywords/ratings/flags; JPEG/PNG/WebP and batch ZIP; portable catalog | Rendered exports 8-bit sRGB, cap8192, source EXIF/IPTC not copied; no print/soft proof/tethering |
-| Recovery | Committed-revision single writer, retry, protected unreadable recovery, browser unsaved-change warnings | Single JSON record; no cross-tab merge, cloud sync, encryption or guaranteed close-time flush |
-| Performance | Pixel-aware caches, neutral processing bypasses, bounded thumbnail decode, stable page controls, direct state equality, bounded auto-tone sampling | Synchronous CPU decode/export; not a separate WebGPU compute graph or hardware performance certification |
-| Interchange | Schema-1 import migration and schema-2 saves preserving new processing parameters | Older builds reject schema2; no Adobe presets/profiles, XMP or .lrcat compatibility |
-| Delivery | Engine/pixel/recovery tests, pointer-driven browser tests, desktop build matrix, gated Pages publishing, NuGet package artifacts | No NuGet.org publication, signed installers, notarization or auto-update service |
+| Shell | Custom dark photography layout, navigation, albums, filmstrip, inspector, tool rail, icons and application dialogs | Not pixel-identical Adobe UI; no Lightroom Classic module suite; narrow-screen usability is limited |
+| Reuse | Eight packable libraries; independent engine; reusable sliders, cards, grading/mixer/mask/brush/curve controls | Some workspace composition remains in StudioView partials; standard Uno input/scroll/select primitives remain |
+| Input | JPEG, PNG, WebP, BMP and first GIF frame; EXIF orientation normalization and sRGB decode | No camera RAW/demosaic, DNG, HEIF/HEIC, TIFF, video or animated workflows |
+| Catalog | Original bytes, albums, selection, ratings/flags, captions/keywords, search/filtering, 60-photo pages | Not an indexed catalog database; no folder watching, relinking, stacks, face/location indexing or Lightroom lrcat support |
+| Global development | Tone, relative white balance, saturation/vibrance, monochrome, effects/detail approximations | Original LDR processing, not calibrated Adobe RAW algorithms; no profile authoring, camera/lens calibration or eyedropper |
+| Curves | Legacy five-point curve plus arbitrary-point master/R/G/B, linear or shape-preserving smooth interpolation, numeric/pointer/keyboard editing | Maximum 32 points per channel; 2048-entry sampled render lookup; no claim of Adobe interpolation equivalence |
+| Color grading | Shadows/midtones/highlights/global wheels, luminance, blending, balance, presets and undo | Original tonal weighting and tint model, not Adobe pixel equivalence |
+| Color mixer | Eight weighted HSV bands with hue/saturation/luminance | No point-color selection or perceptual color-space parity |
+| Crop/navigation | Rectangle and handles, centered ratios, quarter turns/flips, fit/source-pixel geometry, pan, wheel zoom | No arbitrary straightening angle, perspective/Upright or continuous aspect locking; previews remain bounded rather than native-resolution tiled |
+| Gradient/range masks | Rotatable radial and linear masks, handles, luminance range/intersection, coverage display, amount, enable/invert, local tone/color | No color-range masks, AI selections or arbitrary mask-group boolean graph |
+| Brush masks | Add/erase, pressure-aware radius/flow, feather/density, arc-length sampling, undo/cancel; brush modifications of analytic masks | 8 masks, 64 strokes/mask, 4096 dabs/stroke, 65,536 dabs/mask; coverage raster capped at 1024px long edge even for export; physical pen hardware unverified |
+| Cloning | 32 feathered source stamps with source selection | Not healing, content-aware or generative removal |
+| Comparison | Original view and draggable before/after divider | No reference-photo or multi-photo survey mode |
+| Transactions | Gesture-coalesced undo/redo, atomic selected-photo settings, named versions | Session-only 100-step undo; imports and album structural changes are not undoable |
+| XMP | Metadata subset, reported Camera Raw parameter/curve subset, review-before-apply, native extension and lossless LightSpace settings round trips | No full Adobe preset/profile/mask/crop processing compatibility; unknown properties not retained; no interactive Adobe-app interoperability certification |
+| Output | JPEG/PNG/WebP, quality/size, ZIP batch, catalog and XMP sidecars | Image output is 8-bit sRGB, maximum 8192px long edge, source EXIF/IPTC not embedded; no print, soft proof or tethering |
+| Recovery | Revision-aware single writer, committed snapshots, retry, protected unreadable data, IndexedDB/native recovery, unload warning | Single JSON record including originals; no encrypted vault, journal, cross-tab merge, cloud sync or guaranteed close-time flush |
+| Performance | Pixel-aware caches, stable UI cards, neutral bypass, bounded decode/Auto sampling, cached floating-point curves, incremental brush rasterization, weak diagnostic registrations | CPU decode/export/recovery and brush texture publication remain synchronous; budgets do not bound all peak memory or GPU allocations |
+| GPU | Runtime-effect integration in Uno's Skia canvas | No separate WebGPU compute graph; host/device-dependent acceleration; SwiftShader tests are not physical-GPU certification |
+| Delivery | Updated Actions and Playwright, engine/browser checks, desktop matrix, provenance-checked Pages, NuGet artifacts and release workflow | No NuGet.org publication, signed installers, notarization or auto-update service |
 
-See [color and mask workflows](COLOR-AND-MASKS.md), [performance evidence and limits](PERFORMANCE.md), [architecture](ARCHITECTURE.md) and [recovery invariants](RECOVERY.md). Remaining features are not represented as completed merely because an extension point exists.
+## Compatibility guarantees in this implementation
+
+Original encoded bytes are not modified by development or sidecar operations. Curve/brush edits participate in undo, selected-photo synchronization, versions and recovery. New catalogs use schema 3; schemas 1 and 2 migrate with neutral defaults. Unsupported future schemas are rejected. XMP import reports unsupported Camera Raw fields instead of silently claiming equivalent results.
+
+## Next production-level areas
+
+RAW decoding and scene-linear floating-point color management, calibrated camera/lens profiles, full-resolution tiled rendering, asynchronous scheduling, incremental durable source storage and indexed catalog operations remain substantial separate workstreams. AI inference, panorama/HDR merging, print/proofing and cloud workflows are also absent. Adding controls for those workflows without real processing would not close their parity boundary.
+
+See [advanced editing and XMP semantics](ADVANCED-EDITING.md), [performance evidence](PERFORMANCE.md), [recovery](RECOVERY.md) and [architecture](ARCHITECTURE.md).

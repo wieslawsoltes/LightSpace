@@ -3,7 +3,7 @@ using LightSpace.Editing;
 using LightSpace.Rendering.Skia;
 namespace LightSpace.Controls;
 
-public enum PhotoTool { Edit, Crop, RadialMask, LinearMask, Clone }
+public enum PhotoTool { Edit, Crop, RadialMask, LinearMask, Clone, Brush }
 public sealed record ViewportHandle(string Id, float X, float Y);
 
 /// <summary>Source-normalized, transaction-aware photography canvas shared by native and browser hosts.</summary>
@@ -38,7 +38,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     public Rect ImageBounds => new(_imageRect.Left, _imageRect.Top, _imageRect.Width, _imageRect.Height);
     public event Action? ViewChanged;
     public event Action<string>? Status;
-    private bool IsMaskTool => Tool is PhotoTool.RadialMask or PhotoTool.LinearMask;
+    private bool IsMaskTool => Tool is PhotoTool.RadialMask or PhotoTool.LinearMask or PhotoTool.Brush;
     private CropSettings DisplayCrop => Tool == PhotoTool.Crop ? new() : _session.Active?.State.Crop ?? new();
 
     public PhotoViewport(EditorSession session, PhotoRenderer renderer)
@@ -49,9 +49,15 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
         AutomationProperties.SetName(this, "Photo canvas"); AutomationProperties.SetAutomationId(this, "Photo canvas");
         _surface.PointerPressed += Press; _surface.PointerMoved += Move; _surface.PointerReleased += Release;
         _surface.PointerCanceled += (_, _) => Cancel(); _surface.PointerCaptureLost += (_, _) => Cancel();
+        _surface.PointerExited += (_, _) => { _brushCursor = null; if (Tool == PhotoTool.Brush) Invalidate(); };
         _surface.PointerWheelChanged += Wheel;
         _surface.DoubleTapped += (_, e) => { if (Tool == PhotoTool.Edit && !Compare) ToggleZoom(); e.Handled = true; };
-        KeyDown += (_, e) => { if (e.Key == VirtualKey.Escape) Cancel(); };
+        KeyDown += (_, e) =>
+        {
+            // Escape first cancels a captured gesture. A later Escape may leave
+            // the tool, but cancellation must not also rebuild its inspector.
+            if (e.Key == VirtualKey.Escape && _dragging) { Cancel(); e.Handled = true; }
+        };
         SizeChanged += (_, _) => Invalidate(); _session.ViewChanged += Invalidate;
     }
     public void Invalidate() => _surface.Invalidate();
@@ -101,6 +107,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
             }
             if (Tool == PhotoTool.Crop) PaintCrop(canvas, photo.State.Crop);
             if (IsMaskTool && MaskOverlay) PaintMasks(canvas, photo);
+            if (Tool == PhotoTool.Brush) PaintBrushCursor(canvas, photo);
             if (Tool == PhotoTool.Clone)
             {
                 var source = ToView(_cloneSource.X, _cloneSource.Y); paint.Style = SKPaintStyle.Stroke; paint.Color = SKColor.Parse("#d5e9fa"); paint.StrokeWidth = 1;
@@ -123,6 +130,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     }
     private void Press(object sender, PointerRoutedEventArgs e)
     {
+        if (Tool == PhotoTool.Brush) { PressBrush(e); return; }
         if (_session.Active is not { } photo) return; var screen = e.GetCurrentPoint(_surface).Position;
         Focus(FocusState.Pointer); e.Handled = true; var p = ToSource(screen);
         if (Tool == PhotoTool.Clone)
@@ -155,6 +163,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     }
     private void Move(object sender, PointerRoutedEventArgs e)
     {
+        if (Tool == PhotoTool.Brush) { MoveBrush(e); return; }
         if (!_dragging || _startState is null) return; var screen = e.GetCurrentPoint(_surface).Position;
         if (_dragComparison) { ComparisonPosition = Numeric.Clamp(((float)screen.X - _imageRect.Left) / Math.Max(1, _imageRect.Width), .03f, .97f); Invalidate(); e.Handled = true; return; }
         if (Tool == PhotoTool.Edit) { PanX = _startPan.X + (float)screen.X - _press.X; PanY = _startPan.Y + (float)screen.Y - _press.Y; ConstrainPan(); Invalidate(); return; }
@@ -177,16 +186,18 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     private void Release(object sender, PointerRoutedEventArgs e)
     {
         if (!_dragging) return; Move(sender, e); _dragging = false; _surface.ReleasePointerCapture(e.Pointer);
-        if (Tool != PhotoTool.Edit) _session.CommitGesture(Tool == PhotoTool.Crop ? "Crop" : _maskAction is null ? "Create gradient mask" : "Transform mask");
-        _startState = null; _dragComparison = false; ViewChanged?.Invoke(); e.Handled = true;
+        if (Tool != PhotoTool.Edit) _session.CommitGesture(Tool == PhotoTool.Brush ? (_brushStart?.Erase == true ? "Erase brush stroke" : "Paint brush stroke") : Tool == PhotoTool.Crop ? "Crop" : _maskAction is null ? "Create gradient mask" : "Transform mask");
+        _strokeBuilder = null; _brushStart = null; _startState = null; _dragComparison = false; ViewChanged?.Invoke(); e.Handled = true;
     }
     private void Cancel()
     {
         if (!_dragging) return; _dragging = false; _surface.ReleasePointerCaptures(); _session.CancelGesture(); _startState = null; _dragComparison = false;
+        _strokeBuilder = null; _brushStart = null;
         ActiveMask = Math.Clamp(ActiveMask, -1, (_session.Active?.State.Masks.Length ?? 0) - 1); Invalidate();
     }
     private void Wheel(object sender, PointerRoutedEventArgs e)
     {
+        if (_dragging) return;
         var pointer = e.GetCurrentPoint(_surface); var factor = pointer.Properties.MouseWheelDelta > 0 ? 1.15f : 1 / 1.15f; var old = Zoom; Zoom = Math.Clamp(Zoom * factor, .01f, 64);
         var x = (float)pointer.Position.X; var y = (float)pointer.Position.Y;
         PanX = (PanX + (float)ActualWidth / 2 - x) * (Zoom / old) + x - (float)ActualWidth / 2;
