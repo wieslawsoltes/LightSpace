@@ -36,16 +36,18 @@ public sealed partial class StudioView : UserControl, IDisposable
     private ColorGradingEditor? _gradingEditor;
     private MaskSettingsEditor? _maskEditor;
     private readonly RecoveryCoordinator _recovery;
+    private readonly RecoveryPersistence? _persistence;
     private LightButton? _saveButton;
     public event Action<bool>? UnsavedChangesChanged;
     public EditorSession Session { get; }
     public PhotoViewport Viewport { get; }
     public event Action<StudioDiagnostics>? DiagnosticsChanged;
 
-    public StudioView(EditorSession session, IWorkspaceStorage storage, bool recoveryLoaded = true)
+    public StudioView(EditorSession session, IWorkspaceStorage storage, bool recoveryLoaded = true, RecoveryPersistence? persistence = null)
     {
         Session = session; _storage = storage;
-        _recovery = new RecoveryCoordinator(session, storage.WriteRecoveryAsync, recoveryLoaded); _recovery.StatusChanged += RecoveryChanged;
+        _persistence = persistence ?? (storage is IRecoveryStore store ? new RecoveryPersistence(store) : null);
+        _recovery = _persistence is null ? new RecoveryCoordinator(session, storage.WriteRecoveryAsync, recoveryLoaded) : RecoveryCoordinator.Incremental(session, _persistence, recoveryLoaded); _recovery.StatusChanged += RecoveryChanged;
         FontFamily = Theme.Font; RequestedTheme = ElementTheme.Dark; Background = Theme.Background;
         HorizontalContentAlignment = HorizontalAlignment.Stretch; VerticalContentAlignment = VerticalAlignment.Stretch;
         Viewport = new(session, _renderer); Register("canvas", Viewport);
@@ -108,12 +110,12 @@ public sealed partial class StudioView : UserControl, IDisposable
     public void SetGrid(bool enabled) { _gridMode = enabled; _gridScroll.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed; Viewport.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible; PublishDiagnostics(); }
     public void ChooseTool(PhotoTool tool)
     {
-        SetGrid(false); Viewport.SetTool(tool); ShowInspector(tool switch { PhotoTool.Crop => "Crop", PhotoTool.Clone => "Clone", PhotoTool.RadialMask or PhotoTool.LinearMask or PhotoTool.Brush => "Masks", _ => "Edit" }); RefreshToolButtons();
+        SetGrid(false); Viewport.SetTool(tool); ShowInspector(tool switch { PhotoTool.Crop => "Crop", PhotoTool.Clone => "Clone", PhotoTool.RadialMask or PhotoTool.LinearMask or PhotoTool.Brush or PhotoTool.ColorRange => "Masks", _ => "Edit" }); RefreshToolButtons();
     }
     private void RefreshToolButtons()
     {
         foreach (var (tool, button) in _tools)
-            button.Selected = tool == Viewport.Tool || tool == PhotoTool.RadialMask && Viewport.Tool is PhotoTool.LinearMask or PhotoTool.Brush;
+            button.Selected = tool == Viewport.Tool || tool == PhotoTool.RadialMask && Viewport.Tool is PhotoTool.LinearMask or PhotoTool.Brush or PhotoTool.ColorRange;
     }
     private void ViewportChanged()
     {

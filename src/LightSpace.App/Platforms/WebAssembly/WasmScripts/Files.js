@@ -3,13 +3,7 @@
   let dirty = false;
   addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
   const diagnostics = new URLSearchParams(location.search).has('diagnostics');
-  const database = () => new Promise((resolve, reject) => {
-    const request = indexedDB.open('LightSpace-v1', 1);
-    request.onupgradeneeded = () => request.result.createObjectStore('workspace');
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error('Browser storage is unavailable.'));
-    request.onblocked = () => reject(new Error('Close other LightSpace tabs to update storage.'));
-  });
+  const database = () => globalThis.lightSpaceRecovery.open();
   async function pick(accept, multiple, limit) {
     return await new Promise((resolve, reject) => {
       const input = document.createElement('input'); input.type = 'file'; input.accept = accept; input.multiple = multiple;
@@ -42,13 +36,11 @@
       for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
       const url = URL.createObjectURL(new Blob([bytes], { type })); const link = document.createElement('a'); link.href = url; link.download = name; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000); return 'ok';
     },
-    load: async () => {
-      const db = await database();
-      return await new Promise((resolve, reject) => { const tx = db.transaction('workspace', 'readonly'); const request = tx.objectStore('workspace').get('catalog'); let value = ''; request.onsuccess = () => { value = request.result || ''; }; tx.oncomplete = () => { db.close(); resolve(value); }; tx.onerror = tx.onabort = () => { db.close(); reject(tx.error || new Error('Recovery read failed.')); }; });
-    },
+    // Portable hydration is for legacy consumers and diagnostics. Normal startup reads the manifest and source blobs separately.
+    load: () => globalThis.lightSpaceRecovery.loadCompatible(),
     save: async json => {
       const db = await database();
-      return await new Promise((resolve, reject) => { const tx = db.transaction('workspace', 'readwrite'); tx.objectStore('workspace').put(json, 'catalog'); tx.oncomplete = () => { db.close(); resolve('ok'); }; tx.onerror = tx.onabort = () => { db.close(); reject(tx.error || new Error('Recovery write failed.')); }; });
+      return await new Promise((resolve, reject) => { const tx = db.transaction('workspace', 'readwrite'); tx.objectStore('workspace').put(json, 'catalog'); tx.objectStore('workspace').delete('manifest-v1'); tx.oncomplete = () => { db.close(); resolve('ok'); }; tx.onerror = tx.onabort = () => { db.close(); reject(tx.error || new Error('Recovery write failed.')); }; });
     },
     publishDiagnostics: json => { globalThis.lightSpaceReady = true; if (diagnostics) globalThis.lightSpaceDiagnostics = JSON.parse(json); },
     startupError: error => { globalThis.lightSpaceStartupError = error; },

@@ -3,7 +3,7 @@ using Windows.Storage;
 using Windows.Storage.Pickers;
 namespace LightSpace.App;
 
-internal sealed class DesktopWorkspaceStorage : IWorkspaceStorage, ISidecarStorage
+internal sealed partial class DesktopWorkspaceStorage : IWorkspaceStorage, ISidecarStorage, IRecoveryStore
 {
     private static string DirectoryPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LightSpace");
     private static string RecoveryPath => Path.Combine(DirectoryPath, "recovery.lightspace");

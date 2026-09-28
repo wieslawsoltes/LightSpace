@@ -80,7 +80,7 @@ public sealed class Album
 }
 public sealed class CatalogDocument
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public Guid ActivePhoto { get; set; }
     public List<PhotoDocument> Photos { get; set; } = [];

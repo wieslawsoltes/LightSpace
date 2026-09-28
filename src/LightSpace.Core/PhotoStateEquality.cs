@@ -29,6 +29,7 @@ public static class PhotoStateEquality
         for (var i = 0; i < a.Masks.Length; i++)
         {
             var x = a.Masks[i]; var y = b.Masks[i];
+            if (!x.ColorRange.Samples.AsSpan().SequenceEqual(y.ColorRange.Samples)) return false;
             if (x.Id != y.Id || x.Name != y.Name || x.Strokes.Length != y.Strokes.Length) return false;
             for (var j = 0; j < x.Strokes.Length; j++) if (x.Strokes[j].Id != y.Strokes[j].Id) return false;
         }

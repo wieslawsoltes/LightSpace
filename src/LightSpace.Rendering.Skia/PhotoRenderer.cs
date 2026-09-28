@@ -4,7 +4,7 @@ using SkiaSharp;
 namespace LightSpace.Rendering.Skia;
 
 /// <summary>Owner-thread renderer with bounded source, curve-table and incremental brush caches.</summary>
-public sealed class PhotoRenderer : IDisposable
+public sealed partial class PhotoRenderer : IDisposable
 {
     private sealed class CachedPhoto(SKImage image, byte[] original) : IDisposable
     {
@@ -83,7 +83,7 @@ public sealed class PhotoRenderer : IDisposable
         {
             canvas.ClipRect(destination); var matrix = PhotoTransform.SourceToView(crop, image.Width, image.Height, destination); canvas.Concat(in matrix);
             if (shader is null) canvas.DrawImage(image, 0, 0, new SKSamplingOptions(SKFilterMode.Linear));
-            else { using var paint = new SKPaint { Shader = shader }; canvas.DrawRect(0, 0, image.Width, image.Height, paint); }
+            else { using var paint = new SKPaint { Shader = shader, IsAntialias = false }; canvas.DrawRect(0, 0, image.Width, image.Height, paint); }
         }
         finally { canvas.Restore(); }
     }
@@ -131,6 +131,7 @@ public sealed class PhotoRenderer : IDisposable
             new[] { m.Contrast / 100, m.Temperature / 100, m.Tint / 100, m.Strokes.Length > 0 ? 1f : 0 }.CopyTo(extra, i * 4);
         }
         u["maskCount"] = state.Masks.Length; u["maskGeometry"] = geometry; u["maskAdjust"] = adjustments;
+        SetColorUniforms(u, state.Masks);
         u["maskControl"] = controls; u["maskRange"] = ranges; u["maskExtra"] = extra;
         var spotData = new float[128]; var radii = new float[32];
         for (var i = 0; i < state.CloneSpots.Length; i++) { var p = state.CloneSpots[i]; new[] { p.X, p.Y, p.SourceX, p.SourceY }.CopyTo(spotData, i * 4); radii[i] = p.Radius; }

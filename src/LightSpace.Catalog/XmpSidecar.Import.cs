@@ -22,7 +22,7 @@ public static partial class XmpSidecar
         var nativeJson = Read(Native + "Settings");
         if (!options.MetadataOnly && options.PreferLightSpaceSettings && nativeJson is not null)
         {
-            if (Read(Native + "SchemaVersion") != NativeSchemaVersion.ToString(Invariant)) throw new InvalidDataException("Unsupported LightSpace sidecar settings version.");
+            if (!int.TryParse(Read(Native + "SchemaVersion"), out var nativeVersion) || nativeVersion is < 3 or > NativeSchemaVersion) throw new InvalidDataException("Unsupported LightSpace sidecar settings version.");
             state = CatalogSerializer.DeserializeSettings(nativeJson); native = true; applied.Add("LightSpace complete settings");
             warnings.Add("The LightSpace extension takes precedence over Camera Raw development values. Standard metadata is still read from the packet.");
         }

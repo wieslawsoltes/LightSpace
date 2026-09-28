@@ -10,7 +10,9 @@ public sealed partial class PhotoViewport
         if (Compare && Tool == PhotoTool.Edit) handles.Add(new("compare-divider", _imageRect.Left + _imageRect.Width * ComparisonPosition, _imageRect.MidY));
         var photo = _session.Active;
         if (!IsMaskTool || Tool == PhotoTool.Brush || !MaskOverlay || photo is null || ActiveMask < 0 || ActiveMask >= photo.State.Masks.Length) return handles;
-        var m = photo.State.Masks[ActiveMask]; if (m.Kind is MaskKind.LuminanceRange or MaskKind.Brush) return handles;
+        var m = photo.State.Masks[ActiveMask];
+        if (Tool == PhotoTool.ColorRange) { AddColorHandles(handles, m); return handles; }
+        if (m.Kind is MaskKind.LuminanceRange or MaskKind.Brush or MaskKind.ColorRange) return handles;
         var aspect = (float)photo.Width / photo.Height;
         void Add(string id, float x, float y)
         {
@@ -32,7 +34,7 @@ public sealed partial class PhotoViewport
         foreach (var handle in InteractionHandles().Reverse()) if (Near(handle.X, handle.Y)) return handle.Id;
         for (var i = photo.State.Masks.Length - 1; i >= 0; i--)
         {
-            var mask = photo.State.Masks[i]; if (mask.Kind is MaskKind.LuminanceRange or MaskKind.Brush) continue;
+            var mask = photo.State.Masks[i]; if (mask.Kind is MaskKind.LuminanceRange or MaskKind.Brush or MaskKind.ColorRange) continue;
             var p = ToView(mask.X, mask.Y); if (!Near(p.X, p.Y)) continue;
             ActiveMask = i; ViewChanged?.Invoke(); return "mask-center";
         }
@@ -80,7 +82,7 @@ public sealed partial class PhotoViewport
         canvas.Save(); canvas.ClipRect(_imageRect);
         for (var i = 0; i < photo.State.Masks.Length; i++)
         {
-            var m = photo.State.Masks[i]; if (m.Kind is MaskKind.LuminanceRange or MaskKind.Brush) continue;
+            var m = photo.State.Masks[i]; if (m.Kind is MaskKind.LuminanceRange or MaskKind.Brush or MaskKind.ColorRange) continue;
             paint.Color = i == ActiveMask ? SKColor.Parse("#b3dcff") : SKColors.White.WithAlpha(m.Enabled ? (byte)180 : (byte)70);
             SKPoint Map(float x, float y) { var p = m.LocalToSource(x, y, aspect); return ToView((float)p.X, (float)p.Y); }
             if (m.Kind == MaskKind.Radial)

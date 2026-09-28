@@ -28,7 +28,7 @@ public sealed record CropSettings(float Left = 0, float Top = 0, float Right = 1
     }
 }
 
-public enum MaskKind { Radial, Linear, LuminanceRange, Brush }
+public enum MaskKind { Radial, Linear, LuminanceRange, Brush, ColorRange }
 public sealed record LocalMask
 {
     public Guid Id { get; init; } = Guid.NewGuid();
@@ -52,6 +52,7 @@ public sealed record LocalMask
     public float RangeMin { get; init; }
     public float RangeMax { get; init; } = 1;
     public float RangeSmoothness { get; init; } = .1f;
+    public ColorRangeSettings ColorRange { get; init; } = new();
     public BrushStroke[] Strokes { get; init; } = [];
 
     public LocalMask Normalize()
@@ -67,13 +68,17 @@ public sealed record LocalMask
             Exposure = Numeric.Clamp(Exposure, -5, 5), Saturation = DevelopSettings.Percent(Saturation),
             Contrast = DevelopSettings.Percent(Contrast), Temperature = DevelopSettings.Percent(Temperature), Tint = DevelopSettings.Percent(Tint),
             Opacity = Numeric.Unit(Opacity), RangeMin = low, RangeMax = high, RangeSmoothness = Numeric.Clamp(RangeSmoothness, .001f, 1),
-            Strokes = BrushStroke.NormalizeAll(Strokes)
+            Strokes = BrushStroke.NormalizeAll(Strokes), ColorRange = (ColorRange ?? new()).Normalize()
         };
         return normalized == this ? this : normalized;
     }
     /// <summary>Coverage in source coordinates. Brushing modifies spatial coverage before range restriction and inversion.</summary>
     public float Weight(float x, float y, float sourceLuminance = .5f, float aspect = 1)
+        => Weight(x, y, new ColorSample(sourceLuminance, sourceLuminance, sourceLuminance), aspect);
+
+    public float Weight(float x, float y, ColorSample source, float aspect = 1)
     {
+        var sourceLuminance = source.Luminance;
         var m = Normalize(); if (!m.Enabled) return 0;
         aspect = MathF.Max(.0001f, aspect);
         var a = m.Angle * MathF.PI / 180; var cos = MathF.Cos(a); var sin = MathF.Sin(a);
@@ -93,6 +98,7 @@ public sealed record LocalMask
             var upper = m.RangeMax >= 1 ? 1 : 1 - Numeric.Smooth(m.RangeMax, m.RangeMax + m.RangeSmoothness, sourceLuminance);
             value *= lower * upper;
         }
+        if (m.ColorRange.Enabled || m.Kind == MaskKind.ColorRange) value *= m.ColorRange.Weight(source, m.Kind == MaskKind.ColorRange);
         return (m.Inverted ? 1 - value : value) * m.Opacity;
     }
     public PointD LocalToSource(float dx, float dy, float aspect)
@@ -106,7 +112,7 @@ public sealed record LocalMask
         && Contrast == other.Contrast && Temperature == other.Temperature && Tint == other.Tint && Inverted == other.Inverted
         && Enabled == other.Enabled && Opacity == other.Opacity && RangeEnabled == other.RangeEnabled
         && RangeMin == other.RangeMin && RangeMax == other.RangeMax && RangeSmoothness == other.RangeSmoothness
-        && BrushStroke.SequenceEquals(Strokes, other.Strokes);
+        && BrushStroke.SequenceEquals(Strokes, other.Strokes) && ColorRange.PixelEquals(other.ColorRange);
 }
 
 public sealed record CloneSpot(float X, float Y, float SourceX, float SourceY, float Radius = .03f)

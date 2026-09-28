@@ -3,7 +3,7 @@ using System.Text.Json;
 using LightSpace.Storage;
 namespace LightSpace.App;
 
-internal sealed class BrowserWorkspaceStorage : IWorkspaceStorage, ISidecarStorage
+internal sealed partial class BrowserWorkspaceStorage : IWorkspaceStorage, ISidecarStorage, IRecoveryStore
 {
     public async Task<IReadOnlyList<WorkspaceFile>> OpenImagesAsync() => Decode(await BrowserFiles.OpenImages());
     public async Task<WorkspaceFile?> OpenCatalogAsync() => Decode(await BrowserFiles.OpenCatalog()).FirstOrDefault();
