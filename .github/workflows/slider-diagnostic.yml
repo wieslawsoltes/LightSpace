@@ -1,0 +1,36 @@
+name: Slider baseline diagnostic
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v8
+        with:
+          name: LightSpace-browser
+          run-id: 36408386674
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Verify original application provenance
+        run: jq -e '.commit == "fe1df0bb9ffdd99a8e05abe68f9a51b582ccbfd7"' baseline/build-info.json
+      - name: Reproduce the original failure without suppressing its exit code
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          mkdir -p artifacts
+          python3 scripts/serve-site.py --directory baseline --port 4173 > artifacts/baseline-server.log 2>&1 &
+          set -o pipefail
+          DEBUG=pw:browser npx playwright test slider-stability.spec.mjs 2>&1 | tee artifacts/baseline-probe.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: LightSpace-slider-baseline
+          path: artifacts

@@ -13,6 +13,7 @@ ParityTests.Register(Test);
 AdvancedEditingTests.Register(Test);
 XmpTests.Register(Test);
 ColorRangeTests.Register(Test);
+RendererLifetimeTests.Register(Test);
 foreach (var legacy in new[] { 1, 2, 3 })
 {
     Test($"Schema {legacy} migrates with neutral brush and channel settings", () =>
