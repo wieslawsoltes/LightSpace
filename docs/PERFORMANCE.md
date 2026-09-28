@@ -1,39 +1,51 @@
 # Performance architecture and evidence
 
-## What is measured
+## Measured scope
 
-The engine suite writes `artifacts/engine/performance.json`. It compares the previous serialization-based state equality with the new direct value comparison on the same normalized states, using 10,000 iterations after warm-up. The report includes elapsed CPU time and thread-local managed allocations. The same test performs 250 warm 96×64 raster redraws while only rating and caption change, and records additional image decodes and shader builds.
+The engine suite emits `artifacts/engine/performance.json`, comparing serialization-based equality with direct value comparison on the same normalized states for 10,000 warmed iterations. It reports elapsed CPU time and thread-local managed allocations. A separate 250-iteration warm metadata-redraw check records additional image decodes and shader builds.
 
-Browser acceptance writes `artifacts/browser-exports/metadata-performance.json`. It warms a developed photograph, then changes its rating seven times through actual Uno controls. The test verifies that card construction, library/inspector construction, decoded-image count, shader-build count and thumbnail renders do not increase when page membership remains unchanged.
+`artifacts/engine/advanced-performance.json` measures 100 warm exposure updates with both a painted mask and non-neutral RGB curve on a raster canvas. It verifies that those updates do not rasterize additional brush dabs, publish new brush textures or rebuild curve tables. The elapsed time is CPU/raster execution, not GPU frame latency.
 
-These are scoped microbenchmarks and work-avoidance counters. They are **not** application startup measurements, end-to-end frame latency, physical-GPU timing, or evidence of a universal speedup. CI's browser uses Chromium/SwiftShader. Compare timing distributions on your own production devices before making hardware claims.
+Browser acceptance emits `artifacts/browser-exports/metadata-performance.json` for seven real rating changes and `brush-performance.json` for three local-exposure gestures after painting. Counters verify stable card/library/inspector construction and reuse of decoded images, shaders, thumbnails, brush coverage and curve tables where applicable.
+
+These are scoped microbenchmarks and work-avoidance assertions. They are not application startup measurements, physical-GPU timings, pen-hardware certification or universal speedup claims. CI uses Chromium/SwiftShader. Compare timing distributions on target devices before making hardware claims.
 
 ## Pixel-aware invalidation
 
-`PhotoStateEquality.All` replaces JSON allocation in transaction no-op detection. `Shader` compares only processing inputs, and `Pixels` adds crop geometry. Metadata, mask names and mask identities do not invalidate identical pixels. Source byte-array identity is checked separately to prevent stale results when a catalog replaces an image under the same photo ID.
+`PhotoStateEquality.All` compares normalized values without serializing JSON. `Shader` compares only processing inputs; `Pixels` adds crop geometry. Ratings, captions, mask names and mask IDs do not change identical pixel results. Original byte-array identity prevents reuse of a different source under the same photo ID.
 
-`PhotoRenderer` reuses its decoded source and runtime effect for metadata-only changes, including when `PhotoDocument.Revision` advances. A crop changes the matrix rather than rebuilding the development shader. Neutral unmasked photographs use direct image drawing. Optional point-curve, color-mixer, grading, grain and vignette calculations are bypassed when neutral.
+Metadata edits reuse decoded sources, runtime effects and thumbnails even if document revisions advance. Crop changes affect the matrix instead of rebuilding the development shader. Neutral photographs use direct image drawing. Neutral optional curve, mixer, grading, grain and vignette calculations are bypassed.
 
-Normalize methods retain valid array/object identities. They clone only collections requiring repairs; callers must still treat snapshot arrays and original bytes as read-only and use copy-on-write edits. This is not protection against callers mutating an array in place.
+Normalize methods retain valid object/array identities and copy only collections requiring repair. Callers must not mutate retained snapshot arrays in place. Brush-dab normalization is memoized by immutable array identity. This is an ownership contract, not a mechanism that detects arbitrary external mutation.
 
-## Decode and cache budgets
+## Curve tables
 
-The main viewport retains up to five decoded previews with a 2560-pixel long edge and a 128 MiB decoded-image budget. The renderer constructor accepts explicit preview size, image-count and byte-budget settings. Cache entries are evicted using LRU access order.
+`ToneLookupCache` compiles master/channel curves into a 2048-entry RGBA-float image and retains up to eight semantically keyed tables. A curve edit rebuilds a table; exposure, mask adjustments, metadata and crop changes reuse it. Shape-preserving interpolation is compiled once per point set; evaluation is allocation-free. Sampling a finite table is an approximation of the analytic curve, while export remains 8-bit sRGB.
 
-Thumbnails use a separate 384-pixel decode target, at most two retained source previews and an 8 MiB decoded-image budget. Their final rendered thumbnails are bounded to 240×160 with 128 entries. Metadata updates reuse those rendered thumbnails. These cache budgets describe retained decoded images; they do not include native codec scratch allocations, source bytes, managed objects, GPU copies or peak decode memory. Some codecs decode full resolution before resizing.
+## Incremental brush coverage
 
-Auto tone now reads a 96×64 image (6,144 pixels), rather than allocating a managed copy of every preview pixel. It remains a simple deterministic luminance heuristic.
+The cache stores the affine transform `coverage = multiplier * analyticCoverage + bias`. It retains floating-point stroke accumulation and recognizes append-only dab growth. New dabs update only their bounded raster region; changing local exposure or luminance restriction does not replay geometry. Undo or edits to an earlier stroke trigger replay.
 
-## Stable Uno controls
+Texture publication currently rebuilds an immutable 8-bit coefficient image after coverage changes. Thus a stroke does not rerasterize all previous dabs on each update, but publication is not a sparse GPU-texture upload. Coverage has a 1024-pixel maximum long edge, including export. This precision/quality boundary is explicit rather than described as native-resolution processing.
 
-The filmstrip and photo grid retain `PhotoCard` controls while the visible photo-ID sequence remains unchanged. Their labels and selection borders are updated in place; thumbnail invalidation is limited to pixel changes. A different filter result or page legitimately rebuilds the bounded page of controls.
+Per-mask limits are 64 strokes and 65,536 dabs, with 4096 dabs per stroke. Replay aborts after 200 million visited pixels. Retained brush caches default to 128 MiB, independently of decoded-image caches. These budgets exclude temporary snapshot arrays, codec scratch memory, source buffers and GPU copies; they are not total-process peak-memory limits.
 
-The album sidebar is rebuilt only when its structural/filter signature changes. Mask parameter edits keep the inspector and its pointer-captured controls alive. Mask selection or structural changes rebuild only the relevant inspector. Section expansion state is retained within the running workbench.
+## Decode and image-cache budgets
 
-A reduced-resolution histogram is scheduled only for changed pixels, with a timer limiting work during continuous gestures. Recovery retains the committed-snapshot contract and debounce behavior; it is not a shader/rendering concern.
+The viewport targets a 2560-pixel long edge, up to five retained source previews and a 128 MiB decoded-image budget. Thumbnails use a 384-pixel target, at most two retained decoded sources and an 8 MiB budget. Their rendered images are at most 240×160, with 128 cached thumbnails. Codec implementations may decode full-resolution data before resizing, so retained budgets do not limit every transient decode allocation.
+
+Auto tone reads a 96×64 image (6,144 pixels), rather than allocating a managed copy of the whole preview. It remains a simple deterministic luminance heuristic.
+
+## Stable Uno controls and diagnostics
+
+Filmstrip/grid `PhotoCard` instances survive metadata updates while page membership is unchanged. Labels and selection state update in place, and only pixel edits invalidate thumbnails. Changes to filters or page membership legitimately rebuild the bounded page.
+
+Sidebar construction follows structural/filter changes. Continuous mask and curve editing retains captured controls; selection or structural changes rebuild the appropriate inspector. Section expansion survives reconstruction within the session. Histograms are reduced-resolution, scheduled only for pixel changes and throttled during continuous gestures.
+
+Diagnostic registrations use weak references, avoiding ownership of discarded controls. Large brush coordinate arrays are excluded from diagnostic serialization; brush summaries contain IDs and counts only. Normal sessions do not subscribe to periodic diagnostic-tree snapshots. Test counters represent completed operations, not an inferred GPU timeline.
 
 ## Remaining performance boundaries
 
-Image decode and exported image encoding are still synchronous CPU/native-code operations. Catalog recovery still serializes retained originals into one JSON record. Browser/native images are not tiled, and source-pixel zoom does not recover details absent from the bounded preview. The catalog is paged in groups of 60 rather than using a durable indexed photo database.
+Decode, image encoding, brush texture publication and catalog serialization still perform synchronous CPU/native work. Recovery includes original image data in one JSON record. Photos are not tiled; source-pixel zoom cannot reveal information absent from the bounded preview. Browsing uses 60-photo pages rather than an indexed durable catalog.
 
-Texture taps and grain coordinates are now expressed relative to source pixels. Downsampling still changes available spatial information, so preview and full-resolution export are not guaranteed to match exactly for fine-detail effects. A multi-resolution tiled graph, asynchronous decode scheduler, incremental original storage, physical-device profiling and true native-resolution inspection remain important follow-on work.
+Source-relative detail/grain coordinates improve consistency, but downsampling changes available information and brush rasterization is bounded, so preview/full-resolution export are not guaranteed identical for fine details. Native-resolution tiled processing, asynchronous decode/export scheduling, incremental original storage and target-device profiling remain separate workstreams.

@@ -22,11 +22,16 @@ public sealed partial class PhotoViewport
         if (selected.Strokes.Length >= BrushStroke.MaximumStrokes) { Status?.Invoke("The selected mask has reached its 64-stroke limit."); return; }
         _brushDabLimit = Math.Min(BrushStroke.MaximumDabs, 65536 - selected.Strokes.Sum(s => s.Dabs.Length));
         if (_brushDabLimit <= 0) { Status?.Invoke("The selected mask has reached its dab limit."); return; }
+        // Skia hosts do not all populate PointerRoutedEventArgs.KeyModifiers.
+        // Read the keyboard state before changing focus, retaining the event's
+        // modifier snapshot as an additional source for native pointer devices.
+        var alt = e.KeyModifiers.HasFlag(VirtualKeyModifiers.Menu)
+            || Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu)
+                .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
         Focus(FocusState.Pointer); _startState = photo.State; _brushMask = selected;
         if (ActiveMask < 0 || ActiveMask >= photo.State.Masks.Length) ActiveMask = photo.State.Masks.Length;
-        _brushStart = BrushSettings.Normalize() with { Id = Guid.NewGuid(), Dabs = [], Erase = BrushSettings.Erase || e.KeyModifiers.HasFlag(VirtualKeyModifiers.Menu) };
+        _brushStart = BrushSettings.Normalize() with { Id = Guid.NewGuid(), Dabs = [], Erase = BrushSettings.Erase || alt };
         _strokeBuilder = new(_brushStart, (float)photo.Width / photo.Height);
-        // Resolve device identity once per stroke; mouse input uses full pressure.
         _usePressure = e.Pointer.PointerDeviceType.ToString() == "Pen";
         _dragging = true; _surface.CapturePointer(e.Pointer); _session.BeginGesture(); MoveBrush(e); e.Handled = true;
     }
@@ -35,6 +40,7 @@ public sealed partial class PhotoViewport
         var point = e.GetCurrentPoint(_surface); var uv = ToSource(point.Position); _brushCursor = uv;
         if (!_dragging || _strokeBuilder is null || _brushMask is null || _startState is null) { Invalidate(); return; }
         var oldCount = _strokeBuilder.Count;
+        if (oldCount >= _brushDabLimit) { Invalidate(); return; }
         _strokeBuilder.Add(uv.X, uv.Y, _usePressure ? point.Properties.Pressure : 1);
         if (_strokeBuilder.Count == oldCount) return;
         var stroke = _strokeBuilder.Snapshot();
@@ -56,7 +62,7 @@ public sealed partial class PhotoViewport
         using var paint = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 1, Color = SKColors.White };
         canvas.DrawCircle(center, radius, paint); paint.Color = SKColors.White.WithAlpha(130);
         canvas.DrawCircle(center, radius * (1 - settings.Feather), paint);
-        if (settings.Erase) canvas.DrawLine(center.X - 4, center.Y, center.X + 4, center.Y, paint);
-        else { canvas.DrawLine(center.X - 4, center.Y, center.X + 4, center.Y, paint); canvas.DrawLine(center.X, center.Y - 4, center.X, center.Y + 4, paint); }
+        canvas.DrawLine(center.X - 4, center.Y, center.X + 4, center.Y, paint);
+        if (!(_brushStart?.Erase ?? settings.Erase)) canvas.DrawLine(center.X, center.Y - 4, center.X, center.Y + 4, paint);
     }
 }

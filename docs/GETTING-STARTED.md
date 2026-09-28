@@ -1,66 +1,63 @@
 # Getting started
 
-## Import and organize
+## Open and organize
 
-Open the browser application or desktop host. A saved recovery catalog is restored when available; otherwise a demonstration catalog opens. Add photos imports JPEG, PNG, WebP, BMP or GIF without replacing original bytes. RAW/HEIF/TIFF are not supported.
+Launch the browser or native host. LightSpace restores its last successfully written local recovery catalog or opens demonstration photographs. Add photos imports JPEG, PNG, WebP, BMP or the first GIF frame; RAW, DNG, HEIF and TIFF are not decoded.
 
-Use the grid or filmstrip to select a photo; Control-click extends selection. Search matches filenames, captions and keywords. Favorites selects ratings4–5; Picks/Rejected filter flags. Albums reference photo IDs rather than duplicating sources. The previous/next page controls browse groups of60 photographs.
+Select a photograph in the grid or filmstrip. Control-click extends selection. Search matches filename, caption and keyword tokens; Favorites includes four/five-star photographs. Picks and Rejected filter flags. Albums contain references rather than duplicate originals. The grid and filmstrip show pages of up to 60 photos; breadcrumb arrows change pages, and keyboard arrows navigate the filtered sequence.
 
 ## Develop light and color
 
-Edit contains Light, Point curve, Color, Color mixer, Color grading, Effects and Detail sections. Drag a slider, type a value, or use arrow keys when focused. A completed gesture is one undo transaction; Escape cancels a live slider gesture; double-click resets it. Section expansion is retained during the session.
+The Edit inspector contains Light, legacy Point curve, Color, Color mixer, Color grading, Effects and Detail sections. Drag sliders, use keyboard arrows when focused or type numeric values. Double-click resets a slider. A completed gesture is one undo transaction; Escape cancels an active gesture.
 
-Temperature/tint are relative adjustments, not calibrated camera Kelvin values. Auto is a luminance heuristic. The five-point curve is piecewise linear RGB; the eight-band mixer is an HSV approximation. Detail smoothing is not AI denoising.
+Temperature/tint are relative adjustments, not calibrated camera Kelvin values. Auto is a luminance heuristic. Presets replace global development while preserving crop and local masks. Copy/Paste and Sync apply processing to selected photos while preserving their individual ratings, flags, captions and keywords.
 
-Grade opens the dedicated four-range grading panel. Select Shadows, Mids, Highs or Global, use the wheel/numeric hue and saturation, then refine luminance, blending and balance. Grading can tint monochrome photographs. See the [color and mask guide](COLOR-AND-MASKS.md) for processing semantics and controls.
+**Grade** opens shadows/midtones/highlights/global wheels. Hue, saturation, luminance, blending and balance are editable numerically or through the wheel. **RGB curves** opens arbitrary-point master/R/G/B curves. Click to add, drag or type to move, Delete to remove an interior point, and choose Smooth or Linear. The existing legacy five-point curve is applied first. See [grading and masks](COLOR-AND-MASKS.md) and [curve interpolation](ADVANCED-EDITING.md#rgb-point-curves).
 
-Copy/Paste and Sync copy processing settings while retaining target metadata. Presets replace global development while retaining crop/masks. Reset edits clears development, crop, local masks and clone spots but leaves metadata intact.
+## Crop, paint and refine
 
-## Crop, mask and clone
+Crop supports a source-normalized rectangle, edge/corner handles, movement, common centered ratios, quarter turns and flips. Done returns to editing. The unrotated source is displayed during crop editing. Arbitrary-angle straightening and perspective correction are not implemented.
 
-Crop (R) offers a free rectangle, draggable handles, movement, common centered aspect ratios, quarter turns and flips. A click without a meaningful drag does not replace the crop. The source is shown unrotated in crop mode; Done displays the transformed result. Free-angle straightening and perspective corrections are not implemented.
+Masking provides rotatable radial/linear gradients and luminance-range selections. Drag gradient handles to adjust geometry. Coverage shows the selected mask in red without contaminating export or histogram output. Local exposure, contrast, white balance and saturation remain non-destructive.
 
-Masking provides Radial, Linear and Luminance creation. Drag gradients on the image; move their pins, adjust radius/fade handles and rotate. Shift-drag creates another mask over an existing pin. Luminance selection can stand alone or restrict a spatial mask. Enable Coverage to inspect the weighted selection; it is not exported. Masks include amount, enable/disable, inversion, local tone/WB/saturation, rename/duplicate/delete and undo. Eight masks are supported.
+**Brush**, **B**, or **Paint selected** enables freehand editing. **New brush** creates a new mask. Expand Brush settings for size, feather, flow and density. Paint adds spatial coverage; Erase subtracts it; Alt temporarily erases. Brackets adjust size. A stroke ends on release, is one undo transaction, and can be canceled with Escape. Pressure-aware pen input is supported by the code but not certified on physical hardware here. Current brush coverage is capped at a 1024-pixel long edge, including export.
 
-Clone uses Alt-click to set a source and click to place a feathered stamp. Up to32 stamps are supported. This is ordinary cloning, not healing or generative removal.
+Clone uses up to 32 feathered stamps: Alt-click selects a source, then click a destination. It is not healing or generative removal. Mask capacity is eight; brush storage and replay have documented safety limits. [Detailed brush semantics](ADVANCED-EDITING.md#freehand-brush-masks)
 
-## View, compare and versions
+## Compare and preserve looks
 
-Fit resets zoom/pan.100% maps source-pixel geometry to display pixels using the host rasterization scale. The preview remains capped at2560 pixels, so larger images do not gain native detail at that zoom. Wheel zoom follows the pointer; pan is bounded to keep the image reachable.
+Before/after uses a draggable divider. Original toggles the original source view. Fit resets pan and zoom; 100% uses source-pixel/display-scale geometry. Viewport decoding remains bounded to 2560 pixels, so larger sources do not expose native-resolution detail through zoom alone. Export decodes the retained original.
 
-Before/after comparison has a draggable divider. Original toggles the original view at the same crop. These are viewport operations, not document transactions.
+Named versions preserve complete photo states and are saved in catalogs. Restoring a version is undoable. Session undo/redo retains up to 100 transactions; imports and album structural changes are not yet undoable.
 
-Named versions preserve complete photo-state snapshots, including metadata, in catalog backups. Restoring a version is undoable. Undo history itself is session-only and bounded to100 transactions.
+## XMP sidecars
+
+Open Photo information or XMP in Edit. Import XMP lets you inspect supported properties and compatibility warnings before Apply. Metadata only preserves processing; the native-settings option chooses between a complete LightSpace extension and the limited Camera Raw mapping. Import affects the active photograph as one undoable edit.
+
+Export XMP writes a separate file with rating, label, caption and keywords. Processing export is an explicit Camera Raw parameter/curve subset, plus optional complete LightSpace settings. Unsupported Adobe profiles, AI masks and processing are not equivalent. Unknown third-party properties are not retained on re-export. Original image bytes remain unchanged. [Supported fields and limits](ADVANCED-EDITING.md#xmp-interchange)
 
 ## Save and export
 
-The footer separately reports recovery state and operations. Saved locally means the committed revision has completed its storage write; active previews remain unsaved. Click the save control to flush or retry. Unreadable prior recovery is protected until replacement is explicitly confirmed. Browser termination can bypass prompts; portable backups remain important.
+The footer's dedicated save indicator acknowledges completed committed revisions, not live previews. Click it to save/retry. Browser recovery uses origin-local IndexedDB; native recovery uses `LightSpace/recovery.lightspace` under application data. Both are unencrypted. Unreadable previous recovery is protected until explicit replacement. Browser unload warnings are not a guarantee against crashes or forced termination.
 
-Save catalog downloads `.lightspace` JSON with originals, edits, albums, metadata and named versions. Open catalog replaces the active in-memory workspace; save a backup first. Schema1 catalogs migrate on import and new saves use schema2. Older builds reject schema2, so retain a pre-upgrade backup for older-version use.
+Save catalog exports originals, edits, metadata, albums and versions as `.lightspace`. New files use schema 3; schemas 1 and 2 migrate with neutral new settings. Older builds reject schema 3. Opening a catalog replaces the workspace: save a backup first.
 
-Export creates JPEG/PNG/WebP copies with quality/long-edge settings and optional selected-photo ZIP. Output is8-bit sRGB, max8192 pixels on the long edge, without source EXIF/IPTC metadata. The original bytes remain intact in catalog backups. There is no application cloud account, telemetry or photo upload.
+Image export produces 8-bit sRGB JPEG/PNG/WebP copies up to an 8192-pixel long edge, optionally ZIP-packaging a selection. Source EXIF/IPTC is not embedded in those rendered copies. Retain source files and portable catalog backups; local recovery is not the sole archive for irreplaceable photographs.
 
-## Keyboard reference
+## Keyboard
 
 | Keys | Action |
 | --- | --- |
-| G | Grid |
-| E / D | Edit/detail |
-| R | Crop |
-| M | Masking |
-| Z | Fit/source-pixel zoom geometry |
-| Y | Before/after split |
-| Backslash | Original toggle |
-|0–5 | Rating |
-| P / X / U | Pick / reject / clear flag |
-| Left / right | Previous / next photo |
-| Ctrl/Cmd+Z | Undo |
-| Ctrl/Cmd+Shift+Z or Ctrl+Y | Redo |
-| Ctrl/Cmd+I | Import |
-| Ctrl/Cmd+S | Catalog backup |
-| Ctrl/Cmd+E | Export |
-| Ctrl/Cmd+A | Select filtered photographs |
-| Ctrl/Cmd+C / V | Copy / paste edit settings |
-| Escape | Cancel active gesture/dialog |
+| G / E / D | Grid / edit |
+| R / M / B | Crop / masking / brush |
+| Z / Y / Backslash | Fit/source-pixel zoom / comparison / original |
+| 0–5 / P / X / U | Rating / pick / reject / clear flag |
+| Left / Right | Previous / next photo |
+| Alt while brushing | Temporary erase |
+| [ / ] while brushing | Smaller / larger brush |
+| Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z | Undo / redo |
+| Ctrl/Cmd+I / S / E | Import / catalog backup / export |
+| Ctrl/Cmd+A / C / V | Select filtered photos / copy edits / paste edits |
+| Escape | Cancel the active gesture or dialog; otherwise leave the current tool |
 
-Text fields retain typing behavior. Within the grading wheel, left/right adjusts hue, up/down adjusts saturation, Home resets color, and Escape cancels the active gesture.
+Curve and slider controls consume their own focused editing keys. Text fields retain normal typing behavior. The in-app Help entry introduces the core workflow; this guide and Advanced editing describe the full current feature boundary.
