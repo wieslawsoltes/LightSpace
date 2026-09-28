@@ -1,4 +1,4 @@
-name: Managed call tracing
+name: Shader lifetime tracing
 on:
   push:
     branches: ['diagnostics/slider-bounds']
@@ -21,7 +21,7 @@ jobs:
           run-id: 36408386674
           github-token: ${{ github.token }}
           path: baseline
-      - name: Enable managed call tracing on original binaries
+      - name: Enable shader lifetime tracing on original binaries
         run: |
           jq -e '.commit == "fe1df0bb9ffdd99a8e05abe68f9a51b582ccbfd7"' baseline/build-info.json
           python3 - <<'PY'
@@ -30,11 +30,11 @@ jobs:
           config = next(Path('baseline').glob('package_*/uno-config.js'))
           text = config.read_text()
           assert 'config.uno_runtime_options = [];' in text
-          options = ['--trace=N:LightSpace.Core,N:LightSpace.Rendering.Skia,N:LightSpace.Editing,N:LightSpace.Controls']
+          options = ['--trace=T:SkiaSharp.SKRuntimeEffect,T:SkiaSharp.SKShader,T:SkiaSharp.SKNativeObject,T:SkiaSharp.SKObject,N:LightSpace.Rendering.Skia']
           config.write_text(text.replace('config.uno_runtime_options = [];', 'config.uno_runtime_options = ' + json.dumps(options) + ';'))
           for ext in ['.br', '.gz']: Path(str(config) + ext).unlink(missing_ok=True)
           PY
-      - name: Capture the last managed calls before the fault
+      - name: Capture the last shader calls before the fault
         run: |
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
@@ -50,7 +50,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: LightSpace-managed-call-trace
+          name: LightSpace-shader-lifetime-trace
           path: |
             artifacts/managed-call-trace.json
             artifacts/probe.log
