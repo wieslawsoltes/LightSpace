@@ -94,65 +94,71 @@ public sealed partial class PhotoRenderer : IDisposable
         var scale = Math.Min(1f, 1024f / Math.Max(image.Width, image.Height));
         var brushWidth = Math.Max(1, (int)MathF.Round(image.Width * scale));
         var brushHeight = Math.Max(1, (int)MathF.Round(image.Height * scale));
-        // Uniforms own native SKData. Each returned shader receives an immutable
-        // copy; the staging allocation must not wait for a later finalizer pass.
-        using var u = new SKRuntimeEffectUniforms(_effect)
+        SKShader result;
+        // Finish every staging/child cleanup before returning the retained shader.
+        // The result remains an ordinary live local across all disposal scopes.
         {
-            ["size"] = new float[] { image.Width, image.Height },
-            ["sourceSize"] = new float[] { sourceWidth > 0 ? sourceWidth : image.Width, sourceHeight > 0 ? sourceHeight : image.Height },
-            ["brushSize"] = new float[] { brushWidth, brushHeight },
-            ["useChannels"] = s.Channels.IsIdentity ? 0 : 1,
-            ["light"] = new[] { s.Exposure, s.Contrast / 100, s.Highlights / 100, s.Shadows / 100 },
-            ["tone"] = new[] { s.Whites / 100, s.Blacks / 100, s.Temperature / 100, s.Tint / 100 },
-            ["color"] = new[] { s.Vibrance / 100, s.Saturation / 100, s.Monochrome ? 1f : 0, s.Dehaze / 100 },
-            ["detail"] = new[] { s.Texture / 100, s.Clarity / 100, s.Sharpening / 100, s.NoiseReduction / 100 },
-            ["effects"] = new[] { s.Vignette / 100, s.Grain / 100 },
-            ["curve"] = new[] { s.Curve.Black, s.Curve.Shadow, s.Curve.Mid, s.Curve.Light }, ["curveWhite"] = s.Curve.White,
-            ["useCurve"] = s.Curve.IsIdentity ? 0 : 1,
-            ["useMixer"] = s.Mixer.Any(b => b.Hue != 0 || b.Saturation != 0 || b.Luminance != 0) ? 1 : 0,
-            ["mixer"] = s.Mixer.SelectMany(b => new[] { b.Hue / 100, b.Saturation / 100, b.Luminance / 100, 0 }).ToArray(),
-            ["useGrading"] = s.Grading.IsNeutral ? 0 : 1,
-            ["gradeMix"] = new[] { s.Grading.Blending / 100, s.Grading.Balance / 100 },
-            ["overlayMask"] = overlayMask
-        };
-        var grading = new float[16];
-        for (var i = 0; i < 4; i++)
-        {
-            var grade = s.Grading.Get((GradingRange)i); var v = grade.TintVector();
-            grading[i * 4] = v.X; grading[i * 4 + 1] = v.Y; grading[i * 4 + 2] = v.Z; grading[i * 4 + 3] = grade.Luminance / 100;
-        }
-        u["grading"] = grading;
-        var geometry = new float[32]; var adjustments = new float[32]; var controls = new float[32]; var ranges = new float[32]; var extra = new float[32];
-        for (var i = 0; i < state.Masks.Length; i++)
-        {
-            var m = state.Masks[i]; var a = m.Angle * MathF.PI / 180;
-            new[] { m.X, m.Y, m.RadiusX, m.RadiusY }.CopyTo(geometry, i * 4);
-            new[] { m.Exposure, m.Saturation / 100, m.Feather, m.Inverted ? 1f : 0 }.CopyTo(adjustments, i * 4);
-            new[] { MathF.Cos(a), MathF.Sin(a), (float)m.Kind, m.Enabled ? m.Opacity : 0 }.CopyTo(controls, i * 4);
-            new[] { m.RangeMin, m.RangeMax, m.RangeSmoothness, m.RangeEnabled || m.Kind == MaskKind.LuminanceRange ? 1f : 0 }.CopyTo(ranges, i * 4);
-            new[] { m.Contrast / 100, m.Temperature / 100, m.Tint / 100, m.Strokes.Length > 0 ? 1f : 0 }.CopyTo(extra, i * 4);
-        }
-        u["maskCount"] = state.Masks.Length; u["maskGeometry"] = geometry; u["maskAdjust"] = adjustments;
-        SetColorUniforms(u, state.Masks);
-        u["maskControl"] = controls; u["maskRange"] = ranges; u["maskExtra"] = extra;
-        var spotData = new float[128]; var radii = new float[32];
-        for (var i = 0; i < state.CloneSpots.Length; i++) { var p = state.CloneSpots[i]; new[] { p.X, p.Y, p.SourceX, p.SourceY }.CopyTo(spotData, i * 4); radii[i] = p.Radius; }
-        u["spotCount"] = state.CloneSpots.Length; u["spots"] = spotData; u["radii"] = radii;
-        using var original = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
-        using var lookup = _curves.Get(s.Channels).ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
-        using var children = new SKRuntimeEffectChildren(_effect) { ["original"] = original, ["toneLookup"] = lookup };
-        var brushShaders = new SKShader[8];
-        try
-        {
-            for (var i = 0; i < 8; i++)
+            using var u = new SKRuntimeEffectUniforms(_effect)
             {
-                var texture = i < state.Masks.Length ? _brushes.Get(state.Masks[i], brushWidth, brushHeight) : _brushes.Identity;
-                brushShaders[i] = texture.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
-                children["brush" + i] = brushShaders[i];
+                ["size"] = new float[] { image.Width, image.Height },
+                ["sourceSize"] = new float[] { sourceWidth > 0 ? sourceWidth : image.Width, sourceHeight > 0 ? sourceHeight : image.Height },
+                ["brushSize"] = new float[] { brushWidth, brushHeight },
+                ["useChannels"] = s.Channels.IsIdentity ? 0 : 1,
+                ["light"] = new[] { s.Exposure, s.Contrast / 100, s.Highlights / 100, s.Shadows / 100 },
+                ["tone"] = new[] { s.Whites / 100, s.Blacks / 100, s.Temperature / 100, s.Tint / 100 },
+                ["color"] = new[] { s.Vibrance / 100, s.Saturation / 100, s.Monochrome ? 1f : 0, s.Dehaze / 100 },
+                ["detail"] = new[] { s.Texture / 100, s.Clarity / 100, s.Sharpening / 100, s.NoiseReduction / 100 },
+                ["effects"] = new[] { s.Vignette / 100, s.Grain / 100 },
+                ["curve"] = new[] { s.Curve.Black, s.Curve.Shadow, s.Curve.Mid, s.Curve.Light }, ["curveWhite"] = s.Curve.White,
+                ["useCurve"] = s.Curve.IsIdentity ? 0 : 1,
+                ["useMixer"] = s.Mixer.Any(b => b.Hue != 0 || b.Saturation != 0 || b.Luminance != 0) ? 1 : 0,
+                ["mixer"] = s.Mixer.SelectMany(b => new[] { b.Hue / 100, b.Saturation / 100, b.Luminance / 100, 0 }).ToArray(),
+                ["useGrading"] = s.Grading.IsNeutral ? 0 : 1,
+                ["gradeMix"] = new[] { s.Grading.Blending / 100, s.Grading.Balance / 100 },
+                ["overlayMask"] = overlayMask
+            };
+            var grading = new float[16];
+            for (var i = 0; i < 4; i++)
+            {
+                var grade = s.Grading.Get((GradingRange)i); var v = grade.TintVector();
+                grading[i * 4] = v.X; grading[i * 4 + 1] = v.Y; grading[i * 4 + 2] = v.Z; grading[i * 4 + 3] = grade.Luminance / 100;
             }
-            var result = _effect.ToShader(u, children); _shaders++; return result;
+            u["grading"] = grading;
+            var geometry = new float[32]; var adjustments = new float[32]; var controls = new float[32]; var ranges = new float[32]; var extra = new float[32];
+            for (var i = 0; i < state.Masks.Length; i++)
+            {
+                var m = state.Masks[i]; var a = m.Angle * MathF.PI / 180;
+                new[] { m.X, m.Y, m.RadiusX, m.RadiusY }.CopyTo(geometry, i * 4);
+                new[] { m.Exposure, m.Saturation / 100, m.Feather, m.Inverted ? 1f : 0 }.CopyTo(adjustments, i * 4);
+                new[] { MathF.Cos(a), MathF.Sin(a), (float)m.Kind, m.Enabled ? m.Opacity : 0 }.CopyTo(controls, i * 4);
+                new[] { m.RangeMin, m.RangeMax, m.RangeSmoothness, m.RangeEnabled || m.Kind == MaskKind.LuminanceRange ? 1f : 0 }.CopyTo(ranges, i * 4);
+                new[] { m.Contrast / 100, m.Temperature / 100, m.Tint / 100, m.Strokes.Length > 0 ? 1f : 0 }.CopyTo(extra, i * 4);
+            }
+            u["maskCount"] = state.Masks.Length; u["maskGeometry"] = geometry; u["maskAdjust"] = adjustments;
+            SetColorUniforms(u, state.Masks);
+            u["maskControl"] = controls; u["maskRange"] = ranges; u["maskExtra"] = extra;
+            var spotData = new float[128]; var radii = new float[32];
+            for (var i = 0; i < state.CloneSpots.Length; i++) { var p = state.CloneSpots[i]; new[] { p.X, p.Y, p.SourceX, p.SourceY }.CopyTo(spotData, i * 4); radii[i] = p.Radius; }
+            u["spotCount"] = state.CloneSpots.Length; u["spots"] = spotData; u["radii"] = radii;
+            using var original = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
+            using var lookup = _curves.Get(s.Channels).ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
+            using var children = new SKRuntimeEffectChildren(_effect) { ["original"] = original, ["toneLookup"] = lookup };
+            var brushShaders = new SKShader[8];
+            try
+            {
+                for (var i = 0; i < 8; i++)
+                {
+                    var texture = i < state.Masks.Length ? _brushes.Get(state.Masks[i], brushWidth, brushHeight) : _brushes.Identity;
+                    brushShaders[i] = texture.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
+                    children["brush" + i] = brushShaders[i];
+                }
+                result = _effect.ToShader(u, children) ?? throw new InvalidOperationException("Unable to create development shader.");
+            }
+            finally { foreach (var shader in brushShaders) shader?.Dispose(); }
         }
-        finally { foreach (var shader in brushShaders) shader?.Dispose(); }
+        GC.KeepAlive(image);
+        _shaders++;
+        return result;
     }
     public byte[] Export(PhotoDocument photo, SKEncodedImageFormat format = SKEncodedImageFormat.Jpeg, int quality = 92, int maxDimension = 0)
     {
