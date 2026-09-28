@@ -1,9 +1,11 @@
-# LightSpace 0.3.0-alpha.1
+# LightSpace 0.4.0-alpha.1
 
-Adds arbitrary-point master/R/G/B curves with shape-preserving interpolation, cached floating-point transfer tables, pressure-aware add/erase brush masks and incremental coverage caching. New reusable Uno curve and brush controls support pointer/keyboard editing and transactional undo/cancel.
+Completes the advanced RGB-curve, freehand-brush and XMP work in PR #9, then adds sampled color-range masks and content-addressed recovery in PR #10.
 
-Adds reviewable XMP sidecar import/export: standard metadata, an explicitly reported Camera Raw parameter/curve subset and an optional native extension preserving complete LightSpace photo settings. Schema-1/2 catalogs migrate to schema 3; unsupported older readers reject new edits rather than dropping them.
+Color selection supports up to five averaged source-preview samples, click/Shift-click/Alt-click editing, tolerance, smoothness, local restrictions and viewport-only coverage. Existing mask operations, undo, native settings interchange and versions preserve these settings. The Oklab-based selection is original processing, not Adobe algorithm equivalence.
 
-Outstanding Actions and Playwright dependency PRs were reviewed, brought current, validated and merged. The new editing/interchange work adds actual-pixel, scalar-reference, malformed-input, cache-counter and real browser gesture tests. Source and package versions are 0.3.0-alpha.1.
+Recovery separates immutable SHA-256-addressed originals from committed edit manifests. Warm metadata changes avoid original-byte serialization, rehashing and rewrites. Restore verifies length and hash; missing/damaged recovery remains protected until explicit replacement. Browser publication aborts on missing references and both asynchronous and synchronous failures. IndexedDB requests strict durability as a hint, not a power-loss guarantee. An explicit retry can restage missing originals.
 
-This remains an early functional implementation, not full Adobe Lightroom compatibility. RAW/AI, calibrated profiles, HDR/panorama, arbitrary crop straightening, native-resolution tiled inspection, indexed storage, printing and cloud services are not included. Brush coverage is capped at 1024px long edge, image export at 8192px and 8-bit sRGB. See docs/ADVANCED-EDITING.md and docs/FEATURE-COVERAGE.md for exact semantics and limits.
+Catalog schema 4 migrates versions 1–3. Native XMP settings version 4 accepts version 3. IndexedDB upgrades to version 2; older builds requesting database version 1 cannot open that upgraded store. Portable catalog exports still embed original bytes. Preserve portable pre-upgrade backups for older-version interoperability.
+
+All eight libraries and shared Uno hosts retain build, desktop, Pages and release workflows. Full RAW/AI, calibrated profiles, HDR/panorama, native-resolution tiling, print/proofing, cloud synchronization and signed distribution remain outside this release. See FEATURE-COVERAGE.md, RECOVERY.md and PERFORMANCE.md for the precise boundaries.
