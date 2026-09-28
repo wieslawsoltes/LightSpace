@@ -9,19 +9,30 @@ public sealed partial class StudioView
         create.Children.Add(Button("Radial gradient", text: "Radial", action: () => ChooseTool(PhotoTool.RadialMask)));
         create.Children.Add(Button("Linear gradient", text: "Linear", action: () => ChooseTool(PhotoTool.LinearMask)));
         create.Children.Add(Button("Luminance range", text: "Luminance", action: CreateRangeMask)); panel.Children.Add(create);
-        panel.Children.Add(Note("Drag to create a gradient. Drag its pin, edge handles or rotation handle to refine it. Shift-drag starts a new mask over an existing pin."));
+        var brushes = Row(); brushes.Spacing = 4;
+        brushes.Children.Add(Button("New brush mask", Glyph.Add, "New brush", () => ChooseBrush(true)));
+        var paint = Button("Paint selected mask", text: "Paint selected", action: () => ChooseBrush(false));
+        paint.Selected = Viewport.Tool == PhotoTool.Brush; brushes.Children.Add(paint); panel.Children.Add(brushes);
+        panel.Children.Add(Note(Viewport.Tool == PhotoTool.Brush
+            ? "Paint or erase the selected mask. Alt temporarily erases; Escape cancels the stroke."
+            : "Drag to create a gradient; refine its pin and handles. Shift-drag starts another mask."));
         var overlays = Row(); overlays.Spacing = 3;
         var outline = Button("Toggle mask overlay", Glyph.Mask, "Outline"); outline.Selected = Viewport.MaskOverlay;
         outline.Click += (_, _) => { Viewport.MaskOverlay = !Viewport.MaskOverlay; outline.Selected = Viewport.MaskOverlay; Viewport.Invalidate(); };
         var coverage = Button("Mask coverage", text: "Coverage"); coverage.Selected = Viewport.ShowMaskCoverage;
         coverage.Click += (_, _) => { Viewport.ShowMaskCoverage = !Viewport.ShowMaskCoverage; coverage.Selected = Viewport.ShowMaskCoverage; Viewport.Invalidate(); };
         overlays.Children.Add(outline); overlays.Children.Add(coverage); panel.Children.Add(overlays);
+        if (Viewport.Tool == PhotoTool.Brush)
+            panel.Children.Add(Section("Brush settings", CreateBrushSettings(), false));
         for (var i = 0; i < photo.State.Masks.Length; i++)
         {
             var index = i; var button = Button("Select mask " + i, Glyph.Mask, photo.State.Masks[i].Name, () => Viewport.SetActiveMask(index));
             button.HorizontalAlignment = HorizontalAlignment.Stretch; button.HorizontalContentAlignment = HorizontalAlignment.Left; button.Selected = i == Viewport.ActiveMask; panel.Children.Add(button);
         }
-        if (photo.State.Masks.Length == 0) { panel.Children.Add(Note("No local masks yet. Luminance masks select source brightness without AI or external services.")); _inspector.Children.Add(panel); return; }
+        if (photo.State.Masks.Length == 0)
+        {
+            panel.Children.Add(Note("Paint to create a brush mask, drag a gradient, or select source brightness with Luminance.")); _inspector.Children.Add(panel); return;
+        }
         var selected = Math.Clamp(Viewport.ActiveMask, 0, photo.State.Masks.Length - 1); if (selected != Viewport.ActiveMask) Viewport.SetActiveMask(selected);
         var mask = photo.State.Masks[selected];
         var manage = Row(); manage.Spacing = 2;
@@ -30,10 +41,7 @@ public sealed partial class StudioView
         manage.Children.Add(Button("Duplicate mask", text: "Duplicate", action: () =>
         {
             if (photo.State.Masks.Length >= 8) { SetStatus("The eight-mask limit has been reached."); return; }
-            // Settings change without rebuilding this inspector. Resolve the latest
-            // snapshot by identity instead of copying the captured construction state.
-            var current = photo.State.Masks.FirstOrDefault(m => m.Id == mask.Id);
-            if (current is null) return;
+            var current = photo.State.Masks.FirstOrDefault(m => m.Id == mask.Id); if (current is null) return;
             Session.Edit("Duplicate mask", s => s with { Masks = [.. s.Masks, current with { Id = Guid.NewGuid(), Name = current.Name + " copy" }] });
             Viewport.SetActiveMask(photo.State.Masks.Length - 1);
         }));

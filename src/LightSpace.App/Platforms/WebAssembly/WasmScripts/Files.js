@@ -36,6 +36,7 @@
     setDirty: value => { dirty = value; },
     openImages: () => pick('.jpg,.jpeg,.png,.webp,.bmp,.gif', true, 64 * 1024 * 1024),
     openCatalog: () => pick('.lightspace,.json', false, 360 * 1024 * 1024),
+    openSidecar: () => pick('.xmp', false, 16 * 1024 * 1024),
     download: async (name, base64, type) => {
       const raw = atob(base64); const bytes = new Uint8Array(raw.length);
       for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);

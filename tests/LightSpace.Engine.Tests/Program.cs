@@ -1,4 +1,6 @@
 using System.Text.Json;
+using LightSpace.Core;
+using LightSpace.Catalog;
 
 var results = new List<object>(); var failed = 0; var passed = 0;
 void Test(string name, Action action)
@@ -9,6 +11,18 @@ void Test(string name, Action action)
 CoreRenderingTests.Register(Test);
 ParityTests.Register(Test);
 AdvancedEditingTests.Register(Test);
+XmpTests.Register(Test);
+foreach (var legacy in new[] { 1, 2 })
+{
+    Test($"Schema {legacy} migrates with neutral brush and channel settings", () =>
+    {
+        var source = new CatalogDocument();
+        var photo = Fixtures.Tiny(); source.Photos.Add(photo); source.ActivePhoto = photo.Id;
+        var json = CatalogSerializer.Serialize(source).Replace("\"SchemaVersion\":3", $"\"SchemaVersion\":{legacy}");
+        var migrated = CatalogSerializer.Deserialize(json);
+        Fixtures.Check(migrated.SchemaVersion == 3 && migrated.Photos[0].State.Develop.Channels.IsIdentity && migrated.Photos[0].State.Masks.Length == 0);
+    });
+}
 foreach (var (name, action) in RecoveryTests.Cases)
 {
     try { await action(); passed++; Console.WriteLine($"PASS {name}"); results.Add(new { name, passed = true, error = "" }); }
