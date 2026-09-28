@@ -1,29 +1,40 @@
-name: Managed equality isolation
+name: Managed call tracing
 on:
   push:
     branches: ['diagnostics/slider-bounds']
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
   baseline:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
-        with:
-          global-json-file: global.json
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-      - name: Build the isolated managed startup probe
+      - uses: actions/download-artifact@v8
+        with:
+          name: LightSpace-browser
+          run-id: 36408386674
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Enable managed call tracing on original binaries
         run: |
-          dotnet workload install wasm-tools --skip-manifest-update
-          python3 scripts/fetch-assets.py
-          dotnet publish src/LightSpace.App -f net10.0-browserwasm -c Release -o artifacts/publish -p:WasmShellWebAppBasePath=/LightSpace/ -p:WasmEmitSymbolMap=true
-          python3 scripts/collect-site.py artifacts/publish artifacts/site
-      - name: Exercise equality without rendering
+          jq -e '.commit == "fe1df0bb9ffdd99a8e05abe68f9a51b582ccbfd7"' baseline/build-info.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          config = next(Path('baseline').glob('package_*/uno-config.js'))
+          text = config.read_text()
+          assert 'config.uno_runtime_options = [];' in text
+          options = ['--trace=N:LightSpace.Core,N:LightSpace.Rendering.Skia,N:LightSpace.Editing,N:LightSpace.Controls']
+          config.write_text(text.replace('config.uno_runtime_options = [];', 'config.uno_runtime_options = ' + json.dumps(options) + ';'))
+          for ext in ['.br', '.gz']: Path(str(config) + ext).unlink(missing_ok=True)
+          PY
+      - name: Capture the last managed calls before the fault
         run: |
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
@@ -32,15 +43,15 @@ jobs:
           config.use.launchOptions.args.push('--js-flags=--wasm-enforce-bounds-checks');
           export default config;
           JS
-          python3 scripts/serve-site.py --directory artifacts/site --port 4173 > artifacts/server.log 2>&1 &
+          mkdir -p artifacts
+          python3 scripts/serve-site.py --directory baseline --port 4173 > artifacts/server.log 2>&1 &
           set -o pipefail
-          npx playwright test model-equality-probe.spec.mjs --config=playwright.bounds.config.mjs 2>&1 | tee artifacts/probe.log
+          npx playwright test managed-call-trace.spec.mjs --config=playwright.bounds.config.mjs 2>&1 | tee artifacts/probe.log
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: LightSpace-managed-equality-probe
+          name: LightSpace-managed-call-trace
           path: |
-            artifacts/model-probe.json
+            artifacts/managed-call-trace.json
             artifacts/probe.log
             artifacts/browser-results.xml
-            src/LightSpace.App/obj/**/*symbols*
