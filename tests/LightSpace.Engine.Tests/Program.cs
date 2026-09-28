@@ -23,7 +23,7 @@ foreach (var legacy in new[] { 1, 2 })
         Fixtures.Check(migrated.SchemaVersion == 3 && migrated.Photos[0].State.Develop.Channels.IsIdentity && migrated.Photos[0].State.Masks.Length == 0);
     });
 }
-foreach (var (name, action) in RecoveryTests.Cases)
+foreach (var (name, action) in RecoveryTests.Cases.Concat(IncrementalRecoveryTests.Cases))
 {
     try { await action(); passed++; Console.WriteLine($"PASS {name}"); results.Add(new { name, passed = true, error = "" }); }
     catch (Exception error) { failed++; Console.WriteLine($"FAIL {name}: {error}"); results.Add(new { name, passed = false, error = error.Message }); }

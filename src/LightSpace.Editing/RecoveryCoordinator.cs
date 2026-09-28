@@ -9,7 +9,8 @@ namespace LightSpace.Editing;
 public sealed class RecoveryCoordinator : IDisposable
 {
     private readonly EditorSession _session;
-    private readonly Func<string, Task> _writeAsync;
+    private readonly Func<CommittedCatalogSnapshot, Task> _writeAsync;
+    private readonly Func<CommittedCatalogSnapshot> _capture;
     private Task? _drain;
     private long _savedRevision;
     private string? _error;
@@ -17,10 +18,17 @@ public sealed class RecoveryCoordinator : IDisposable
     private RecoveryStatus? _published;
 
     public RecoveryCoordinator(EditorSession session, Func<string, Task> writeAsync, bool initiallySaved = true)
+        : this(session, () => session.CaptureCommittedSnapshot(), snapshot => writeAsync(snapshot.Json), initiallySaved)
+    { ArgumentNullException.ThrowIfNull(writeAsync); }
+
+    public static RecoveryCoordinator Incremental(EditorSession session, RecoveryPersistence persistence, bool initiallySaved = true)
+        => new(session, () => persistence.Capture(session), persistence.CommitAsync, initiallySaved);
+
+    private RecoveryCoordinator(EditorSession session, Func<CommittedCatalogSnapshot> capture, Func<CommittedCatalogSnapshot, Task> writeAsync, bool initiallySaved)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(writeAsync);
-        _session = session;
+        _session = session; _capture = capture;
         _writeAsync = writeAsync;
         _savedRevision = initiallySaved ? session.Revision : -1;
         session.Changed += Publish;
@@ -59,8 +67,8 @@ public sealed class RecoveryCoordinator : IDisposable
         {
             while (!_disposed && _savedRevision != _session.Revision)
             {
-                var snapshot = _session.CaptureCommittedSnapshot();
-                await _writeAsync(snapshot.Json);
+                var snapshot = _capture();
+                await _writeAsync(snapshot);
                 _savedRevision = snapshot.Revision;
                 Publish();
             }

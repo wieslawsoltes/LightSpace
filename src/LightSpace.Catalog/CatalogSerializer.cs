@@ -17,6 +17,11 @@ public static class CatalogSerializer
     {
         if (json.Length > MaxCatalogBytes * 1.4) throw new InvalidDataException("Catalog exceeds the 256 MiB safety limit.");
         var result = JsonSerializer.Deserialize(json, CatalogJsonContext.Default.CatalogDocument) ?? throw new InvalidDataException("Empty catalog.");
+        return Validate(result);
+    }
+    public static CatalogDocument Validate(CatalogDocument result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
         if (result.SchemaVersion is < 1 or > CatalogDocument.CurrentSchemaVersion) throw new InvalidDataException($"Unsupported catalog version {result.SchemaVersion}.");
         if (result.Photos is null || result.Albums is null || result.Photos.Count > 5000 || result.Albums.Count > 5000) throw new InvalidDataException("Invalid catalog structure.");
         long bytes = 0; var ids = new HashSet<Guid>();

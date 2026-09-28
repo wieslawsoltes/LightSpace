@@ -1,4 +1,5 @@
+using LightSpace.Storage;
 namespace LightSpace.Editing;
 
-/// <summary>A serialized committed revision, never an in-progress editing preview.</summary>
-public sealed record CommittedCatalogSnapshot(long Revision, string Json);
+/// <summary>A committed catalog or source-separated recovery revision, never an active preview.</summary>
+public sealed record CommittedCatalogSnapshot(long Revision, string Json, RecoveryWrite? IncrementalWrite = null);
