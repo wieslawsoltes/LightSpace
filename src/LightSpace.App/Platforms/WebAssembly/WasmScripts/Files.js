@@ -1,5 +1,7 @@
 (() => {
   'use strict';
+  let dirty = false;
+  addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
   const diagnostics = new URLSearchParams(location.search).has('diagnostics');
   const database = () => new Promise((resolve, reject) => {
     const request = indexedDB.open('LightSpace-v1', 1);
@@ -31,6 +33,7 @@
     });
   }
   globalThis.lightSpaceFiles = {
+    setDirty: value => { dirty = value; },
     openImages: () => pick('.jpg,.jpeg,.png,.webp,.bmp,.gif', true, 64 * 1024 * 1024),
     openCatalog: () => pick('.lightspace,.json', false, 360 * 1024 * 1024),
     download: async (name, base64, type) => {

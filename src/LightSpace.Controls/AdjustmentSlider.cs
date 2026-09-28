@@ -38,7 +38,10 @@ public sealed class AdjustmentSlider : UserControl
     public event Action? GestureCanceled;
     public AdjustmentSlider(string name,double min=-100,double max=100,double value=0,double step=1)
     {
-        Minimum=min;Maximum=max;DefaultValue=value;Step=step;_value=value;IsTabStop=true;
+        if (!double.IsFinite(min) || !double.IsFinite(max) || max <= min) throw new ArgumentOutOfRangeException(nameof(max));
+        if (!double.IsFinite(step) || step <= 0) throw new ArgumentOutOfRangeException(nameof(step));
+        if (!double.IsFinite(value)) throw new ArgumentOutOfRangeException(nameof(value));
+        Minimum=min;Maximum=max;DefaultValue=Math.Clamp(value,min,max);Step=step;_value=DefaultValue;IsTabStop=true;
         AutomationProperties.SetName(this,name);AutomationProperties.SetAutomationId(this,name);
         var root=new Grid { RowDefinitions={new(){Height=GridLength.Auto},new(){Height=new(24)}} };
         var row=new Grid { ColumnDefinitions={new(){Width=new(1,GridUnitType.Star)},new(){Width=new(60)}} };
@@ -52,25 +55,38 @@ public sealed class AdjustmentSlider : UserControl
         _track.DoubleTapped+=(_,e)=>{Set(DefaultValue,true);ValueCommitted?.Invoke();e.Handled=true;};
         _number.GotFocus+=(_,_)=>_typing=true;_number.LostFocus+=(_,_)=>CommitNumber();
         _number.KeyDown+=(_,e)=>{if(e.Key==VirtualKey.Enter){CommitNumber();Focus(FocusState.Programmatic);e.Handled=true;}else if(e.Key==VirtualKey.Escape){_typing=false;Refresh();Focus(FocusState.Programmatic);e.Handled=true;}};
-        KeyDown+=(_,e)=>{if(_typing)return;var next=e.Key switch{VirtualKey.Left or VirtualKey.Down=>Value-Step,VirtualKey.Right or VirtualKey.Up=>Value+Step,VirtualKey.Home=>Minimum,VirtualKey.End=>Maximum,_=>double.NaN};if(double.IsFinite(next)){Set(next,true);ValueCommitted?.Invoke();e.Handled=true;}};
+        KeyDown+=(_,e)=>{if(e.Key==VirtualKey.Escape&&_dragging){Cancel();e.Handled=true;return;}if(_typing)return;var next=e.Key switch{VirtualKey.Left or VirtualKey.Down=>Value-Step,VirtualKey.Right or VirtualKey.Up=>Value+Step,VirtualKey.Home=>Minimum,VirtualKey.End=>Maximum,_=>double.NaN};if(double.IsFinite(next)){Set(next,true);ValueCommitted?.Invoke();e.Handled=true;}};
         Refresh();
     }
     private void FromPointer(PointerRoutedEventArgs e){var x=e.GetCurrentPoint(_track).Position.X;Set(Minimum+(x-5)/Math.Max(1,_track.ActualWidth-10)*(Maximum-Minimum),true);}
-    private void Cancel(){if(!_dragging)return;_dragging=false;GestureCanceled?.Invoke();}
+    private void Cancel(){if(!_dragging)return;_dragging=false;_track.ReleasePointerCaptures();GestureCanceled?.Invoke();}
     private void CommitNumber(){if(!_typing)return;_typing=false;if(double.TryParse(_number.Text,NumberStyles.Float,CultureInfo.InvariantCulture,out var number)&&double.IsFinite(number)){Set(number,true);ValueCommitted?.Invoke();}Refresh();}
     internal void Set(double value,bool notify)
     {
-        if(!double.IsFinite(value))return;value=Math.Clamp(Math.Round(value/Step)*Step,Minimum,Maximum);var changed=Math.Abs(_value-value)>.000001;_value=value;Refresh();if(changed&&notify)ValueChanged?.Invoke((float)value);
+        if (!double.IsFinite(value)) return;
+        value = Math.Clamp(Math.Round(value / Step) * Step, Minimum, Maximum);
+        // A preview refreshes its sibling controls too. Do not rewrite native
+        // input values or invalidate a track whose quantized value is unchanged.
+        if (Math.Abs(_value - value) <= .000001) return;
+        _value = value; Refresh(); if (notify) ValueChanged?.Invoke((float)value);
     }
     internal void SetFromAutomation(double value){Set(value,true);ValueCommitted?.Invoke();}
-    private void Refresh(){if(!_typing)_number.Text=_value.ToString(Step<1?"0.00":"0",CultureInfo.InvariantCulture);_track.Invalidate();}
+    private void Refresh()
+    {
+        if (!_typing)
+        {
+            var text = _value.ToString(Step < 1 ? "0.00" : "0", CultureInfo.InvariantCulture);
+            if (_number.Text != text) _number.Text = text;
+        }
+        _track.Invalidate();
+    }
     protected override AutomationPeer OnCreateAutomationPeer()=>new SliderPeer(this);
     private sealed class SliderPeer(AdjustmentSlider owner):FrameworkElementAutomationPeer(owner),IRangeValueProvider
     {
         protected override string GetClassNameCore()=>nameof(AdjustmentSlider);
         protected override AutomationControlType GetAutomationControlTypeCore()=>AutomationControlType.Slider;
-        protected override object GetPatternCore(PatternInterface pattern)=>pattern==PatternInterface.RangeValue?this:base.GetPatternCore(pattern);
-        public bool IsReadOnly=>false;public double LargeChange=>(owner.Maximum-owner.Minimum)/10;public double Maximum=>owner.Maximum;public double Minimum=>owner.Minimum;public double SmallChange=>owner.Step;public double Value=>owner.Value;
-        public void SetValue(double value)=>owner.SetFromAutomation(value);
+        protected override object? GetPatternCore(PatternInterface pattern)=>pattern==PatternInterface.RangeValue?this:base.GetPatternCore(pattern);
+        public bool IsReadOnly=>!owner.IsEnabled;public double LargeChange=>(owner.Maximum-owner.Minimum)/10;public double Maximum=>owner.Maximum;public double Minimum=>owner.Minimum;public double SmallChange=>owner.Step;public double Value=>owner.Value;
+        public void SetValue(double value){if(!owner.IsEnabled)throw new InvalidOperationException("Slider is disabled.");owner.SetFromAutomation(value);}
     }
 }

@@ -7,26 +7,40 @@ public static class CatalogSerializer
 {
     public const int MaxFileBytes = 64 * 1024 * 1024;
     public const int MaxCatalogBytes = 256 * 1024 * 1024;
-    public static string Serialize(CatalogDocument document) => JsonSerializer.Serialize(document, CatalogJsonContext.Default.CatalogDocument);
+    public static string Serialize(CatalogDocument document)
+    {
+        if (document.SchemaVersion != CatalogDocument.CurrentSchemaVersion)
+            throw new InvalidDataException("Normalize legacy catalogs through Deserialize before saving new processing settings.");
+        return JsonSerializer.Serialize(document, CatalogJsonContext.Default.CatalogDocument);
+    }
     public static CatalogDocument Deserialize(string json)
     {
         if (json.Length > MaxCatalogBytes * 1.4) throw new InvalidDataException("Catalog exceeds the 256 MiB safety limit.");
         var result = JsonSerializer.Deserialize(json, CatalogJsonContext.Default.CatalogDocument) ?? throw new InvalidDataException("Empty catalog.");
-        if (result.SchemaVersion != 1) throw new InvalidDataException($"Unsupported catalog version {result.SchemaVersion}.");
-        if (result.Photos is null || result.Albums is null || result.Photos.Count > 5000) throw new InvalidDataException("Invalid catalog structure.");
+        if (result.SchemaVersion is not (1 or CatalogDocument.CurrentSchemaVersion)) throw new InvalidDataException($"Unsupported catalog version {result.SchemaVersion}.");
+        if (result.Photos is null || result.Albums is null || result.Photos.Count > 5000 || result.Albums.Count > 5000) throw new InvalidDataException("Invalid catalog structure.");
         long bytes = 0; var ids = new HashSet<Guid>();
         foreach (var photo in result.Photos)
         {
-            if (!ids.Add(photo.Id)) throw new InvalidDataException("Duplicate photo identity.");
+            if (photo is null || !ids.Add(photo.Id)) throw new InvalidDataException("Missing or duplicate photo identity.");
             if (photo.Original is null || photo.Original.Length > MaxFileBytes) throw new InvalidDataException("Invalid photo source.");
             bytes += photo.Original.Length;
             if (bytes > MaxCatalogBytes || photo.Width <= 0 || photo.Height <= 0 || (long)photo.Width * photo.Height > 100_000_000)
                 throw new InvalidDataException("Catalog exceeds image safety limits.");
+            photo.Name = string.IsNullOrWhiteSpace(photo.Name) ? "Untitled" : photo.Name;
             photo.State = (photo.State ?? new()).Normalize();
-            photo.Versions = (photo.Versions ?? []).Take(100).Select(v => v with { State = v.State.Normalize() }).ToList();
+            photo.Versions = (photo.Versions ?? []).Where(v => v?.State is not null).Take(100).Select(v => v with { State = v.State.Normalize() }).ToList();
         }
-        foreach (var album in result.Albums) album.Photos = (album.Photos ?? []).Where(ids.Contains).Distinct().ToList();
+        var albums = new HashSet<Guid>();
+        foreach (var album in result.Albums)
+        {
+            if (album is null || !albums.Add(album.Id)) throw new InvalidDataException("Missing or duplicate album identity.");
+            album.Name ??= "Album"; album.Photos = (album.Photos ?? []).Where(ids.Contains).Distinct().ToList();
+        }
         if (!ids.Contains(result.ActivePhoto)) result.ActivePhoto = result.Photos.FirstOrDefault()?.Id ?? Guid.Empty;
+        // Schema 1 omitted grading/range fields; their neutral defaults preserve legacy processing.
+        // Emitting schema 2 prevents older applications from silently dropping new edits.
+        result.SchemaVersion = CatalogDocument.CurrentSchemaVersion;
         return result;
     }
     public static string SerializeSettings(PhotoState state) => JsonSerializer.Serialize(state, CatalogJsonContext.Default.PhotoState);

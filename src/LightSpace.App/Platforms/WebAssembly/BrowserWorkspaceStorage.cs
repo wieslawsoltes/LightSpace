@@ -25,5 +25,6 @@ internal static partial class BrowserFiles
     [JSImport("globalThis.lightSpaceFiles.save")][return:JSMarshalAs<JSType.Promise<JSType.String>>]internal static partial Task<string> Save(string json);
     [JSImport("globalThis.lightSpaceFiles.publishDiagnostics")]internal static partial void PublishDiagnostics(string json);
     [JSImport("globalThis.lightSpaceFiles.focusCanvasUnlessEditing")]internal static partial void FocusCanvasUnlessEditing();
+    [JSImport("globalThis.lightSpaceFiles.setDirty")]internal static partial void SetDirty(bool dirty);
     [JSImport("globalThis.lightSpaceFiles.startupError")]internal static partial void StartupError(string error);
 }

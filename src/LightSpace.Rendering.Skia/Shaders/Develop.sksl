@@ -1,5 +1,6 @@
 uniform shader original;
 uniform float2 size;
+uniform float2 sourceSize;
 uniform float4 light;
 uniform float4 tone;
 uniform float4 color;
@@ -7,11 +8,19 @@ uniform float4 detail;
 uniform float2 effects;
 uniform float4 curve;
 uniform float curveWhite;
+uniform int useCurve;
+uniform int useMixer;
 uniform float4 mixer[8];
+uniform int useGrading;
+uniform float4 grading[4];
+uniform float2 gradeMix;
 uniform int maskCount;
 uniform float4 maskGeometry[8];
 uniform float4 maskAdjust[8];
-uniform float maskKind[8];
+uniform float4 maskExtra[8];
+uniform float4 maskRange[8];
+uniform float4 maskControl[8];
+uniform int overlayMask;
 uniform int spotCount;
 uniform float4 spots[32];
 uniform float radii[32];
@@ -19,6 +28,7 @@ uniform float radii[32];
 float lum(float3 c) { return dot(c, float3(.2126, .7152, .0722)); }
 float3 linearize(float3 c) { return mix(c / 12.92, pow(max((c + .055) / 1.055, float3(0)), float3(2.4)), step(float3(.04045), c)); }
 float3 encode(float3 c) { return mix(c * 12.92, 1.055 * pow(max(c, float3(0)), float3(1.0 / 2.4)) - .055, step(float3(.0031308), c)); }
+float3 straight(half4 c) { return float3(c.rgb) / max(float(c.a), .00001); }
 float curveValue(float x) {
     x = clamp(x, 0, 1) * 4;
     if (x < 1) return mix(curve.x, curve.y, x);
@@ -41,30 +51,45 @@ float3 hsvToRgb(float3 c) {
     return c.z * mix(float3(1), clamp(p - 1, 0, 1), c.y);
 }
 float hueAt(int i) {
-    if (i == 0) return 0;
-    if (i == 1) return 1.0/12;
-    if (i == 2) return 1.0/6;
-    if (i == 3) return 1.0/3;
-    if (i == 4) return .5;
-    if (i == 5) return 2.0/3;
-    if (i == 6) return .75;
-    return 5.0/6;
+    if (i == 0) return 0; if (i == 1) return 1.0/12; if (i == 2) return 1.0/6;
+    if (i == 3) return 1.0/3; if (i == 4) return .5; if (i == 5) return 2.0/3;
+    if (i == 6) return .75; return 5.0/6;
+}
+// Pass vectors rather than an index: ES2 runtime effects require uniform-array
+// accesses to remain in the statically unrolled caller, not a function parameter.
+float maskWeight(float4 control, float4 g, float4 a, float4 range, float2 uv, float sourceLuma) {
+    if (control.w <= 0) return 0;
+    float aspect = sourceSize.x / sourceSize.y;
+    float2 delta = (uv - g.xy) * float2(aspect, 1);
+    float2 q = float2(control.x * delta.x + control.y * delta.y, -control.y * delta.x + control.x * delta.y);
+    float weight = 1;
+    if (control.z < .5) weight = 1 - smoothstep(1 - a.z, 1, length(q / max(g.zw * float2(aspect, 1), float2(.00001))));
+    else if (control.z < 1.5) weight = smoothstep(-g.w, g.w, q.y);
+    if (range.w > .5) {
+        float low = range.x <= 0 ? 1 : smoothstep(range.x - range.z, range.x, sourceLuma);
+        float high = range.y >= 1 ? 1 : 1 - smoothstep(range.y, range.y + range.z, sourceLuma);
+        weight *= low * high;
+    }
+    if (a.w > .5) weight = 1 - weight;
+    return weight * control.w;
 }
 half4 main(float2 p) {
     half4 pixel = original.eval(p);
+    float sourceLuma = lum(straight(pixel));
     float2 uv = p / size;
     for (int i = 0; i < 32; i++) {
         if (i >= spotCount) break;
         float r = max(radii[i], .002);
-        float d = length((uv - spots[i].xy) * float2(size.x / size.y, 1));
+        float d = length((uv - spots[i].xy) * float2(sourceSize.x / sourceSize.y, 1));
         float weight = 1 - smoothstep(r * .8, r, d);
         pixel = mix(pixel, original.eval(p + (spots[i].zw - spots[i].xy) * size), weight);
     }
     float alpha = pixel.a;
-    float3 rgb = float3(pixel.rgb) / max(alpha, .00001);
+    float3 rgb = straight(pixel);
     if (detail.x != 0 || detail.y != 0 || detail.z != 0 || detail.w != 0) {
-        float3 nearBlur = (original.eval(p + float2(1,0)).rgb + original.eval(p - float2(1,0)).rgb + original.eval(p + float2(0,1)).rgb + original.eval(p - float2(0,1)).rgb) / (4 * max(alpha, .00001));
-        float3 farBlur = (original.eval(p + float2(8,0)).rgb + original.eval(p - float2(8,0)).rgb + original.eval(p + float2(0,8)).rgb + original.eval(p - float2(0,8)).rgb) / (4 * max(alpha, .00001));
+        float2 texel = size / sourceSize;
+        float3 nearBlur = (straight(original.eval(p + float2(texel.x,0))) + straight(original.eval(p - float2(texel.x,0))) + straight(original.eval(p + float2(0,texel.y))) + straight(original.eval(p - float2(0,texel.y)))) / 4;
+        float3 farBlur = (straight(original.eval(p + float2(8*texel.x,0))) + straight(original.eval(p - float2(8*texel.x,0))) + straight(original.eval(p + float2(0,8*texel.y))) + straight(original.eval(p - float2(0,8*texel.y)))) / 4;
         rgb = mix(rgb, nearBlur, detail.w * .7);
         rgb += (rgb - nearBlur) * (detail.z * 1.4 + detail.x * .8) + (rgb - farBlur) * detail.y * .7;
     }
@@ -77,31 +102,55 @@ half4 main(float2 p) {
     rgb = (rgb - .18) * exp2(light.y * .8) + .18;
     rgb = encode(max(rgb, float3(0)));
     rgb = (rgb - color.w * .07) / max(.5, 1 - color.w * .18);
-    rgb = float3(curveValue(rgb.r), curveValue(rgb.g), curveValue(rgb.b));
-    float3 hsv = rgbToHsv(clamp(rgb, 0, 1)); float3 adjustment = float3(0); float weights = 0;
-    for (int i = 0; i < 8; i++) {
-        float distance = abs(hsv.x - hueAt(i)); distance = min(distance, 1 - distance);
-        float weight = 1 - smoothstep(0, .13, distance); adjustment += mixer[i].xyz * weight; weights += weight;
+    if (useCurve != 0) rgb = float3(curveValue(rgb.r), curveValue(rgb.g), curveValue(rgb.b));
+    rgb = clamp(rgb, 0, 1);
+    float3 hsv = float3(0);
+    if (useMixer != 0 || color.x != 0) hsv = rgbToHsv(rgb);
+    if (useMixer != 0) {
+        float3 adjustment = float3(0); float weights = 0;
+        for (int i = 0; i < 8; i++) {
+            float distance = abs(hsv.x - hueAt(i)); distance = min(distance, 1 - distance);
+            float weight = 1 - smoothstep(0, .13, distance); adjustment += mixer[i].xyz * weight; weights += weight;
+        }
+        adjustment /= max(weights, 1);
+        hsv.x = fract(hsv.x + adjustment.x * .12 + 1); hsv.y = clamp(hsv.y * (1 + adjustment.y), 0, 1); hsv.z = clamp(hsv.z * (1 + adjustment.z * .6), 0, 1);
+        rgb = hsvToRgb(hsv);
     }
-    adjustment /= max(weights, 1);
-    hsv.x = fract(hsv.x + adjustment.x * .12 + 1); hsv.y = clamp(hsv.y * (1 + adjustment.y), 0, 1); hsv.z = clamp(hsv.z * (1 + adjustment.z * .6), 0, 1);
-    rgb = hsvToRgb(hsv); l = lum(rgb);
+    l = lum(rgb);
     rgb = mix(float3(l), rgb, max(0, 1 + color.y + color.x * (1 - hsv.y)));
     if (color.z > .5) rgb = float3(lum(rgb));
+    if (useGrading != 0) {
+        float value = clamp(lum(rgb) - gradeMix.y * .25, 0, 1);
+        float width = .08 + gradeMix.x * .32;
+        float shadow = 1 - smoothstep(.32 - width, .32 + width, value);
+        float highlight = smoothstep(.68 - width, .68 + width, value);
+        float mid = max(0, 1 - shadow - highlight);
+        float3 weights = float3(shadow, mid, highlight) / max(.00001, shadow + mid + highlight);
+        float4 grade = grading[0] * weights.x + grading[1] * weights.y + grading[2] * weights.z + grading[3];
+        rgb = encode(max(float3(0), linearize(max(rgb, float3(0))) * exp2(grade.w) + grade.xyz));
+    }
+    float coverage = 0;
     for (int i = 0; i < 8; i++) {
         if (i >= maskCount) break;
-        float4 g = maskGeometry[i]; float4 a = maskAdjust[i];
-        float weight;
-        if (maskKind[i] < .5) weight = 1 - smoothstep(1 - a.z, 1, length((uv - g.xy) / max(g.zw, float2(.005))));
-        else weight = smoothstep(g.y - g.w, g.y + g.w, uv.y);
-        if (a.w > .5) weight = 1 - weight;
-        float3 local = encode(linearize(max(rgb, float3(0))) * exp2(a.x));
+        float4 a = maskAdjust[i]; float4 extra = maskExtra[i];
+        float weight = maskWeight(maskControl[i], maskGeometry[i], a, maskRange[i], uv, sourceLuma);
+        if (i == overlayMask) coverage = weight;
+        if (weight <= 0) continue;
+        float3 local = linearize(max(rgb, float3(0))) * exp2(a.x);
+        local *= float3(1 + extra.y * .22, 1 + extra.z * .12, 1 - extra.y * .22);
+        local = (local - .18) * exp2(extra.x * .8) + .18;
+        local = encode(max(local, float3(0)));
         local = mix(float3(lum(local)), local, max(0, 1 + a.y)); rgb = mix(rgb, local, weight);
     }
-    float radius = length((uv - .5) * 1.41421356);
-    float falloff = smoothstep(.25, .95, radius);
-    rgb *= exp2(effects.x * falloff * 1.6);
-    float grain = fract(sin(dot(floor(p), float2(12.9898,78.233))) * 43758.5453) - .5;
-    rgb += grain * effects.y * .12;
-    return half4(clamp(rgb, 0, 1) * alpha, alpha);
+    if (effects.x != 0) {
+        float radius = length((uv - .5) * 1.41421356);
+        rgb *= exp2(effects.x * smoothstep(.25, .95, radius) * 1.6);
+    }
+    if (effects.y != 0) {
+        float grain = fract(sin(dot(floor(p * sourceSize / size), float2(12.9898,78.233))) * 43758.5453) - .5;
+        rgb += grain * effects.y * .12;
+    }
+    rgb = clamp(rgb, 0, 1);
+    if (overlayMask >= 0) rgb = mix(rgb, float3(1, .13, .12), coverage * .35);
+    return half4(rgb * alpha, alpha);
 }

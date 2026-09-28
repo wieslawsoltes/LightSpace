@@ -1,7 +1,9 @@
-# LightSpace 0.1.0-alpha.1
+# LightSpace 0.2.0-alpha.1
 
-Initial independent Uno photography workspace with eight reusable library projects, shared desktop/browser hosts, custom development controls, source-preserving editing, tonal/color runtime shaders, crop/masks/clone tools, catalog organization, named versions, image/catalog export and local recovery.
+Four-way color grading with a custom interactive wheel; rotatable and directly editable linear/radial gradients; luminance-range masks and spatial/range intersection; local contrast/white balance, opacity and mask enable/disable; mask rename/duplicate/delete; selected-mask coverage overlay; draggable before/after comparison.
 
-The repository includes deterministic engine validation, pointer-driven browser acceptance tests, Windows/Linux/macOS build jobs, provenance-checked GitHub Pages delivery and a tagged prerelease packaging workflow.
+Performance work includes semantic state comparisons instead of JSON serialization, pixel-aware shader/thumbnail invalidation, neutral processing bypasses, independently budgeted 384-pixel thumbnail decoding, bounded auto-tone sampling, and stable catalog controls for unchanged page membership. Tests report managed allocations, scoped CPU timings and work counters rather than claiming physical-GPU frame rates.
 
-This is an early functional implementation, not a production replacement for Adobe Lightroom. Camera RAW, Adobe processing/catalog compatibility, AI tools, calibrated lens corrections, HDR/panorama merging, cloud services, printing and signed native distribution are not included. Rendered export is 8-bit sRGB and strips source metadata. See FEATURE-COVERAGE.md for the precise boundary.
+Schema-1 catalogs migrate on import. New catalog saves use schema2 to preserve grading and extended masks and prevent older builds from silently dropping those settings. Keep a pre-upgrade backup when needed.
+
+The prior committed-revision recovery guarantees remain. RAW, AI tools, calibrated lens corrections, HDR/panorama merge, native-resolution tiled inspection, Adobe catalog compatibility and complete Lightroom parity remain outside this release. See docs/FEATURE-COVERAGE.md and docs/PERFORMANCE.md.

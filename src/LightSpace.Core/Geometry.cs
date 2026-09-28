@@ -16,7 +16,10 @@ public sealed record CropSettings(float Left = 0, float Top = 0, float Right = 1
     public CropSettings Normalize()
     {
         var left = Numeric.Clamp(Left, 0, .99f); var top = Numeric.Clamp(Top, 0, .99f);
-        return this with { Left = left, Top = top, Right = Numeric.Clamp(Right, left + .01f, 1), Bottom = Numeric.Clamp(Bottom, top + .01f, 1), QuarterTurns = ((QuarterTurns % 4) + 4) % 4 };
+        var right = Numeric.Clamp(Right, left + .01f, 1); var bottom = Numeric.Clamp(Bottom, top + .01f, 1);
+        var q = ((QuarterTurns % 4) + 4) % 4;
+        return left == Left && top == Top && right == Right && bottom == Bottom && q == QuarterTurns ? this
+            : this with { Left = left, Top = top, Right = right, Bottom = bottom, QuarterTurns = q };
     }
     public (int Width, int Height) OutputSize(int width, int height)
     {
@@ -25,7 +28,7 @@ public sealed record CropSettings(float Left = 0, float Top = 0, float Right = 1
     }
 }
 
-public enum MaskKind { Radial, Linear }
+public enum MaskKind { Radial, Linear, LuminanceRange }
 public sealed record LocalMask
 {
     public Guid Id { get; init; } = Guid.NewGuid();
@@ -35,30 +38,79 @@ public sealed record LocalMask
     public float Y { get; init; } = .5f;
     public float RadiusX { get; init; } = .25f;
     public float RadiusY { get; init; } = .25f;
+    public float Angle { get; init; }
     public float Feather { get; init; } = .75f;
     public float Exposure { get; init; } = .5f;
     public float Saturation { get; init; }
+    public float Contrast { get; init; }
+    public float Temperature { get; init; }
+    public float Tint { get; init; }
     public bool Inverted { get; init; }
-    public LocalMask Normalize() => this with
+    public bool Enabled { get; init; } = true;
+    public float Opacity { get; init; } = 1;
+    public bool RangeEnabled { get; init; }
+    public float RangeMin { get; init; }
+    public float RangeMax { get; init; } = 1;
+    public float RangeSmoothness { get; init; } = .1f;
+
+    public LocalMask Normalize()
     {
-        X = Numeric.Unit(X), Y = Numeric.Unit(Y), RadiusX = Numeric.Clamp(RadiusX, .005f, 1), RadiusY = Numeric.Clamp(RadiusY, .005f, 1),
-        Feather = Numeric.Clamp(Feather, .01f, 1), Exposure = Numeric.Clamp(Exposure, -5, 5), Saturation = DevelopSettings.Percent(Saturation)
-    };
-    public float Weight(float x, float y)
-    {
-        var m = Normalize(); float value;
-        if (Kind == MaskKind.Radial)
+        var low = MathF.Min(Numeric.Unit(RangeMin), Numeric.Unit(RangeMax));
+        var high = MathF.Max(Numeric.Unit(RangeMin), Numeric.Unit(RangeMax));
+        var normalized = this with
         {
-            var distance = MathF.Sqrt(MathF.Pow((x - m.X) / m.RadiusX, 2) + MathF.Pow((y - m.Y) / m.RadiusY, 2));
-            value = 1 - Smooth(1 - m.Feather, 1, distance);
-        }
-        else value = Smooth(m.Y - m.RadiusY, m.Y + m.RadiusY, y);
-        return Inverted ? 1 - value : value;
+            Name = string.IsNullOrWhiteSpace(Name) ? "Mask" : Name[..Math.Min(Name.Length, 100)],
+            Kind = Enum.IsDefined(Kind) ? Kind : MaskKind.Radial,
+            X = Numeric.Unit(X), Y = Numeric.Unit(Y), RadiusX = Numeric.Clamp(RadiusX, .005f, 100), RadiusY = Numeric.Clamp(RadiusY, .005f, 100),
+            Angle = Numeric.Angle(Angle), Feather = Numeric.Clamp(Feather, .01f, 1),
+            Exposure = Numeric.Clamp(Exposure, -5, 5), Saturation = DevelopSettings.Percent(Saturation),
+            Contrast = DevelopSettings.Percent(Contrast), Temperature = DevelopSettings.Percent(Temperature), Tint = DevelopSettings.Percent(Tint),
+            Opacity = Numeric.Unit(Opacity), RangeMin = low, RangeMax = high, RangeSmoothness = Numeric.Clamp(RangeSmoothness, .001f, 1)
+        };
+        return normalized == this ? this : normalized;
     }
-    private static float Smooth(float a, float b, float v) { var t = Numeric.Unit((v - a) / (b - a)); return t * t * (3 - 2 * t); }
+    /// <summary>Coverage in source coordinates; luminance comes from the imported sRGB source, before edits.</summary>
+    public float Weight(float x, float y, float sourceLuminance = .5f, float aspect = 1)
+    {
+        var m = Normalize(); if (!m.Enabled) return 0;
+        aspect = MathF.Max(.0001f, aspect);
+        var a = m.Angle * MathF.PI / 180; var cos = MathF.Cos(a); var sin = MathF.Sin(a);
+        var dx = (x - m.X) * aspect; var dy = y - m.Y;
+        var qx = cos * dx + sin * dy; var qy = -sin * dx + cos * dy;
+        var value = 1f;
+        if (m.Kind == MaskKind.Radial)
+        {
+            var rx = qx / (m.RadiusX * aspect); var ry = qy / m.RadiusY;
+            value = 1 - Numeric.Smooth(1 - m.Feather, 1, MathF.Sqrt(rx * rx + ry * ry));
+        }
+        else if (m.Kind == MaskKind.Linear) value = Numeric.Smooth(-m.RadiusY, m.RadiusY, qy);
+        if (m.RangeEnabled || m.Kind == MaskKind.LuminanceRange)
+        {
+            var lower = m.RangeMin <= 0 ? 1 : Numeric.Smooth(m.RangeMin - m.RangeSmoothness, m.RangeMin, sourceLuminance);
+            var upper = m.RangeMax >= 1 ? 1 : 1 - Numeric.Smooth(m.RangeMax, m.RangeMax + m.RangeSmoothness, sourceLuminance);
+            value *= lower * upper;
+        }
+        return (m.Inverted ? 1 - value : value) * m.Opacity;
+    }
+    /// <summary>Map local pixel-isotropic offsets, measured in image-height units, into source UV.</summary>
+    public PointD LocalToSource(float dx, float dy, float aspect)
+    {
+        var a = Angle * Math.PI / 180; var c = Math.Cos(a); var s = Math.Sin(a);
+        return new(X + (c * dx - s * dy) / Math.Max(.0001, aspect), Y + s * dx + c * dy);
+    }
+    public bool PixelEquals(LocalMask other) =>
+        Kind == other.Kind && X == other.X && Y == other.Y && RadiusX == other.RadiusX && RadiusY == other.RadiusY
+        && Angle == other.Angle && Feather == other.Feather && Exposure == other.Exposure && Saturation == other.Saturation
+        && Contrast == other.Contrast && Temperature == other.Temperature && Tint == other.Tint && Inverted == other.Inverted
+        && Enabled == other.Enabled && Opacity == other.Opacity && RangeEnabled == other.RangeEnabled
+        && RangeMin == other.RangeMin && RangeMax == other.RangeMax && RangeSmoothness == other.RangeSmoothness;
 }
 
 public sealed record CloneSpot(float X, float Y, float SourceX, float SourceY, float Radius = .03f)
 {
-    public CloneSpot Normalize() => new(Numeric.Unit(X), Numeric.Unit(Y), Numeric.Unit(SourceX), Numeric.Unit(SourceY), Numeric.Clamp(Radius, .002f, .25f));
+    public CloneSpot Normalize()
+    {
+        var x = Numeric.Unit(X); var y = Numeric.Unit(Y); var sx = Numeric.Unit(SourceX); var sy = Numeric.Unit(SourceY); var r = Numeric.Clamp(Radius, .002f, .25f);
+        return x == X && y == Y && sx == SourceX && sy == SourceY && r == Radius ? this : new(x, y, sx, sy, r);
+    }
 }

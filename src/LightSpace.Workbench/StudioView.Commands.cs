@@ -26,25 +26,11 @@ public sealed partial class StudioView
         var file=await _storage.OpenCatalogAsync();if(file is null)return;
         if(file.Bytes.Length>CatalogSerializer.MaxCatalogBytes*1.4)throw new InvalidDataException("Catalog file exceeds the size limit.");
         var catalog=CatalogSerializer.Deserialize(Encoding.UTF8.GetString(file.Bytes));
-        _renderer.Clear();Session.Load(catalog);_query=new();_page=0;_search.Text="";RefreshAll();SetStatus("Opened "+file.Name);
+        _renderer.Clear();_thumbnails.Clear();Session.Load(catalog);_query=new();_page=0;_search.Text="";RefreshAll();SetStatus("Opened "+file.Name);
     }
     public async Task SaveCatalogAsync()
     {
         Session.CommitGesture("Adjustment");await _storage.SaveAsync("LightSpace-catalog.lightspace",Encoding.UTF8.GetBytes(CatalogSerializer.Serialize(Session.Catalog)),"application/json");SetStatus("Catalog backup exported, including original photographs and edit settings.");
-    }
-    private async Task SaveRecoveryAsync()
-    {
-        if(_saving){_savePending=true;return;}_saving=true;
-        try
-        {
-            do
-            {
-                _savePending=false;var revision=Session.Revision;var json=CatalogSerializer.Serialize(Session.Catalog);await _storage.WriteRecoveryAsync(json);_savedRevision=revision;
-            }while(_savePending);
-            SetStatus("All changes saved on this device");
-        }
-        catch(Exception e){_savePending=true;SetStatus("Recovery could not be saved. Export a catalog backup. "+e.Message);}
-        finally{_saving=false;}
     }
     private Task CreateAlbumAsync()=>TextPromptAsync("New album","Album name","Untitled album",value=>{Session.CreateAlbum(value);SetStatus("Album created from the current selection.");});
     private Task SaveVersionAsync()=>TextPromptAsync("Create version","Version name","Version "+((Session.Active?.Versions.Count??0)+1),Session.SaveVersion);
@@ -88,13 +74,16 @@ public sealed partial class StudioView
     {
         var panel=new StackPanel{Spacing=10};
         foreach(var (title,body) in new[]{
-            ("Start with your photographs","Add photos imports JPEG, PNG, WebP, BMP and GIF. The supplied landscapes are demonstration images. Camera RAW formats are not decoded."),
-            ("Develop without destroying","Sliders, point curves, color mixing, crop, gradients and clone spots retain the original bytes. Double-click a slider to reset it; numeric values can be typed directly. Undo keeps up to 100 transactions."),
-            ("Select and organize","Use the grid or filmstrip. Control-click selects several photos. Ratings, flags, keywords and captions support filtering. Albums reference photographs rather than making duplicate originals."),
-            ("Keyboard","G: grid · E/D: edit · R: crop · M: mask · Z: zoom · Y: compare · \\: original · 0–5: rating · P: pick · X: reject · U: clear flag · arrows: previous/next · Ctrl/Cmd+Z: undo · Ctrl/Cmd+Shift+Z: redo · Ctrl/Cmd+I: import · Ctrl/Cmd+S: catalog backup."),
-            ("Crop, mask and clone","Drag crop handles or a new crop rectangle; Done returns to editing. Drag on the photo to create a radial or vertical linear mask. Alt-click a source then click a destination with Clone. Masks are limited to eight, clone spots to 32."),
-            ("Local storage and export","Recovery is written to this browser's IndexedDB or the desktop application-data directory. It is not encrypted or cloud-backed. Export a .lightspace catalog backup before clearing browser storage. JPEG/PNG/WebP export is 8-bit sRGB with an 8192-pixel long-edge safety cap."),
-            ("About this release","LightSpace is independent MIT-licensed software, not an Adobe product. It is a functional photo workspace, not complete Lightroom parity. No Adobe camera profiles, RAW pipeline, AI denoise/removal, lens database, HDR/panorama merge, cloud synchronization or Lightroom catalog compatibility are included.")})
+            ("Start with your photographs","Add photos imports JPEG, PNG, WebP, BMP and GIF. Source bytes are retained unchanged. Camera RAW, HEIF and TIFF decoding are not included."),
+            ("Non-destructive development","Sliders, curves, color mixing, grading, crop, masks and clone spots operate on edit settings. Double-click a slider to reset it. Type numeric values directly. A completed gesture is one undo transaction; Escape cancels an active gesture."),
+            ("Four-way grading","Grade opens shadows, midtones, highlights and global color wheels. Drag hue/saturation or use numeric sliders; luminance, blending and balance refine the result. In the wheel, arrow keys adjust hue/saturation and Home resets color. Grading follows monochrome conversion and is included in copied settings, versions and exports."),
+            ("Masks and range selection","Drag a radial or linear gradient, then move its pin, radius/fade handles or rotation handle. Linear direction follows the drag. Luminance creates a source-brightness selection; Restrict luminance intersects that range with a spatial gradient. Amount, enable/disable, local tone/WB/saturation, inversion, rename/duplicate/delete and undo are supported, up to eight masks."),
+            ("Coverage, crop and clone","Coverage shows the selected mask's weighted selection in red and is excluded from export and histogram sampling. Crop has movable handles, centered aspect ratios, quarter turns and flips. Clone uses Alt-click for a source and click for a destination, up to 32 feathered stamps; it is not healing or generative removal."),
+            ("Organize and compare","Use grid/filmstrip and Control-click for multiple selection. Ratings, flags, captions and keywords support filtering. Albums reference originals rather than duplicating them. Drag the before/after divider to compare without changing the document. Preview images are capped at a 2560-pixel long edge, even in source-pixel zoom geometry."),
+            ("Keyboard","G: grid · E/D: edit · R: crop · M: mask · Z: zoom · Y: compare · backslash: original · 0–5: rating · P/X/U: pick/reject/clear · arrows: photo navigation · Ctrl/Cmd+Z: undo · Ctrl/Cmd+Shift+Z: redo · Ctrl/Cmd+I: import · Ctrl/Cmd+S: catalog backup."),
+            ("Recovery and compatibility","The save control acknowledges only completed committed revisions, not live previews. Click it to save now or retry. Unreadable recovery is protected until explicit replacement. Schema-1 catalogs migrate on import; new saves use schema 2 for grading and masks, which older builds reject rather than silently losing settings. Keep portable catalog backups."),
+            ("Export and privacy","JPEG/PNG/WebP export is 8-bit sRGB with an 8192-pixel long-edge cap. Rendered copies omit source EXIF/IPTC metadata. Catalog backups retain originals. Recovery uses local IndexedDB or the native application-data directory, is not encrypted, and does not merge concurrent tabs. No photo upload, account or cloud processing is used."),
+            ("About LightSpace","Independent MIT-licensed Uno software, not an Adobe product or complete Lightroom parity. The rendering path uses GPU-capable Skia effects; actual hardware acceleration depends on the host. RAW processing, AI tools, calibrated lens/camera profiles, HDR/panorama merge, cloud sync and Adobe catalog compatibility remain absent.")})
         {panel.Children.Add(Theme.Text(title,13));panel.Children.Add(Note(body));}
         ShowDialog("LightSpace guide",panel,"Close",()=>Task.CompletedTask);return Task.CompletedTask;
     }
@@ -111,7 +100,7 @@ public sealed partial class StudioView
     private void CloseDialog(){if(_dialogOverlay is null)return;if(Content is Grid root)root.Children.Remove(_dialogOverlay);_dialogOverlay=null;PublishDiagnostics();}
     private void Keyboard(object sender,KeyRoutedEventArgs e)
     {
-        if(FocusManager.GetFocusedElement(XamlRoot) is TextBox)return;
+        if(XamlRoot is { } root && FocusManager.GetFocusedElement(root) is TextBox)return;
         if(_dialogOverlay is not null){if(e.Key==VirtualKey.Escape){CloseDialog();e.Handled=true;}return;}
         bool Down(VirtualKey key)=>Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
         var control=Down(VirtualKey.Control)||Down(VirtualKey.LeftWindows)||Down(VirtualKey.RightWindows);var shift=Down(VirtualKey.Shift);var handled=true;

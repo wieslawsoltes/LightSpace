@@ -2,63 +2,73 @@
 
 # LightSpace
 
-### Your photographs. Your light. Your workspace.
+### Develop your photographs. Keep your originals.
 
-A local-first, non-destructive photography application built with **Uno Platform**, **C#**, and **GPU-capable Skia runtime shaders**.
+A local-first photography workspace for **Uno Platform**, powered by reusable C# libraries and GPU-capable **Skia runtime effects**.
 
-[Browser application](https://wieslawsoltes.github.io/LightSpace/) · [Getting started](docs/GETTING-STARTED.md) · [Architecture](docs/ARCHITECTURE.md) · [Feature coverage](docs/FEATURE-COVERAGE.md)
+[Open in your browser](https://wieslawsoltes.github.io/LightSpace/) · [Getting started](docs/GETTING-STARTED.md) · [Architecture](docs/ARCHITECTURE.md) · [Feature coverage](docs/FEATURE-COVERAGE.md)
 
 [![Build](https://github.com/wieslawsoltes/LightSpace/actions/workflows/build.yml/badge.svg)](https://github.com/wieslawsoltes/LightSpace/actions/workflows/build.yml)
 [![Desktop](https://github.com/wieslawsoltes/LightSpace/actions/workflows/desktop.yml/badge.svg)](https://github.com/wieslawsoltes/LightSpace/actions/workflows/desktop.yml)
 [![Pages](https://github.com/wieslawsoltes/LightSpace/actions/workflows/pages.yml/badge.svg)](https://github.com/wieslawsoltes/LightSpace/actions/workflows/pages.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-7aa7ca.svg)](LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-7aa7ca.svg)](LICENSE)
 
 </div>
 
 ---
 
-LightSpace brings a familiar photography workflow to a shared desktop and browser codebase: browse a catalog, select a photograph, develop its light and color, refine its composition, and export a rendered copy without altering the original.
+LightSpace combines a familiar photography layout with a shared native desktop and WebAssembly implementation: library navigation, a centered photo canvas, filmstrip, histogram, development inspector and vertical tool rail. Original bytes remain unchanged while edits, masks, metadata and alternative looks are recorded in the local catalog.
 
-The interface follows the desktop Lightroom editing model: a compact navigation rail, album sidebar, centered photo canvas, filmstrip, histogram, right-hand development panels, and a vertical tool rail. Its application chrome, icons, sliders, point-curve control, histogram, thumbnails, and photo interaction surface are purpose-built Uno components. Standard Uno text-input, scrolling, selection, and accessibility primitives are retained where appropriate.
+**Current version: 0.2.0-alpha.1.** This is an independent functional early implementation, not a pixel-identical or feature-complete Lightroom replacement. It includes no Adobe branding, proprietary processing code, camera profiles or cloud services. [Implemented features and remaining boundaries →](docs/FEATURE-COVERAGE.md)
 
-> **Status: 0.1.0-alpha.1 — functional early implementation, not complete Adobe Lightroom parity.** LightSpace is an independent project, not an Adobe product. Adobe branding, assets, camera profiles, processing code, catalogs, and cloud services are not included. See the explicit [coverage and limitations](docs/FEATURE-COVERAGE.md) before evaluating it for production photography.
+## New in 0.2
 
-## A practical photography workflow
+**Four-way color grading.** Shadows, midtones, highlights and global grading have an original interactive hue/saturation wheel, numeric controls, luminance, blending and balance. Grading participates in undo/redo, copy/sync, presets, versions, export and recovery. Two new grading presets provide starting points.
 
-**Organize locally.** Import multiple photographs, switch between grid and detail views, browse the filmstrip, search names/captions/keywords, assign ratings and flags, and organize photo references into albums. Control-click selects multiple photographs; copied settings and synchronization operate on the selection.
+**Directly editable masks.** Linear gradients follow the drag direction and have live position/fade/rotation handles. Radial gradients can move, resize and rotate on the photo. Luminance-range masks select source brightness; spatial gradients can intersect with the same range. Masks support local exposure, contrast, relative white balance and saturation, opacity, disable, inversion, rename, duplicate and delete. Weighted coverage can be inspected without contaminating exported pixels.
 
-**Develop non-destructively.** Adjust exposure, contrast, highlights, shadows, whites, blacks, relative white balance, vibrance, and saturation. Refine five-point curves and eight color bands, apply creative presets, adjust texture/clarity/dehaze, and add vignette or grain. Basic sharpening and spatial smoothing are available; these are not AI denoising algorithms.
+**Less redundant work.** Metadata updates no longer rebuild identical photo shaders or thumbnails. Catalog cards and library controls remain alive when page membership is unchanged. Thumbnails use a separate 384-pixel decode target and bounded cache, Auto tone samples only 6,144 pixels, and transaction comparisons no longer serialize JSON. The before/after divider is now draggable without changing the document revision.
 
-**Compose and refine.** Drag crop handles or a new crop, choose common aspect ratios, rotate in quarter turns, and flip. Create radial or vertical linear-gradient masks with local exposure and saturation. Alt-click a clone source and stamp destinations. Compare the edited result with its original, pan, zoom, and return to fit.
+[Color and mask guide](docs/COLOR-AND-MASKS.md) · [Performance methodology](docs/PERFORMANCE.md) · [Changelog](CHANGELOG.md)
 
-**Keep control of the result.** Undo/redo is transaction-based, so one slider gesture is one edit. Named versions preserve different looks. Export JPEG, PNG, or WebP copies, optionally ZIP a multi-photo selection, and export a portable `.lightspace` catalog containing originals and edit settings. Recovery is saved to IndexedDB in the browser and the application-data directory on desktop.
+## Photography workflow
 
-## Shared implementation, reusable pieces
+**Organize locally.** Import JPEG, PNG, WebP, BMP or GIF photographs. Browse a paged grid or filmstrip, search filenames/captions/keywords, assign ratings and flags, and collect photo references in albums. Control-click extends a selection for rating, copying or synchronizing edits.
+
+**Develop non-destructively.** Adjust light, relative white balance, vibrance and saturation; edit five-point curves and eight color bands; grade tonal ranges; apply creative presets; adjust texture, clarity, dehaze, vignette, grain, sharpening and spatial smoothing. These are original algorithms and approximations, not Adobe processing or AI denoising.
+
+**Refine composition and local light.** Drag crop rectangles and handles, apply centered ratios, rotate by quarter turns and flip. Use radial, linear or luminance masks. Alt-click a clone source and stamp destinations. Pan, zoom, fit, show the original and drag the before/after divider.
+
+**Preserve the result.** Each gesture is one undo transaction. Named versions retain alternative looks. Export JPEG/PNG/WebP copies, ZIP a multi-photo selection, or save a portable `.lightspace` catalog with originals and edits. Recovery tracks completed committed revisions, excludes active previews and offers explicit retry. Unreadable recovery is protected until the user confirms replacement.
+
+## Reusable libraries
 
 | Library | Responsibility | Targets |
 | --- | --- | --- |
-| `LightSpace.Core` | Development settings, crops, masks, clone spots, photo/catalog models, presets | .NET 10 |
-| `LightSpace.Catalog` | Versioned serialization, validation, search, filtering, sorting, album queries | .NET 10 |
-| `LightSpace.Editing` | Gesture transactions, bounded undo/redo, batch synchronization, named versions | .NET 10 |
-| `LightSpace.Imaging` | Bounded decoding, EXIF orientation, sRGB conversion, procedural fallback samples | .NET 10 |
-| `LightSpace.Rendering.Skia` | Runtime shader development, crop transforms, histogram, rendered export | .NET 10 |
-| `LightSpace.Storage` | Platform-independent import, export, and recovery contracts | .NET 10 |
-| `LightSpace.Controls` | Custom Uno controls, photo canvas, thumbnails, histogram, curves, sliders, icons | Browser / desktop |
-| `LightSpace.Workbench` | Composable photography workspace, inspectors, catalog UI, commands and dialogs | Browser / desktop |
+| `LightSpace.Core` | Development/grading, geometry, masks, model values, semantic equality and presets | .NET 10 |
+| `LightSpace.Catalog` | Versioned serialization/migration, validation, search, filtering and album queries | .NET 10 |
+| `LightSpace.Editing` | Gesture transactions, undo/redo, batch synchronization, named versions, revision-aware recovery | .NET 10 |
+| `LightSpace.Imaging` | Bounded decoding, EXIF orientation, sRGB conversion and fallback sample generation | .NET 10 |
+| `LightSpace.Rendering.Skia` | Runtime-effect processing, byte-budgeted image caches, transforms, histogram and export | .NET 10 |
+| `LightSpace.Storage` | Platform-independent import/export/recovery contracts | .NET 10 |
+| `LightSpace.Controls` | Custom chrome/icons, sliders, grading wheel/editor, mixer, mask editor, cards, curves, histogram and viewport | Uno browser / desktop |
+| `LightSpace.Workbench` | Composable photography shell, inspectors, commands, dialogs and recovery UX | Uno browser / desktop |
 
-The application host supplies platform storage and startup. Engine libraries do not depend on Uno. Successful CI builds produce `.nupkg` artifacts for all eight libraries; this does **not** imply that packages have been published to NuGet.org.
+Engine libraries do not depend on Uno. The application supplies startup and platform storage. All eight libraries are independently packable; successful CI builds attach `.nupkg` artifacts. They are not automatically published to NuGet.org.
 
-## Rendering technology
+The application uses original custom photography controls while retaining standard Uno text input, scrolling, selection and accessibility primitives where appropriate. Not every framework primitive has been reimplemented.
 
-The project pins **Uno SDK 6.7.30**, **.NET SDK 10.0.401**, and a matched **SkiaSharp 3.119.4** dependency family. Uno 6.7 is the stable platform release selected for this implementation. SkiaSharp is intentionally aligned with Uno's native rendering dependency rather than independently upgraded across an incompatible native ABI.
+## Rendering and pinned stack
 
-The photo viewport uses `Uno.WinUI.Graphics2DSK.SKCanvasElement`. A compiled SkSL runtime shader evaluates development settings inside the host's Skia rendering path. This avoids introducing a separate browser rendering surface or an unintegrated native GPU context. The shader can run on a GPU-backed canvas and also has a software execution path. The actual backend is selected by Uno and the device; hardware acceleration on every host is **not** guaranteed.
+The repository pins **.NET SDK 10.0.401**, **Uno SDK 6.7.30** and the matched **SkiaSharp 3.119.4** dependency family. Managed/native graphics packages must be upgraded together and validated against Uno's hosting ABI.
 
-This release is **not** a separate WebGPU compute engine. Preview images are bounded and cached; edited thumbnails and histograms use offscreen raster surfaces, and export is currently CPU-backed. CI browser tests use Chromium/SwiftShader and are not physical-GPU performance certification. [Rendering details and tradeoffs →](docs/ARCHITECTURE.md)
+The viewport renders through `Uno.WinUI.Graphics2DSK.SKCanvasElement`. A compiled SkSL runtime effect performs photographic development inside Uno's Skia composition path. It can run on a hardware-backed canvas where supplied by the host and also supports software raster execution. This release does not implement a separate WebGPU compute backend.
+
+Preview sources are limited to a 2560-pixel long edge. Decode, thumbnails, histogram sampling and image export still involve synchronous CPU/native raster work. Browser CI uses Chromium/SwiftShader, not physical-GPU certification. New reports distinguish CPU microbenchmarks, cache counts and real UI interactions rather than implying those measurements are end-to-end frame rates.
 
 ## Build and run
 
-Install the SDK pinned in `global.json`, Python 3, and the Uno desktop prerequisites for your operating system.
+Install the SDK in `global.json`, Python 3 and the Uno desktop prerequisites for your operating system.
 
 ```bash
 git clone https://github.com/wieslawsoltes/LightSpace.git
@@ -66,23 +76,23 @@ cd LightSpace
 python3 scripts/fetch-assets.py
 dotnet workload install wasm-tools --skip-manifest-update
 
-# Engine and image-processing validation
+# Model, pixel-processing, transaction, recovery and performance checks
 dotnet run --project tests/LightSpace.Engine.Tests -c Release
 
-# Desktop application
+# Shared native desktop host
 dotnet run --project src/LightSpace.App -f net10.0-desktop \
   -p:LightSpaceDesktopOnly=true
 
-# Publish the actual Uno browser application
+# Publish and serve the actual Uno WebAssembly app
 dotnet publish src/LightSpace.App -f net10.0-browserwasm -c Release \
   -o artifacts/publish -p:WasmShellWebAppBasePath=/LightSpace/
 python3 scripts/collect-site.py artifacts/publish artifacts/site
 python3 scripts/serve-site.py --directory artifacts/site --port 4173
 ```
 
-Open `http://127.0.0.1:4173/LightSpace/`. The browser application must be served over HTTP(S), not opened as a local HTML file. It is compiled Uno/.NET WebAssembly, not a static HTML mockup or JavaScript replacement for the UI.
+Open `http://127.0.0.1:4173/LightSpace/`. The UI is compiled Uno/.NET WebAssembly, not a static HTML mockup. Serve it over HTTP(S), not by opening a local HTML file.
 
-The asset script verifies the bundled OFL font by SHA-256 and optionally downloads demonstration photographs. Set `LIGHTSPACE_NO_DEMO_PHOTOS=1` to omit external demo photographs and use original generated landscapes. The application does not fetch demo images from third-party sites while it runs.
+The asset script verifies the OFL font by hash and optionally downloads demonstration photographs at build time. Set `LIGHTSPACE_NO_DEMO_PHOTOS=1` to use original generated landscapes instead. The running application does not fetch sample photographs from third-party servers.
 
 ## Reuse the engine
 
@@ -94,32 +104,48 @@ using LightSpace.Rendering.Skia;
 using SkiaSharp;
 
 var photo = PhotoCodec.Import("mountains.jpg", File.ReadAllBytes("mountains.jpg"));
-var catalog = new CatalogDocument { Photos = [photo], ActivePhoto = photo.Id };
-var session = new EditorSession(catalog);
-
-session.Edit("Lift the light", state => state with
+var session = new EditorSession(new CatalogDocument
 {
-    Develop = state.Develop with { Exposure = 0.35f, Highlights = -25, Shadows = 20 }
+    Photos = [photo], ActivePhoto = photo.Id
 });
-
+session.Edit("Alpine grade", state => state with
+{
+    Develop = state.Develop with
+    {
+        Exposure = 0.35f, Highlights = -25, Shadows = 20,
+        Grading = new ColorGradingSettings
+        {
+            Shadows = new GradingTone(200, 12),
+            Highlights = new GradingTone(40, 15), Blending = 60
+        }
+    }
+});
 using var renderer = new PhotoRenderer();
 File.WriteAllBytes("mountains-edited.jpg",
     renderer.Export(photo, SKEncodedImageFormat.Jpeg, quality: 92, maxDimension: 4096));
-
-session.Undo(); // Restores the edit snapshot; the original bytes were never rewritten.
+session.Undo(); // Original bytes were never rewritten.
 ```
 
-For an embedded Uno workspace, construct `StudioView` with an `EditorSession` and an implementation of `IWorkspaceStorage`. Individual `AdjustmentSlider`, `ToneCurveView`, `HistogramView`, `PhotoViewport`, and other public controls can be used independently. [Component API and ownership →](docs/ARCHITECTURE.md#embedding-and-ownership)
+Embed `StudioView(session, storage, recoveryLoaded)` in an Uno host, or use the public controls independently. Value editors expose Previewed/Committed/Canceled events; their host owns transactions and refreshes values after external edits. Dispose native-resource owners when their containing host closes. Snapshot arrays and source bytes are read-only/copy-on-write by contract.
+
+```csharp
+using var recovery = new RecoveryCoordinator(session, storage.WriteRecoveryAsync,
+    initiallySaved: restoredFromRecovery);
+recovery.StatusChanged += status => UpdateSaveIndicator(status);
+await recovery.FlushAsync();
+```
+
+The session, recovery coordinator and renderer are confined to one logical owner, normally the UI synchronization context. [Ownership and embedding](docs/ARCHITECTURE.md) · [Recovery contract](docs/RECOVERY.md)
 
 ## Validation and delivery
 
-`Build` runs the deterministic engine suite, publishes WebAssembly, drives real browser controls with Playwright, verifies image export, and packages the reusable libraries. Screenshots, test reports, traces on failure, source snapshots, and packages are attached to each run.
+`Build` runs the engine suite, publishes WebAssembly, drives actual Uno controls with Playwright, validates rendered exports and recovery, and packages the libraries. Reports include screenshots, failure traces, exports, source snapshots and performance evidence.
 
-`Desktop` compiles the same host on Windows, Linux, and macOS. Compilation does not replace device-level validation of native file pickers, accessibility, or GPU drivers.
+`Desktop` compiles the shared host on Windows, Linux and macOS. Compilation does not certify native file pickers, assistive technology or GPU drivers on every device.
 
-`Pages` deploys only a successful trusted main-branch build. It verifies the artifact commit, publishes through the official Pages actions, checks the public build identity, and repeats browser acceptance tests against the deployed site.
+`Pages` accepts only a successful trusted main-branch Build artifact, verifies its commit, deploys through official GitHub Pages actions, checks the public build identity and reruns browser tests against the public application.
 
-`Release` builds library packages, a browser archive, and self-contained desktop archives for `win-x64`, `linux-x64`, and `osx-arm64`. It creates a prerelease with checksums when a version tag is pushed or a maintainer dispatches the workflow. Native signing/notarization and NuGet.org publication are not configured.
+`Release` builds packages, browser and self-contained `win-x64`, `linux-x64`, `osx-arm64` archives with checksums. Signing, notarization, installers and NuGet.org publication are not configured.
 
 ```bash
 npm ci --ignore-scripts
@@ -129,18 +155,16 @@ cp artifacts/engine/import-fixture.png artifacts/fixtures/
 npm run test:browser
 ```
 
-## Formats and safety limits
+## Compatibility and safety
 
-Image import covers JPEG, PNG, WebP, BMP, and the first decoded frame of GIF. Sources are retained byte-for-byte. Camera RAW, HEIF/HEIC, TIFF, Lightroom `.lrcat`, Adobe presets/profiles, and XMP interchange are not implemented.
+Schema-1 catalogs migrate on import; new saves use **schema 2** for grading and extended masks. Older builds reject schema2 instead of silently dropping new processing settings. Keep a pre-upgrade backup where older-version interoperability matters.
 
-Exports are 8-bit sRGB JPEG/PNG/WebP, capped at an 8192-pixel long edge. Source EXIF/IPTC metadata is not copied to rendered exports. Import limits are 64 MiB per file, 100 megapixels decoded, and 256 MiB of encoded source data per catalog. These are safety ceilings, not recommended workloads. Catalog browsing is paged in groups of 60; this is not a production-scale indexed photo database.
+Import supports JPEG, PNG, WebP, BMP and the first GIF frame. Rendered export is 8-bit sRGB, capped at an 8192-pixel long edge; source EXIF/IPTC metadata is not copied. Safety ceilings are 64 MiB per source, 100 megapixels decoded and 256 MiB of encoded originals per catalog. These limits are not recommended workloads or peak-memory guarantees.
 
-## Documentation
+RAW/HEIF/TIFF, AI tools, calibrated camera/lens profiles, HDR/panorama merging, tiled native-resolution inspection, cloud sync, printing/soft proofing, Adobe `.lrcat`/XMP/preset compatibility and full accessibility parity remain incomplete or absent. Recovery is one JSON record, not a concurrent database or crash journal. Retain original files and portable backups.
 
-[Getting started and shortcuts](docs/GETTING-STARTED.md) · [Architecture and component API](docs/ARCHITECTURE.md) · [Feature coverage](docs/FEATURE-COVERAGE.md) · [Release notes](docs/RELEASE-NOTES.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Third-party notices](THIRD-PARTY-NOTICES.md)
+## Documentation and license
 
-## License and independence
+[Guide](docs/GETTING-STARTED.md) · [Color and masks](docs/COLOR-AND-MASKS.md) · [Architecture](docs/ARCHITECTURE.md) · [Performance](docs/PERFORMANCE.md) · [Recovery](docs/RECOVERY.md) · [Coverage](docs/FEATURE-COVERAGE.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Notices](THIRD-PARTY-NOTICES.md)
 
-LightSpace source is [MIT licensed](LICENSE). Uno Platform, SkiaSharp, Skia, fonts, and optional sample photographs retain their respective licenses; see [third-party notices](THIRD-PARTY-NOTICES.md). Optional Unsplash demo photographs are not relicensed as MIT.
-
-Adobe and Lightroom are trademarks of their respective owners. LightSpace uses those names only to describe a workflow reference and compatibility boundary. It does not claim endorsement, compatibility with proprietary catalogs, or pixel-identical/feature-complete reproduction.
+LightSpace source is [MIT licensed](LICENSE). Dependencies, the OFL font and optional Unsplash photographs retain their respective licenses; photographs are not relicensed as MIT. Adobe and Lightroom are trademarks of their owners and are used only as workflow references. No endorsement or proprietary compatibility is claimed.
