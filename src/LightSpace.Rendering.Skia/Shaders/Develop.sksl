@@ -1,4 +1,15 @@
 uniform shader original;
+uniform shader toneLookup;
+uniform shader brush0;
+uniform shader brush1;
+uniform shader brush2;
+uniform shader brush3;
+uniform shader brush4;
+uniform shader brush5;
+uniform shader brush6;
+uniform shader brush7;
+uniform float2 brushSize;
+uniform int useChannels;
 uniform float2 size;
 uniform float2 sourceSize;
 uniform float4 light;
@@ -55,16 +66,27 @@ float hueAt(int i) {
     if (i == 3) return 1.0/3; if (i == 4) return .5; if (i == 5) return 2.0/3;
     if (i == 6) return .75; return 5.0/6;
 }
-// Pass vectors rather than an index: ES2 runtime effects require uniform-array
-// accesses to remain in the statically unrolled caller, not a function parameter.
-float maskWeight(float4 control, float4 g, float4 a, float4 range, float2 uv, float sourceLuma) {
+float2 brushAt(int index, float2 uv) {
+    float2 p = uv * brushSize;
+    if (index == 0) return float2(brush0.eval(p).rg);
+    if (index == 1) return float2(brush1.eval(p).rg);
+    if (index == 2) return float2(brush2.eval(p).rg);
+    if (index == 3) return float2(brush3.eval(p).rg);
+    if (index == 4) return float2(brush4.eval(p).rg);
+    if (index == 5) return float2(brush5.eval(p).rg);
+    if (index == 6) return float2(brush6.eval(p).rg);
+    return float2(brush7.eval(p).rg);
+}
+// Keep uniform-array indexing in statically unrolled callers for ES2 runtime effects.
+float maskWeight(float4 control, float4 g, float4 a, float4 range, float2 brush, float2 uv, float sourceLuma) {
     if (control.w <= 0) return 0;
     float aspect = sourceSize.x / sourceSize.y;
     float2 delta = (uv - g.xy) * float2(aspect, 1);
     float2 q = float2(control.x * delta.x + control.y * delta.y, -control.y * delta.x + control.x * delta.y);
-    float weight = 1;
+    float weight = control.z >= 2.5 ? 0 : 1;
     if (control.z < .5) weight = 1 - smoothstep(1 - a.z, 1, length(q / max(g.zw * float2(aspect, 1), float2(.00001))));
     else if (control.z < 1.5) weight = smoothstep(-g.w, g.w, q.y);
+    weight = clamp(weight * brush.x + brush.y, 0, 1);
     if (range.w > .5) {
         float low = range.x <= 0 ? 1 : smoothstep(range.x - range.z, range.x, sourceLuma);
         float high = range.y >= 1 ? 1 : 1 - smoothstep(range.y, range.y + range.z, sourceLuma);
@@ -104,6 +126,8 @@ half4 main(float2 p) {
     rgb = (rgb - color.w * .07) / max(.5, 1 - color.w * .18);
     if (useCurve != 0) rgb = float3(curveValue(rgb.r), curveValue(rgb.g), curveValue(rgb.b));
     rgb = clamp(rgb, 0, 1);
+    if (useChannels != 0) rgb = float3(toneLookup.eval(float2(rgb.r * 2047 + .5, .5)).r,
+        toneLookup.eval(float2(rgb.g * 2047 + .5, .5)).g, toneLookup.eval(float2(rgb.b * 2047 + .5, .5)).b);
     float3 hsv = float3(0);
     if (useMixer != 0 || color.x != 0) hsv = rgbToHsv(rgb);
     if (useMixer != 0) {
@@ -133,7 +157,8 @@ half4 main(float2 p) {
     for (int i = 0; i < 8; i++) {
         if (i >= maskCount) break;
         float4 a = maskAdjust[i]; float4 extra = maskExtra[i];
-        float weight = maskWeight(maskControl[i], maskGeometry[i], a, maskRange[i], uv, sourceLuma);
+        float2 brush = extra.w > .5 ? brushAt(i, uv) : float2(1, 0);
+        float weight = maskWeight(maskControl[i], maskGeometry[i], a, maskRange[i], brush, uv, sourceLuma);
         if (i == overlayMask) coverage = weight;
         if (weight <= 0) continue;
         float3 local = linearize(max(rgb, float3(0))) * exp2(a.x);

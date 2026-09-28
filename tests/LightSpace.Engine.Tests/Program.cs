@@ -8,6 +8,7 @@ void Test(string name, Action action)
 }
 CoreRenderingTests.Register(Test);
 ParityTests.Register(Test);
+AdvancedEditingTests.Register(Test);
 foreach (var (name, action) in RecoveryTests.Cases)
 {
     try { await action(); passed++; Console.WriteLine($"PASS {name}"); results.Add(new { name, passed = true, error = "" }); }

@@ -3,7 +3,7 @@ using LightSpace.Imaging;
 using SkiaSharp;
 namespace LightSpace.Rendering.Skia;
 
-/// <summary>Owner-thread-confined renderer with byte-budgeted decode caching and pixel-aware shader reuse.</summary>
+/// <summary>Owner-thread renderer with bounded source, curve-table and incremental brush caches.</summary>
 public sealed class PhotoRenderer : IDisposable
 {
     private sealed class CachedPhoto(SKImage image, byte[] original) : IDisposable
@@ -19,6 +19,8 @@ public sealed class PhotoRenderer : IDisposable
     }
     private readonly Dictionary<Guid, CachedPhoto> _cache = [];
     private readonly SKRuntimeEffect _effect;
+    private readonly ToneLookupCache _curves = new();
+    private readonly BrushCoverageCache _brushes = new();
     private readonly int _previewMaxDimension, _maxImages;
     private readonly long _maxBytes;
     private long _clock, _bytes, _decodes, _shaders, _draws, _autoSamples;
@@ -26,6 +28,8 @@ public sealed class PhotoRenderer : IDisposable
     public int CachedImages => _cache.Count;
     public string Pipeline => "Skia runtime shader · sRGB";
     public RendererStatistics Statistics => new(_decodes, _shaders, _draws, _bytes, _cache.Count, _autoSamples);
+    public long CurveLookupBuilds => _curves.Builds;
+    public BrushCacheStatistics BrushStatistics => _brushes.Statistics;
 
     public PhotoRenderer(int previewMaxDimension = 2560, int maxImages = 5, long maxDecodedBytes = 128L * 1024 * 1024)
     {
@@ -62,7 +66,6 @@ public sealed class PhotoRenderer : IDisposable
             var next = overlayMask < 0 && IsNeutral(photo.State) ? null : CreateShader(cache.Image, photo.State, photo.Width, photo.Height, overlayMask);
             cache.Shader?.Dispose(); cache.Shader = next; cache.Overlay = overlayMask;
         }
-        // Keep the newest metadata snapshot without rebuilding an identical shader.
         cache.State = photo.State; return cache.Shader;
     }
     private static bool IsNeutral(PhotoState state) => state.Masks.Length == 0 && state.CloneSpots.Length == 0
@@ -88,10 +91,15 @@ public sealed class PhotoRenderer : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         state = state.Normalize(); var s = state.Develop;
+        var scale = Math.Min(1f, 1024f / Math.Max(image.Width, image.Height));
+        var brushWidth = Math.Max(1, (int)MathF.Round(image.Width * scale));
+        var brushHeight = Math.Max(1, (int)MathF.Round(image.Height * scale));
         var u = new SKRuntimeEffectUniforms(_effect)
         {
             ["size"] = new float[] { image.Width, image.Height },
             ["sourceSize"] = new float[] { sourceWidth > 0 ? sourceWidth : image.Width, sourceHeight > 0 ? sourceHeight : image.Height },
+            ["brushSize"] = new float[] { brushWidth, brushHeight },
+            ["useChannels"] = s.Channels.IsIdentity ? 0 : 1,
             ["light"] = new[] { s.Exposure, s.Contrast / 100, s.Highlights / 100, s.Shadows / 100 },
             ["tone"] = new[] { s.Whites / 100, s.Blacks / 100, s.Temperature / 100, s.Tint / 100 },
             ["color"] = new[] { s.Vibrance / 100, s.Saturation / 100, s.Monochrome ? 1f : 0, s.Dehaze / 100 },
@@ -120,15 +128,28 @@ public sealed class PhotoRenderer : IDisposable
             new[] { m.Exposure, m.Saturation / 100, m.Feather, m.Inverted ? 1f : 0 }.CopyTo(adjustments, i * 4);
             new[] { MathF.Cos(a), MathF.Sin(a), (float)m.Kind, m.Enabled ? m.Opacity : 0 }.CopyTo(controls, i * 4);
             new[] { m.RangeMin, m.RangeMax, m.RangeSmoothness, m.RangeEnabled || m.Kind == MaskKind.LuminanceRange ? 1f : 0 }.CopyTo(ranges, i * 4);
-            new[] { m.Contrast / 100, m.Temperature / 100, m.Tint / 100, 0 }.CopyTo(extra, i * 4);
+            new[] { m.Contrast / 100, m.Temperature / 100, m.Tint / 100, m.Strokes.Length > 0 ? 1f : 0 }.CopyTo(extra, i * 4);
         }
         u["maskCount"] = state.Masks.Length; u["maskGeometry"] = geometry; u["maskAdjust"] = adjustments;
         u["maskControl"] = controls; u["maskRange"] = ranges; u["maskExtra"] = extra;
         var spotData = new float[128]; var radii = new float[32];
         for (var i = 0; i < state.CloneSpots.Length; i++) { var p = state.CloneSpots[i]; new[] { p.X, p.Y, p.SourceX, p.SourceY }.CopyTo(spotData, i * 4); radii[i] = p.Radius; }
         u["spotCount"] = state.CloneSpots.Length; u["spots"] = spotData; u["radii"] = radii;
-        using var child = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
-        var result = _effect.ToShader(u, new SKRuntimeEffectChildren(_effect) { ["original"] = child }); _shaders++; return result;
+        using var original = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
+        using var lookup = _curves.Get(s.Channels).ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
+        var children = new SKRuntimeEffectChildren(_effect) { ["original"] = original, ["toneLookup"] = lookup };
+        var brushShaders = new SKShader[8];
+        try
+        {
+            for (var i = 0; i < 8; i++)
+            {
+                var texture = i < state.Masks.Length ? _brushes.Get(state.Masks[i], brushWidth, brushHeight) : _brushes.Identity;
+                brushShaders[i] = texture.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
+                children["brush" + i] = brushShaders[i];
+            }
+            var result = _effect.ToShader(u, children); _shaders++; return result;
+        }
+        finally { foreach (var shader in brushShaders) shader?.Dispose(); }
     }
     public byte[] Export(PhotoDocument photo, SKEncodedImageFormat format = SKEncodedImageFormat.Jpeg, int quality = 92, int maxDimension = 0)
     {
@@ -144,7 +165,6 @@ public sealed class PhotoRenderer : IDisposable
     public Histogram CalculateHistogram(PhotoDocument photo)
     {
         var cache = GetImage(photo); using var surface = SKSurface.Create(new SKImageInfo(192, 128, SKColorType.Rgba8888, SKAlphaType.Premul));
-        // Histograms must not change the viewport shader's overlay cache key.
         using var temporary = cache.Overlay >= 0 && !IsNeutral(photo.State) ? CreateShader(cache.Image, photo.State, photo.Width, photo.Height) : null;
         var shader = cache.Overlay >= 0 ? temporary : GetShader(cache, photo, -1);
         surface.Canvas.Clear(SKColors.Transparent); DrawSource(surface.Canvas, cache.Image, shader, photo.State.Crop, SKRect.Create(192, 128));
@@ -161,6 +181,10 @@ public sealed class PhotoRenderer : IDisposable
         var average = count == 0 ? .5 : sum / count;
         return photo.State.Develop with { Exposure = (float)Math.Clamp(Math.Log2(.47 / Math.Max(.02, average)), -2, 2), Highlights = -22, Shadows = 20, Contrast = 8, Vibrance = 12 };
     }
-    public void Clear() { foreach (var p in _cache.Values) p.Dispose(); _cache.Clear(); _bytes = 0; }
-    public void Dispose() { if (_disposed) return; Clear(); _effect.Dispose(); _disposed = true; }
+    public void Clear()
+    {
+        foreach (var p in _cache.Values) p.Dispose(); _cache.Clear(); _bytes = 0;
+        _curves.Clear(); _brushes.Clear();
+    }
+    public void Dispose() { if (_disposed) return; Clear(); _effect.Dispose(); _curves.Dispose(); _brushes.Dispose(); _disposed = true; }
 }
