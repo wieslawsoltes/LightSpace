@@ -52,7 +52,12 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
         _surface.PointerExited += (_, _) => { _brushCursor = null; if (Tool == PhotoTool.Brush) Invalidate(); };
         _surface.PointerWheelChanged += Wheel;
         _surface.DoubleTapped += (_, e) => { if (Tool == PhotoTool.Edit && !Compare) ToggleZoom(); e.Handled = true; };
-        KeyDown += (_, e) => { if (e.Key == VirtualKey.Escape) Cancel(); };
+        KeyDown += (_, e) =>
+        {
+            // Escape first cancels a captured gesture. A later Escape may leave
+            // the tool, but cancellation must not also rebuild its inspector.
+            if (e.Key == VirtualKey.Escape && _dragging) { Cancel(); e.Handled = true; }
+        };
         SizeChanged += (_, _) => Invalidate(); _session.ViewChanged += Invalidate;
     }
     public void Invalidate() => _surface.Invalidate();
