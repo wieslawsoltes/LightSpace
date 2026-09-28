@@ -15,8 +15,17 @@ public sealed class ColorRangeEditor : UserControl
     public event Action? Committed;
     public event Action? Canceled;
     public event Action? SampleRequested;
-    public ColorRangeSettings Value { get => _value; set { _value = value.Normalize(); Refresh(); } }
-    public bool Required { get => _required; set { _required = value; Refresh(); } }
+    public ColorRangeSettings Value
+    {
+        get => _value;
+        set
+        {
+            var normalized = value.Normalize();
+            if (ReferenceEquals(_value, normalized)) return;
+            _value = normalized; Refresh();
+        }
+    }
+    public bool Required { get => _required; set { if (_required == value) return; _required = value; Refresh(); } }
     public ColorRangeEditor()
     {
         HorizontalContentAlignment = HorizontalAlignment.Stretch;
@@ -26,7 +35,9 @@ public sealed class ColorRangeEditor : UserControl
         _sample = new("Sample colors", Glyph.Search, "Sample", () => SampleRequested?.Invoke());
         actions.Children.Add(_enabled); actions.Children.Add(_sample); root.Children.Add(actions);
         _widgets["Restrict color"] = _enabled; _widgets["Sample colors"] = _sample;
-        var samples = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, Margin = new(2, 0, 2, 0) };
+        // Reserve the swatch rail even when empty. Adding/removing the first
+        // sample must not move downstream sliders under the user's pointer.
+        var samples = new StackPanel { Orientation = Orientation.Horizontal, Height = 26, Spacing = 5, Margin = new(2, 0, 2, 0) };
         for (var i = 0; i < 5; i++)
         {
             var index = i;

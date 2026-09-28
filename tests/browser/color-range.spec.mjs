@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdir, readFile } from 'node:fs/promises';
-import { boot, state, box, click, slider, reveal, shot } from './support.mjs';
+import { boot, state, box, click, slider, reveal, shot, stableBox } from './support.mjs';
 
 async function importStripes(page) {
   const chooser = page.waitForEvent('filechooser'); await click(page, 'Add photos');
@@ -65,4 +65,19 @@ test('color-range JPEG export changes the selected stripe without painting the c
     return [sample(50), sample(150), sample(250)];
   }, bytes.toString('base64'));
   expect(pixels[0][0]).toBeGreaterThan(230); expect(Math.abs(pixels[1][1] - 170)).toBeLessThan(5); expect(Math.abs(pixels[2][2] - 180)).toBeLessThan(5);
+});
+
+test('adding and removing the first color swatch does not shift adjustment rails', async ({ page }) => {
+  await boot(page); await importStripes(page); await click(page, 'Masking'); await click(page, 'Color range');
+  await expect.poll(async () => (await state(page)).tool).toBe('ColorRange');
+  await reveal(page, 'mask-Exposure'); const empty = await stableBox(page, 'mask-Exposure');
+  await sample(page, .17, .5); await expect.poll(async () => (await colors(page)).length).toBe(1);
+  const populated = await stableBox(page, 'mask-Exposure');
+  expect(populated.y).toBeCloseTo(empty.y, 1);
+  await click(page, 'color-swatch-0'); await expect.poll(async () => (await colors(page)).length).toBe(0);
+  expect((await stableBox(page, 'mask-Exposure')).y).toBeCloseTo(empty.y, 1);
+  await sample(page, .17, .5); await expect.poll(async () => (await colors(page)).length).toBe(1);
+  await slider(page, 'mask-Exposure', .6);
+  await expect.poll(async () => (await state(page)).maskSettings[0].exposure).toBeCloseTo(1, 1);
+  await expect.poll(async () => (await state(page)).recovery.state).toBe('Saved');
 });

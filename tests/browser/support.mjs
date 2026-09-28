@@ -14,12 +14,20 @@ export async function box(page, id) {
   await expect.poll(async () => (await state(page)).widgets.some(w => w.id === id && w.width > 0 && w.height > 0)).toBe(true);
   return (await state(page)).widgets.find(w => w.id === id);
 }
-async function stableBox(page, id) {
-  let previous;
+export async function stableBox(page, id) {
+  // Input must target fresh arranged bounds, not two reads of the same cached
+  // diagnostic snapshot before a visibility change has reached layout.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  let previous, previousSequence = -1;
   await expect.poll(async () => {
-    const current = (await state(page)).widgets.find(w => w.id === id);
+    const snapshot = await state(page);
+    if (!Number.isSafeInteger(snapshot.diagnosticSequence)) throw new Error('Missing diagnostic sequence');
+    if (snapshot.diagnosticSequence === previousSequence) return false;
+    previousSequence = snapshot.diagnosticSequence;
+    const current = snapshot.widgets.find(w => w.id === id && w.width > 0 && w.height > 0);
     const stable = current && previous && ['x', 'y', 'width', 'height'].every(key => Math.abs(current[key] - previous[key]) < .5);
-    previous = current; return !!stable;
+    previous = current;
+    return !!stable;
   }, { intervals: [100, 200, 400], timeout: 30000 }).toBe(true);
   return previous;
 }

@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   let dirty = false;
+  let diagnosticSequence = 0;
   addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
   const diagnostics = new URLSearchParams(location.search).has('diagnostics');
   const database = () => globalThis.lightSpaceRecovery.open();
@@ -42,7 +43,15 @@
       const db = await database();
       return await new Promise((resolve, reject) => { const tx = db.transaction('workspace', 'readwrite'); tx.objectStore('workspace').put(json, 'catalog'); tx.objectStore('workspace').delete('manifest-v1'); tx.oncomplete = () => { db.close(); resolve('ok'); }; tx.onerror = tx.onabort = () => { db.close(); reject(tx.error || new Error('Recovery write failed.')); }; });
     },
-    publishDiagnostics: json => { globalThis.lightSpaceReady = true; if (diagnostics) globalThis.lightSpaceDiagnostics = JSON.parse(json); },
+    publishDiagnostics: json => {
+      globalThis.lightSpaceReady = true;
+      if (diagnostics) {
+        // A repeated read of one snapshot is not evidence that layout is stable.
+        const snapshot = JSON.parse(json);
+        snapshot.diagnosticSequence = ++diagnosticSequence;
+        globalThis.lightSpaceDiagnostics = snapshot;
+      }
+    },
     startupError: error => { globalThis.lightSpaceStartupError = error; },
     focusCanvasUnlessEditing: () => { const element = document.activeElement; if (element && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.isContentEditable)) return; const canvas = document.querySelector('canvas'); if (canvas) { canvas.tabIndex = 0; canvas.focus({ preventScroll: true }); } }
   };
