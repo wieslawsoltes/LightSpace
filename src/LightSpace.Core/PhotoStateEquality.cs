@@ -9,7 +9,21 @@ public static class PhotoStateEquality
         && a.Vibrance == b.Vibrance && a.Saturation == b.Saturation && a.Texture == b.Texture && a.Clarity == b.Clarity
         && a.Dehaze == b.Dehaze && a.Vignette == b.Vignette && a.Grain == b.Grain && a.Sharpening == b.Sharpening
         && a.NoiseReduction == b.NoiseReduction && a.Monochrome == b.Monochrome && a.Curve == b.Curve
-        && a.Channels.ValueEquals(b.Channels) && a.Grading == b.Grading && a.Mixer.AsSpan().SequenceEqual(b.Mixer);
+        && a.Channels.ValueEquals(b.Channels) && a.Grading == b.Grading && Mixer(a.Mixer, b.Mixer);
+
+    private static bool Mixer(ColorBand[] a, ColorBand[] b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (a.Length != b.Length) return false;
+        // Read the normalized scalar leaves directly. This hot path does not
+        // require generic IEquatable dispatch for reference-type records.
+        for (var i = 0; i < a.Length; i++)
+        {
+            var x = a[i]; var y = b[i];
+            if (x.Hue != y.Hue || x.Saturation != y.Saturation || x.Luminance != y.Luminance) return false;
+        }
+        return true;
+    }
 
     public static bool Shader(PhotoState a, PhotoState b)
     {
