@@ -55,7 +55,7 @@ public sealed class ColorRangeEditor : UserControl
         var active = _required || _value.Enabled;
         _enabled.Selected = active; _enabled.IsEnabled = !_required;
         _tolerance.Value = _value.Tolerance * 100; _smoothness.Value = _value.Smoothness * 100;
-        _tolerance.IsEnabled = _smoothness.IsEnabled = active;
+        _tolerance.Visibility = _smoothness.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
         for (var i = 0; i < _swatches.Length; i++)
         {
             var button = _swatches[i]; var sample = i < _value.Samples.Length ? _value.Samples[i] : null;

@@ -6,8 +6,9 @@ public sealed record ColorSample(float Red, float Green, float Blue, float X = .
 {
     public ColorSample Normalize()
     {
-        var value = new ColorSample(Numeric.Unit(Red), Numeric.Unit(Green), Numeric.Unit(Blue), Numeric.Unit(X), Numeric.Unit(Y));
-        return value == this ? this : value;
+        var r = Numeric.Unit(Red); var g = Numeric.Unit(Green); var b = Numeric.Unit(Blue);
+        var x = Numeric.Unit(X); var y = Numeric.Unit(Y);
+        return r == Red && g == Green && b == Blue && x == X && y == Y ? this : new(r, g, b, x, y);
     }
     public Vector3 ToOklab() => ColorRangeSettings.ToOklab(Red, Green, Blue);
     public float Luminance => .2126f * Red + .7152f * Green + .0722f * Blue;

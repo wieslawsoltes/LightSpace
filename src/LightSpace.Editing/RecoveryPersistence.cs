@@ -15,11 +15,13 @@ public sealed class RecoveryPersistence(IRecoveryStore store)
     private readonly HashSet<string> _persisted = new(StringComparer.Ordinal);
     private long _hashCount, _hashedBytes, _commits, _blobWrites, _blobBytes, _manifestBytes;
     public RecoveryPersistenceStatistics Statistics => new(_hashCount, _hashedBytes, _commits, _blobWrites, _blobBytes, _manifestBytes);
-    private string Identify(byte[] original) => _hashes.GetValue(original, bytes =>
+    private string Identify(byte[] original)
     {
-        if (bytes.Length is < 1 or > CatalogSerializer.MaxFileBytes) throw new InvalidDataException("Invalid recovery original size.");
-        _hashCount++; _hashedBytes += bytes.Length; return new(RecoveryKeys.Hash(bytes));
-    }).Key;
+        if (_hashes.TryGetValue(original, out var identity)) return identity.Key;
+        if (original.Length is < 1 or > CatalogSerializer.MaxFileBytes) throw new InvalidDataException("Invalid recovery original size.");
+        var key = RecoveryKeys.Hash(original); _hashes.Add(original, new(key));
+        _hashCount++; _hashedBytes += original.Length; return key;
+    }
     public CommittedCatalogSnapshot Capture(EditorSession session)
     {
         var catalog = session.CopyCommittedCatalog();

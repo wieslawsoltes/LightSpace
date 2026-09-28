@@ -25,3 +25,7 @@ Optional photo source identifiers:
 These labels are LightSpace catalog labels, not claims about the photographer, camera or exact location. Image source URLs are assembled explicitly in the asset script and included in the build manifest.
 
 No Adobe artwork, icons, fonts, source code, camera profiles or proprietary decoding libraries are bundled. Lightroom is a comparative product reference, not a dependency or affiliation.
+
+## Oklab color conversion
+
+Color-range selection uses the linear-sRGB/Oklab conversion matrices published by **Björn Ottosson** in [A perceptual color space for image processing](https://bottosson.github.io/posts/oklab/). The author explicitly releases the reference conversion code to the public domain (with MIT as an alternative). LightSpace uses that public-domain conversion, translated to C# and SkSL, with original sampling, selection and application code. This attribution does not imply that Adobe uses the same selection algorithm.
