@@ -14,12 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - run: dotnet run --project tests/LightSpace.Engine.Tests -c Release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: LightSpace-engine-validation
@@ -30,14 +30,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: LightSpace-engine-validation
           path: artifacts/fixtures
@@ -61,14 +61,14 @@ jobs:
             case "$project" in */LightSpace.App/*) continue;; esac
             dotnet pack "$project" -c Release -o artifacts/packages
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: LightSpace-browser
           path: artifacts/site
           include-hidden-files: true
           if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: LightSpace-browser-validation
@@ -81,7 +81,7 @@ jobs:
             artifacts/server.log
             artifacts/demo-assets.json
           if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: LightSpace-packages
@@ -90,7 +90,7 @@ jobs:
       - name: Source snapshot
         if: always()
         run: git archive --format=zip --output=/tmp/LightSpace-source.zip HEAD
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: LightSpace-source
