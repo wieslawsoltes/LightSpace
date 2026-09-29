@@ -1,14 +1,27 @@
 <Project>
   <PropertyGroup>
     <LangVersion>14.0</LangVersion><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
-    <Version>0.4.1-alpha.1</Version><Authors>LightSpace contributors</Authors>
+    <Version>0.4.1-alpha.1</Version>
+    <Authors>Wiesław Šoltés</Authors>
+    <Company>Wiesław Šoltés</Company>
+    <Copyright>Copyright © 2026 Wiesław Šoltés</Copyright>
     <RepositoryUrl>https://github.com/wieslawsoltes/LightSpace</RepositoryUrl><RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression><PackageReadmeFile>README.md</PackageReadmeFile>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl><Deterministic>true</Deterministic>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageProjectUrl>https://wieslawsoltes.github.io/UnoSpace/projects/lightspace/</PackageProjectUrl>
+    <PackageTags>lightspace;photography;photo-editing;non-destructive;catalog;sksl;uno-platform;skiasharp;webassembly;desktop</PackageTags>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <SkiaSharpVersion>3.119.4</SkiaSharpVersion>
     <UnoDisableHotDesign>true</UnoDisableHotDesign><UnoDisableMCPSupport>true</UnoDisableMCPSupport>
     <NoWarn>$(NoWarn);NU1510</NoWarn>
   </PropertyGroup>
-  <ItemGroup><None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="/" /></ItemGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)build/icon.png" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
 </Project>

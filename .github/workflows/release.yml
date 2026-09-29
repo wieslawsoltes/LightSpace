@@ -5,96 +5,206 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Release version without the v prefix
+        description: Version for a dry run without the v prefix (tags publish; manual runs only build and upload artifacts)
         required: true
         default: 0.4.1-alpha.1
 permissions:
   contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  APP_NAME: LightSpace
+  APP_PROJECT: src/LightSpace.App
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        name: Resolve release version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        shell: bash
+        run: |
+          VERSION="$INPUT_VERSION"
+          if [ "$REF_TYPE" = tag ]; then VERSION="${REF_NAME#v}"; fi
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid version '$VERSION'" >&2; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
   libraries:
+    needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-      - name: Resolve version
-        id: version
-        env:
-          INPUT_VERSION: ${{ inputs.version }}
-        run: |
-          VERSION="${INPUT_VERSION:-${GITHUB_REF_NAME#v}}"
-          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
-          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
       - run: dotnet run --project tests/LightSpace.Engine.Tests -c Release
       - run: dotnet workload install wasm-tools --skip-manifest-update
       - run: python3 scripts/fetch-assets.py
       - name: Package reusable libraries and browser application
-        env:
-          VERSION: ${{ steps.version.outputs.value }}
         run: |
           mkdir -p artifacts/release
           for project in src/*/*.csproj; do
             case "$project" in */LightSpace.App/*) continue;; esac
             dotnet pack "$project" -c Release -p:Version="$VERSION" -o artifacts/release
           done
-          dotnet publish src/LightSpace.App -c Release -f net10.0-browserwasm -p:Version="$VERSION" -o artifacts/publish -p:WasmShellWebAppBasePath=/LightSpace/
+          dotnet publish "$APP_PROJECT" -c Release -f net10.0-browserwasm -p:Version="$VERSION" -o artifacts/publish -p:WasmShellWebAppBasePath=/LightSpace/
           python3 scripts/collect-site.py artifacts/publish artifacts/site
           cd artifacts/site && zip -r ../release/LightSpace-browser.zip .
       - uses: actions/upload-artifact@v7
         with:
           name: release-libraries-browser
           path: artifacts/release
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nuget-packages
+          path: |
+            artifacts/release/*.nupkg
+            artifacts/release/*.snupkg
+          if-no-files-found: error
+
   desktop:
+    name: Desktop (${{ matrix.rid }})
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            rid: linux-x64
-          - os: windows-latest
-            rid: win-x64
-          - os: macos-latest
-            rid: osx-arm64
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+        rid: [win-x64, win-arm64, linux-x64, linux-arm64, osx-x64, osx-arm64]
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      RID: ${{ matrix.rid }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-      - run: python scripts/fetch-assets.py
-      - run: dotnet publish src/LightSpace.App -c Release -f net10.0-desktop -p:LightSpaceDesktopOnly=true -r ${{ matrix.rid }} --self-contained true -o artifacts/native
-      - name: Archive desktop host
-        shell: python
-        env:
-          RID: ${{ matrix.rid }}
+      - run: python3 scripts/fetch-assets.py
+      - name: Publish self-contained single-file executable
+        shell: bash
         run: |
-          import os, shutil
-          shutil.make_archive('LightSpace-'+os.environ['RID'], 'zip', 'artifacts/native')
+          dotnet publish "$APP_PROJECT" -c Release -f net10.0-desktop -r "$RID" --self-contained true \
+            -p:LightSpaceDesktopOnly=true \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:IncludeAllContentForSelfExtract=true -p:EnableCompressionInSingleFile=true \
+            -p:DebugType=none -p:DebugSymbols=false -p:Version="$VERSION" \
+            -o "artifacts/desktop/$RID"
+      - name: Package executable
+        shell: bash
+        run: |
+          OUT="artifacts/desktop/$RID"
+          find "$OUT" -name '*.pdb' -delete
+          mkdir -p artifacts/dist
+          BASE="$APP_NAME-$VERSION-$RID"
+          if [[ "$RID" == win-* ]]; then
+            mv "$OUT/$APP_NAME.App.exe" "$OUT/$APP_NAME.exe"
+            test "$(find "$OUT" -type f | wc -l)" -eq 1
+            (cd "$OUT" && zip -q "$GITHUB_WORKSPACE/artifacts/dist/$BASE.zip" "$APP_NAME.exe")
+          else
+            mv "$OUT/$APP_NAME.App" "$OUT/$APP_NAME"
+            chmod +x "$OUT/$APP_NAME"
+            test "$(find "$OUT" -type f | wc -l)" -eq 1
+            tar -C "$OUT" -czf "artifacts/dist/$BASE.tar.gz" "$APP_NAME"
+          fi
+          ls -la artifacts/dist
       - uses: actions/upload-artifact@v7
         with:
-          name: release-${{ matrix.rid }}
-          path: LightSpace-${{ matrix.rid }}.zip
+          name: desktop-${{ matrix.rid }}
+          path: artifacts/dist/*
+          if-no-files-found: error
+
   publish:
-    needs: [libraries, desktop]
+    needs: [version, libraries, desktop]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           merge-multiple: true
           path: release
-      - name: Checksums and GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          INPUT_VERSION: ${{ inputs.version }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: desktop-*
+          merge-multiple: true
+          path: release
+      - name: Checksums
         run: |
           set -euo pipefail
-          VERSION="${INPUT_VERSION:-${GITHUB_REF_NAME#v}}"
           (cd release && sha256sum * > SHA256SUMS.txt)
-          gh release create "v$VERSION" release/* --target "$GITHUB_SHA" --title "LightSpace $VERSION" --notes-file docs/RELEASE-NOTES.md --prerelease
+          cat release/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lightspace-release
+          path: release/*
+          if-no-files-found: error
+      - name: GitHub release for version tag
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          PRE=()
+          case "$VERSION" in *-*) PRE=(--prerelease);; esac
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release/* --clobber
+          else
+            gh release create "$TAG" release/* --verify-tag --title "LightSpace $VERSION" --notes-file docs/RELEASE-NOTES.md "${PRE[@]}"
+          fi
+
+  nuget:
+    name: Publish to NuGet.org (Trusted Publishing)
+    needs: [version, publish]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: nuget
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: nuget-packages
+          path: packages
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Check NuGet user
+        env:
+          NUGET_USER: ${{ vars.NUGET_USER || secrets.NUGET_USER }}
+        run: test -n "$NUGET_USER" || { echo 'Set the NUGET_USER variable (your nuget.org profile name) for this repository or its nuget environment.' >&2; exit 1; }
+      - name: NuGet login (OIDC → short-lived API key)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER || secrets.NUGET_USER }}
+      - name: Push packages
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: dotnet nuget push "packages/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate

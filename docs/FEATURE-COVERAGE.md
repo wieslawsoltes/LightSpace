@@ -23,7 +23,7 @@
 | Recovery | Revision-aware single writer, source-separated SHA-256 blobs, atomically published manifests, legacy migration, integrity checks, retry and protected unreadable data | No encrypted vault, journal, cross-tab merge, orphan-source cleanup, cloud sync or guaranteed close-time flush |
 | Performance | Pixel-aware caches, stable UI cards, neutral bypass, bounded decode/Auto sampling, cached floating-point curves, incremental brush rasterization, weak diagnostic registrations | CPU decode/export/recovery and brush texture publication remain synchronous; budgets do not bound all peak memory or GPU allocations |
 | GPU | Runtime-effect integration in Uno's Skia canvas | No separate WebGPU compute graph; host/device-dependent acceleration; SwiftShader tests are not physical-GPU certification |
-| Delivery | Updated Actions and Playwright, engine/browser checks, desktop matrix, provenance-checked Pages, NuGet artifacts and release workflow | No NuGet.org publication, signed installers, notarization or auto-update service |
+| Delivery | Updated Actions and Playwright, engine/browser checks, desktop matrix, provenance-checked Pages, NuGet artifacts, single-file desktop executables and Trusted Publishing to NuGet.org on release tags | No signed installers, notarization or auto-update service |
 
 ## Compatibility guarantees in this implementation
 

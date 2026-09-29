@@ -53,6 +53,20 @@ Reload an old or crashed browser tab after deployment. **Do not clear site data*
 
 [Advanced editing/XMP](docs/ADVANCED-EDITING.md) · [Color selections](docs/COLOR-AND-MASKS.md) · [Recovery contract](docs/RECOVERY.md) · [Performance evidence](docs/PERFORMANCE.md)
 
+## Download
+
+Every [release](https://github.com/wieslawsoltes/LightSpace/releases) ships a self-contained, single-file desktop app — no .NET install needed:
+
+| OS | x64 | Arm64 |
+| --- | --- | --- |
+| Windows | `LightSpace-<version>-win-x64.zip` | `LightSpace-<version>-win-arm64.zip` |
+| macOS | `LightSpace-<version>-osx-x64.tar.gz` | `LightSpace-<version>-osx-arm64.tar.gz` |
+| Linux | `LightSpace-<version>-linux-x64.tar.gz` | `LightSpace-<version>-linux-arm64.tar.gz` |
+
+Extract and run `LightSpace` (`LightSpace.exe` on Windows). Builds are not code-signed yet: on macOS clear the quarantine flag with `xattr -d com.apple.quarantine LightSpace`; on Windows choose **More info → Run anyway** in SmartScreen. Verify downloads against `SHA256SUMS.txt`.
+
+The libraries below are published to [NuGet.org](https://www.nuget.org/packages?q=LightSpace), e.g. `dotnet add package LightSpace.Workbench --prerelease`.
+
 ## Eight reusable libraries
 
 | Library | Responsibility | Target |
@@ -66,7 +80,7 @@ Reload an old or crashed browser tab after deployment. **Do not clear site data*
 | `LightSpace.Controls` | Original Uno chrome/icons, sliders, cards, grading/mixer/curve/mask/brush controls and photo canvas | Uno browser / desktop |
 | `LightSpace.Workbench` | Composable workspace, inspectors, commands, dialogs and save UX | Uno browser / desktop |
 
-Engine libraries do not depend on Uno. The host supplies platform storage and startup. Standard Uno text-input, scrolling, selection and accessibility primitives remain where appropriate; not every primitive is a newly implemented control. Successful Build runs produce eight `.nupkg` artifacts, not an implicit NuGet.org publication.
+Engine libraries do not depend on Uno. The host supplies platform storage and startup. Standard Uno text-input, scrolling, selection and accessibility primitives remain where appropriate; not every primitive is a newly implemented control. Successful Build runs produce eight `.nupkg` artifacts; tagged releases publish them to NuGet.org.
 
 ## Stack and rendering
 
@@ -136,7 +150,7 @@ Dispose workspaces and native-resource caches. Use copy-on-write arrays for snap
 
 ## Tests and workflows
 
-`Build` runs the engine suite, publishes WebAssembly, exercises actual Uno controls with Playwright, verifies exports/recovery and packages all libraries. Reports include screenshots, failure traces, machine-readable test results, slider-stability evidence and performance counters. `Desktop` compiles Windows, Linux and macOS hosts. `Pages` deploys a successful trusted main build, checks commit provenance and repeats acceptance tests against the public URL. `Release` packages libraries and browser/native archives with checksums.
+`Build` runs the engine suite, publishes WebAssembly, exercises actual Uno controls with Playwright, verifies exports/recovery and packages all libraries. Reports include screenshots, failure traces, machine-readable test results, slider-stability evidence and performance counters. `Desktop` compiles Windows, Linux and macOS hosts. `Pages` deploys a successful trusted main build, checks commit provenance and repeats acceptance tests against the public URL. `Release` runs for `v*` tags or a supplied manual version. It runs the engine suite, publishes self-contained single-file desktop executables for Windows, macOS and Linux (x64 and arm64), builds the browser archive, packs the eight libraries with symbols and emits `SHA256SUMS.txt`. Tags attach all assets to a GitHub Release and publish the packages to NuGet.org with [Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing) (OIDC, no stored API key) from the protected `nuget` environment. Manual runs are dry runs: they build and upload every asset as workflow artifacts but publish nothing.
 
 ```bash
 npm ci --ignore-scripts
@@ -149,7 +163,7 @@ npm run test:browser
 npx playwright test slider-stability.spec.mjs
 ```
 
-CI browser testing uses Chromium/SwiftShader. It is not physical-GPU or pen-hardware certification. Microbenchmarks, linear-memory capacity and work-avoidance counters are scoped evidence, not claims of universal application speedup or absence of every memory leak. Signing/notarization, installers, NuGet.org publication and automatic updates are not configured.
+CI browser testing uses Chromium/SwiftShader. It is not physical-GPU or pen-hardware certification. Microbenchmarks, linear-memory capacity and work-avoidance counters are scoped evidence, not claims of universal application speedup or absence of every memory leak. Signing/notarization, installers and automatic updates are not configured.
 
 ## Compatibility and data safety
 

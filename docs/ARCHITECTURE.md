@@ -14,7 +14,7 @@ LightSpace.App (browser / native hosts)
                  └─ LightSpace.Imaging → LightSpace.Core
 ```
 
-Core, Catalog, Editing and Storage have no Uno dependency. Imaging and Rendering.Skia require SkiaSharp and matching native assets. Controls and Workbench target Uno browser and desktop. The eight libraries are independently packable; package artifacts do not imply NuGet.org publication.
+Core, Catalog, Editing and Storage have no Uno dependency. Imaging and Rendering.Skia require SkiaSharp and matching native assets. Controls and Workbench target Uno browser and desktop. The eight libraries are independently packable; tagged releases publish them to NuGet.org via Trusted Publishing.
 
 ## Models and transactions
 
@@ -91,4 +91,4 @@ The engine runner emits machine-readable model, pixel, interpolation, brush repl
 
 Normal sessions do not periodically serialize UI diagnostics. Weak registrations avoid retaining discarded controls; brush coordinates are omitted from diagnostic payloads. CI Chromium uses SwiftShader; desktop jobs verify compilation on three operating systems. Neither proves physical-GPU or pen-hardware behavior.
 
-Build runs attach tested browser bundles, reports, source snapshots and all eight packages. Pages accepts a successful trusted main build, verifies artifact commit identity, deploys and repeats public-site tests. Release packages native/browser archives and checksums; native signing, notarization, installers and NuGet.org publication are not configured.
+Build runs attach tested browser bundles, reports, source snapshots and all eight packages. Pages accepts a successful trusted main build, verifies artifact commit identity, deploys and repeats public-site tests. Release builds single-file native executables for win/linux/osx x64 and arm64, the browser archive, packages and checksums; tags publish packages to NuGet.org via Trusted Publishing. Native signing, notarization and installers are not configured.
