@@ -62,8 +62,9 @@ public sealed partial class StudioView
             _inspector.Children.Add(Section("Optics", CreateOpticsEditor(photo), false));
             _inspector.Children.Add(Section("Geometry", CreateGeometryEditor(photo), false));
             var commands = new StackPanel { Margin = new(12, 12, 12, 14), Spacing = 5 }; var copy = Row();
-            copy.Children.Add(Button("Copy edit settings", text: "Copy", action: () => { _clipboard = Session.Active?.State; SetStatus("Edit settings copied in this workspace."); }));
-            copy.Children.Add(Button("Paste edit settings", text: "Paste", action: PasteSettings)); copy.Children.Add(Button("Sync selected photos", Glyph.Link, "Sync", Session.SyncSelected)); commands.Children.Add(copy);
+            copy.Children.Add(Button("Copy edit settings", text: "Copy…", action: () => ShowSettingsDialog(false)));
+            copy.Children.Add(Button("Paste edit settings", text: "Paste", action: PasteSelectedSettings));
+            copy.Children.Add(Button("Sync selected photos", Glyph.Link, "Sync…", () => ShowSettingsDialog(true))); commands.Children.Add(copy);
             commands.Children.Add(Button("Reset all edits", Glyph.Undo, "Reset edits", () => Session.Edit("Reset edits", s => s with { Develop = new(), Crop = new(), Geometry = new(), Optics = new(), Masks = [], CloneSpots = [] }))); _inspector.Children.Add(commands);
         }
         finally { _buildingInspector = false; }
@@ -131,10 +132,5 @@ public sealed partial class StudioView
         var panel = new StackPanel { Spacing = 10, Margin = new(18, 0, 18, 18) }; panel.Children.Add(Note("Alt-click sets the source. Click a destination to clone from that source. This is feathered cloning, not generative removal."));
         var radius = new AdjustmentSlider("Size (%)", .2, 25, 4, .1) { Value = Viewport.CloneRadius * 100 }; radius.ValueChanged += value => Viewport.CloneRadius = value / 100; panel.Children.Add(radius);
         panel.Children.Add(Theme.Text($"{photo.State.CloneSpots.Length} / 32 spots", 11, true)); panel.Children.Add(Button("Remove last clone spot", Glyph.Undo, "Undo last edit", Session.Undo)); panel.Children.Add(Button("Clear clone spots", Glyph.Trash, "Clear spots", () => Session.Edit("Clear clone spots", s => s with { CloneSpots = [] }))); _inspector.Children.Add(panel);
-    }
-    private void PasteSettings()
-    {
-        if (_clipboard is not { } source) { SetStatus("Copy edit settings from a photograph first."); return; }
-        Session.Edit("Paste edit settings", s => s with { Develop = source.Develop, Crop = source.Crop, Geometry = source.Geometry, Optics = source.Optics, Masks = source.Masks, CloneSpots = source.CloneSpots }, true);
     }
 }

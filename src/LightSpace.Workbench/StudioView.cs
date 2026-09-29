@@ -159,6 +159,6 @@ public sealed partial class StudioView : UserControl, IDisposable
     {
         if (_disposed) return; _disposed = true; _recovery.Dispose(); _diagnosticsTimer.Stop(); _saveTimer.Stop(); _histogramTimer.Stop();
         Session.Changed -= Committed; Session.ViewChanged -= RefreshLive; Viewport.ViewChanged -= ViewportChanged;
-        Viewport.Dispose(); _thumbnails.Dispose(); _renderer.Dispose();
+        DisposeReference(); Viewport.Dispose(); _thumbnails.Dispose(); _renderer.Dispose();
     }
 }
