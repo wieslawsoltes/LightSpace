@@ -1,0 +1,38 @@
+// Composed after development, without a CPU intermediate or render-target readback.
+uniform shader developed;
+uniform float2 imageSize;
+uniform float4 optics;
+uniform int clipping;
+
+half4 sampleSource(float2 uv) {
+    if (uv.x < 0 || uv.y < 0 || uv.x > 1 || uv.y > 1) return half4(0);
+    return developed.eval(uv * imageSize);
+}
+float3 unpremul(half4 pixel) { return float3(pixel.rgb) / max(.00001, float(pixel.a)); }
+half4 main(float2 p) {
+    float2 uv = p / imageSize;
+    float aspect = imageSize.x / imageSize.y;
+    float2 delta = uv - .5;
+    float2 metric = delta * float2(aspect, 1);
+    float r2 = 4 * dot(metric, metric) / (aspect * aspect + 1);
+    float denominator = 1 - optics.x * .002 * r2;
+    if (denominator <= .000001) return half4(0);
+    float2 source = delta / denominator;
+    half4 center = sampleSource(.5 + source);
+    float alpha = center.a;
+    float3 rgb = unpremul(center);
+    if (optics.z != 0 || optics.w != 0) {
+        half4 red = sampleSource(.5 + source * (1 + optics.z * .0001));
+        half4 blue = sampleSource(.5 + source * (1 + optics.w * .0001));
+        rgb.r = unpremul(red).r; rgb.b = unpremul(blue).b;
+        alpha = min(alpha, min(float(red.a), float(blue.a)));
+    }
+    if (optics.y != 0) rgb *= exp2(optics.y * .02 * smoothstep(0, 1, r2));
+    rgb = clamp(rgb, 0, 1);
+    if (alpha > .001) {
+        float maximum = max(rgb.r, max(rgb.g, rgb.b));
+        if ((clipping == 1 || clipping == 3) && maximum <= .5/255) rgb = float3(.08, .25, 1);
+        else if ((clipping == 2 || clipping == 3) && maximum >= 254.5/255) rgb = float3(1, .08, .08);
+    }
+    return half4(rgb * alpha, alpha);
+}

@@ -1,6 +1,6 @@
 namespace LightSpace.Core;
 
-/// <summary>Allocation-free comparisons for normalized, copy-on-write photo snapshots.</summary>
+/// <summary>Allocation-free comparisons for normalized, copy-on-write photo snapshots. Geometry and optics are separate render stages.</summary>
 public static class PhotoStateEquality
 {
     public static bool Develop(DevelopSettings a, DevelopSettings b) => ReferenceEquals(a, b) ||
@@ -10,13 +10,10 @@ public static class PhotoStateEquality
         && a.Dehaze == b.Dehaze && a.Vignette == b.Vignette && a.Grain == b.Grain && a.Sharpening == b.Sharpening
         && a.NoiseReduction == b.NoiseReduction && a.Monochrome == b.Monochrome && a.Curve == b.Curve
         && a.Channels.ValueEquals(b.Channels) && a.Grading == b.Grading && Mixer(a.Mixer, b.Mixer);
-
     private static bool Mixer(ColorBand[] a, ColorBand[] b)
     {
         if (ReferenceEquals(a, b)) return true;
         if (a.Length != b.Length) return false;
-        // Read the normalized scalar leaves directly. This hot path does not
-        // require generic IEquatable dispatch for reference-type records.
         for (var i = 0; i < a.Length; i++)
         {
             var x = a[i]; var y = b[i];
@@ -24,7 +21,6 @@ public static class PhotoStateEquality
         }
         return true;
     }
-
     public static bool Shader(PhotoState a, PhotoState b)
     {
         if (ReferenceEquals(a, b)) return true;
@@ -34,7 +30,7 @@ public static class PhotoStateEquality
         for (var i = 0; i < a.Masks.Length; i++) if (!a.Masks[i].PixelEquals(b.Masks[i])) return false;
         return true;
     }
-    public static bool Pixels(PhotoState a, PhotoState b) => a.Crop == b.Crop && Shader(a, b);
+    public static bool Pixels(PhotoState a, PhotoState b) => a.Crop == b.Crop && a.Geometry == b.Geometry && a.Optics == b.Optics && Shader(a, b);
     public static bool All(PhotoState a, PhotoState b)
     {
         if (ReferenceEquals(a, b)) return true;
