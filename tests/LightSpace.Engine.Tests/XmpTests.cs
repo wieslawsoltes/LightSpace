@@ -55,7 +55,7 @@ internal static class XmpTests
         test("XMP rejects oversized packets", () => Throws(()=>XmpSidecar.Import(new string(' ',XmpSidecar.MaximumBytes+1))));
         test("XMP rejects unknown native settings versions", () =>
         {
-            var xml=XmpSidecar.Export(new()).Xml.Replace("ls:SchemaVersion=\"4\"","ls:SchemaVersion=\"999\"");Throws(()=>XmpSidecar.Import(xml));
+            var xml=XmpSidecar.Export(new()).Xml.Replace($"ls:SchemaVersion=\"{XmpSidecar.NativeSchemaVersion}\"","ls:SchemaVersion=\"999\"");Throws(()=>XmpSidecar.Import(xml));
         });
         test("XMP rejects multiple RDF subjects", () =>
         {

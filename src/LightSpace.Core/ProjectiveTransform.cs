@@ -29,15 +29,17 @@ public readonly record struct ProjectiveTransform(double A, double B, double C, 
 
 public static class GeometryProjection
 {
+    private static readonly PointD[] Corners = [new(0, 0), new(1, 0), new(1, 1), new(0, 1)];
     public static ProjectiveTransform Create(GeometrySettings settings, LensCorrectionSettings optics, double aspect)
     {
         if (!double.IsFinite(aspect) || aspect <= 0) throw new ArgumentOutOfRangeException(nameof(aspect));
-        var g = settings.Normalize();
-        var result = Build(g, aspect, 1);
+        var g = settings.Normalize(); var result = Build(g, aspect, 1);
         if (!g.ConstrainCrop) return result;
         var extent = LensMapping.SafeExtent(optics);
         if (Covers(result, extent)) return result;
-        double low = 1, high = 64;
+        double low = 1, high = 2;
+        while (high < 1048576 && !Covers(Build(g, aspect, high), extent)) { low = high; high *= 2; }
+        if (!Covers(Build(g, aspect, high), extent)) throw new InvalidOperationException("The requested constrained geometry exceeds the supported projection range.");
         for (var i = 0; i < 40; i++)
         {
             var middle = (low + high) * .5;
@@ -48,7 +50,7 @@ public static class GeometryProjection
     private static ProjectiveTransform Build(GeometrySettings g, double aspect, double extraScale)
     {
         var angle = g.Rotate * Math.PI / 180; var c = Math.Cos(angle); var s = Math.Sin(angle);
-        var rotate = new ProjectiveTransform(c, -s, 0, s, c, 0, 0, 0, 1);
+        var rotate = new ProjectiveTransform(c, -s, 0, s, c, 0, 0, 1);
         var perspective = new ProjectiveTransform(1, 0, 0, 0, 1, 0, g.Horizontal * .005 / aspect, g.Vertical * .005, 1);
         var scale = g.Scale * .01 * extraScale;
         return ProjectiveTransform.Translate(.5 + g.XOffset / 400, .5 + g.YOffset / 400)
@@ -60,7 +62,7 @@ public static class GeometryProjection
     {
         if (!transform.TryInvert(out var inverse)) return false;
         var margin = (1 - extent) * .5;
-        foreach (var corner in new[] { new PointD(0, 0), new(1, 0), new(1, 1), new(0, 1) })
+        foreach (var corner in Corners)
         {
             var p = inverse.Map(corner);
             if (!double.IsFinite(p.X) || !double.IsFinite(p.Y) || p.X < margin || p.X > 1 - margin || p.Y < margin || p.Y > 1 - margin) return false;

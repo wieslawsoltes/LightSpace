@@ -1,14 +1,15 @@
-// Composed after development, without a CPU intermediate or render-target readback.
+// Composed after development. No CPU intermediate or render-target readback.
 uniform shader developed;
 uniform float2 imageSize;
 uniform float4 optics;
 uniform int clipping;
-
 half4 sampleSource(float2 uv) {
     if (uv.x < 0 || uv.y < 0 || uv.x > 1 || uv.y > 1) return half4(0);
     return developed.eval(uv * imageSize);
 }
 float3 unpremul(half4 pixel) { return float3(pixel.rgb) / max(.00001, float(pixel.a)); }
+float3 linearize(float3 c) { return mix(c / 12.92, pow(max((c + .055) / 1.055, float3(0)), float3(2.4)), step(float3(.04045), c)); }
+float3 encode(float3 c) { return mix(c * 12.92, 1.055 * pow(max(c, float3(0)), float3(1.0/2.4)) - .055, step(float3(.0031308), c)); }
 half4 main(float2 p) {
     float2 uv = p / imageSize;
     float aspect = imageSize.x / imageSize.y;
@@ -27,7 +28,7 @@ half4 main(float2 p) {
         rgb.r = unpremul(red).r; rgb.b = unpremul(blue).b;
         alpha = min(alpha, min(float(red.a), float(blue.a)));
     }
-    if (optics.y != 0) rgb *= exp2(optics.y * .02 * smoothstep(0, 1, r2));
+    if (optics.y != 0) rgb = encode(linearize(max(rgb, float3(0))) * exp2(optics.y * .02 * smoothstep(0, 1, r2)));
     rgb = clamp(rgb, 0, 1);
     if (alpha > .001) {
         float maximum = max(rgb.r, max(rgb.g, rgb.b));

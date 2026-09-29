@@ -30,6 +30,7 @@ public sealed partial class PhotoViewport
             if (add && settings.Samples.Length >= ColorRangeSettings.MaximumSamples)
             { Status?.Invoke("Five color samples are already selected. Replace one or Alt-click a pin to remove it."); return; }
             var uv = ToSource(screen);
+            if (!ValidSource(uv)) { Status?.Invoke("Choose a point inside the corrected source image."); return; }
             ColorSample? sample;
             try { sample = _renderer.SampleSource(photo, uv.X, uv.Y); }
             catch (Exception error) { Status?.Invoke(error.Message); return; }

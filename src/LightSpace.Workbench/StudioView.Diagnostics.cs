@@ -26,8 +26,6 @@ public sealed partial class StudioView
             foreach (var handle in Viewport.InteractionHandles()) list.Add(new(handle.Id, origin.X + handle.X - 7, origin.Y + handle.Y - 7, 14, 14));
         }
         var p = Session.Active;
-        // Stroke coordinates are intentionally excluded. Diagnostics remain bounded
-        // even when a catalog contains many pointer samples.
         var masks = p?.State.Masks ?? [];
         var summaries = masks.Select(m => m with { Strokes = [] }).ToArray();
         var brush = masks.Select(m => new BrushDiagnostic(m.Id, m.Strokes.Length, m.Strokes.Sum(s => s.Dabs.Length), m.Strokes.LastOrDefault()?.Erase ?? false)).ToArray();
@@ -35,7 +33,8 @@ public sealed partial class StudioView
             Session.Catalog.Photos.Count, masks.Length, p?.State.CloneSpots.Length ?? 0, Session.CanUndo, Session.CanRedo, Session.Revision, _status.Text,
             list.ToArray(), _recovery.Status, p?.State.Develop.Grading ?? new(), summaries, Viewport.ComparisonPosition,
             new(_renderer.Statistics, _thumbnails.Statistics, _thumbnails.Renders, _cardBuilds, _libraryBuilds, _inspectorBuilds),
-            p?.State.Develop.Channels ?? new(), brush, _renderer.BrushStatistics, _renderer.CurveLookupBuilds, p?.State.Caption ?? "", p?.State.Keywords ?? [], _persistence?.Statistics, _renderer.SourceSamplePixels));
+            p?.State.Develop.Channels ?? new(), brush, _renderer.BrushStatistics, _renderer.CurveLookupBuilds, p?.State.Caption ?? "", p?.State.Keywords ?? [],
+            _persistence?.Statistics, _renderer.SourceSamplePixels, Photography(p)));
     }
     private void AdvancedKeyboard(object sender, KeyRoutedEventArgs e)
     {

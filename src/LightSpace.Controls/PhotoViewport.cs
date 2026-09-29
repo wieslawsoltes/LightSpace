@@ -3,10 +3,10 @@ using LightSpace.Editing;
 using LightSpace.Rendering.Skia;
 namespace LightSpace.Controls;
 
-public enum PhotoTool { Edit, Crop, RadialMask, LinearMask, Clone, Brush, ColorRange }
+public enum PhotoTool { Edit, Crop, RadialMask, LinearMask, Clone, Brush, ColorRange, WhiteBalance, Straighten }
 public sealed record ViewportHandle(string Id, float X, float Y);
 
-/// <summary>Source-normalized, transaction-aware photography canvas shared by native and browser hosts.</summary>
+/// <summary>Source-coordinate editing through crop, projective geometry and optical correction on a shared Uno canvas.</summary>
 public sealed partial class PhotoViewport : UserControl, IDisposable
 {
     private sealed class Surface(PhotoViewport owner) : SKCanvasElement
@@ -39,8 +39,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     public event Action? ViewChanged;
     public event Action<string>? Status;
     private bool IsMaskTool => Tool is PhotoTool.RadialMask or PhotoTool.LinearMask or PhotoTool.Brush or PhotoTool.ColorRange;
-    private CropSettings DisplayCrop => Tool == PhotoTool.Crop ? new() : _session.Active?.State.Crop ?? new();
-
+    private CropSettings DisplayCrop => Uncropped ? new() : _session.Active?.State.Crop ?? new();
     public PhotoViewport(EditorSession session, PhotoRenderer renderer)
     {
         _session = session; _renderer = renderer; _surface = new(this); Content = _surface;
@@ -52,16 +51,11 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
         _surface.PointerExited += (_, _) => { _brushCursor = null; if (Tool == PhotoTool.Brush) Invalidate(); };
         _surface.PointerWheelChanged += Wheel;
         _surface.DoubleTapped += (_, e) => { if (Tool == PhotoTool.Edit && !Compare) ToggleZoom(); e.Handled = true; };
-        KeyDown += (_, e) =>
-        {
-            // Escape first cancels a captured gesture. A later Escape may leave
-            // the tool, but cancellation must not also rebuild its inspector.
-            if (e.Key == VirtualKey.Escape && _dragging) { Cancel(); e.Handled = true; }
-        };
+        KeyDown += (_, e) => { if (e.Key == VirtualKey.Escape && _dragging) { Cancel(); e.Handled = true; } };
         SizeChanged += (_, _) => Invalidate(); _session.ViewChanged += Invalidate;
     }
     public void Invalidate() => _surface.Invalidate();
-    public void SetTool(PhotoTool tool) { Cancel(); Tool = tool; if (tool == PhotoTool.Crop) Fit(); Invalidate(); ViewChanged?.Invoke(); }
+    public void SetTool(PhotoTool tool) { Cancel(); Tool = tool; if (tool is PhotoTool.Crop or PhotoTool.Straighten) Fit(); Invalidate(); ViewChanged?.Invoke(); }
     public void Fit() { Zoom = 1; PanX = PanY = 0; Invalidate(); ViewChanged?.Invoke(); }
     public void ToggleZoom()
     {
@@ -75,16 +69,15 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     public void SetActiveMask(int index) { ActiveMask = index; Invalidate(); ViewChanged?.Invoke(); }
     private SKPoint ToSource(Point point)
     {
-        var photo = _session.Active; if (photo is null || _imageRect.Width <= 0) return new();
-        var transform = PhotoTransform.SourceToView(DisplayCrop, photo.Width, photo.Height, _imageRect);
-        if (!transform.TryInvert(out var inverse)) return new();
-        var p = inverse.MapPoint((float)point.X, (float)point.Y);
-        return new(Numeric.Unit(p.X / photo.Width), Numeric.Unit(p.Y / photo.Height));
+        if (_session.Active is not { } photo || _imageRect.Width <= 0) return new();
+        var p = GeometryMapping.ViewToSource(photo.State, photo.Width, photo.Height, _imageRect, new((float)point.X, (float)point.Y), Uncropped);
+        return new((float)p.X, (float)p.Y);
     }
     private SKPoint ToView(float x, float y)
     {
-        var photo = _session.Active; if (photo is null) return new();
-        return PhotoTransform.SourceToView(DisplayCrop, photo.Width, photo.Height, _imageRect).MapPoint(x * photo.Width, y * photo.Height);
+        if (_session.Active is not { } photo) return new();
+        var p = GeometryMapping.SourceToView(photo.State, photo.Width, photo.Height, _imageRect, new(x, y), Uncropped);
+        return float.IsFinite(p.X) && float.IsFinite(p.Y) ? p : new(-100000, -100000);
     }
     private void Paint(SKCanvas canvas, Size area)
     {
@@ -95,7 +88,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
             _imageRect = PhotoTransform.Fit(DisplayCrop, photo.Width, photo.Height, available, Zoom, PanX, PanY);
             using var paint = new SKPaint { IsAntialias = true, Color = new SKColor(0, 0, 0, 130) };
             canvas.DrawRect(new(_imageRect.Left - 1, _imageRect.Top - 1, _imageRect.Right + 2, _imageRect.Bottom + 3), paint);
-            _renderer.Draw(canvas, photo, _imageRect, Before, Tool == PhotoTool.Crop, IsMaskTool && ShowMaskCoverage ? ActiveMask : -1);
+            _renderer.Draw(canvas, photo, _imageRect, Before, Uncropped, IsMaskTool && ShowMaskCoverage ? ActiveMask : -1, Clipping);
             if (Compare && Tool == PhotoTool.Edit)
             {
                 var divider = _imageRect.Left + _imageRect.Width * ComparisonPosition;
@@ -106,6 +99,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
                 paint.Color = SKColors.White; canvas.DrawLine(divider - 4, _imageRect.MidY - 5, divider - 4, _imageRect.MidY + 5, paint); canvas.DrawLine(divider + 4, _imageRect.MidY - 5, divider + 4, _imageRect.MidY + 5, paint);
             }
             if (Tool == PhotoTool.Crop) PaintCrop(canvas, photo.State.Crop);
+            if (Tool == PhotoTool.Straighten) PaintStraighten(canvas);
             if (IsMaskTool && MaskOverlay) PaintMasks(canvas, photo);
             if (Tool == PhotoTool.Brush) PaintBrushCursor(canvas, photo);
             if (Tool == PhotoTool.Clone)
@@ -119,7 +113,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     }
     private void PaintCrop(SKCanvas canvas, CropSettings crop)
     {
-        var a = ToView(crop.Left, crop.Top); var b = ToView(crop.Right, crop.Bottom); var rect = new SKRect(a.X, a.Y, b.X, b.Y);
+        var a = FrameToView(crop.Left, crop.Top); var b = FrameToView(crop.Right, crop.Bottom); var rect = new SKRect(a.X, a.Y, b.X, b.Y);
         using var p = new SKPaint { Color = new SKColor(0, 0, 0, 155), IsAntialias = true };
         canvas.Save(); canvas.ClipRect(_imageRect); canvas.ClipRect(rect, SKClipOperation.Difference); canvas.DrawRect(_imageRect, p); canvas.Restore();
         p.Color = SKColors.White; p.Style = SKPaintStyle.Stroke; p.StrokeWidth = 1; canvas.DrawRect(rect, p);
@@ -130,10 +124,14 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     }
     private void Press(object sender, PointerRoutedEventArgs e)
     {
+        if (Tool == PhotoTool.WhiteBalance) { PickWhiteBalance(e); return; }
+        if (Tool == PhotoTool.Straighten) { PressStraighten(e); return; }
         if (Tool == PhotoTool.ColorRange) { PressColorRange(e); return; }
         if (Tool == PhotoTool.Brush) { PressBrush(e); return; }
         if (_session.Active is not { } photo) return; var screen = e.GetCurrentPoint(_surface).Position;
-        Focus(FocusState.Pointer); e.Handled = true; var p = ToSource(screen);
+        Focus(FocusState.Pointer); e.Handled = true;
+        var frame = ToFrame(screen); var p = Tool == PhotoTool.Crop ? new SKPoint((float)frame.X, (float)frame.Y) : ToSource(screen);
+        if ((Tool == PhotoTool.Clone || IsMaskTool) && !ValidSource(p)) return;
         if (Tool == PhotoTool.Clone)
         {
             if (!_imageRect.Contains((float)screen.X, (float)screen.Y)) return;
@@ -154,7 +152,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
         _session.BeginGesture();
         if (Tool == PhotoTool.Crop)
         {
-            var c = photo.State.Crop; var l = ToView(c.Left, c.Top); var r = ToView(c.Right, c.Bottom);
+            var c = photo.State.Crop; var l = FrameToView(c.Left, c.Top); var r = FrameToView(c.Right, c.Bottom);
             _edgeX = Math.Abs(screen.X - l.X) < 11 ? -1 : Math.Abs(screen.X - r.X) < 11 ? 1 : 0;
             _edgeY = Math.Abs(screen.Y - l.Y) < 11 ? -1 : Math.Abs(screen.Y - r.Y) < 11 ? 1 : 0;
             _movingCrop = _edgeX == 0 && _edgeY == 0 && (c.Width < .99f || c.Height < .99f) && p.X > c.Left && p.X < c.Right && p.Y > c.Top && p.Y < c.Bottom;
@@ -164,11 +162,13 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     }
     private void Move(object sender, PointerRoutedEventArgs e)
     {
+        if (Tool == PhotoTool.Straighten) { MoveStraighten(e); return; }
         if (Tool == PhotoTool.Brush) { MoveBrush(e); return; }
         if (!_dragging || _startState is null) return; var screen = e.GetCurrentPoint(_surface).Position;
         if (_dragComparison) { ComparisonPosition = Numeric.Clamp(((float)screen.X - _imageRect.Left) / Math.Max(1, _imageRect.Width), .03f, .97f); Invalidate(); e.Handled = true; return; }
         if (Tool == PhotoTool.Edit) { PanX = _startPan.X + (float)screen.X - _press.X; PanY = _startPan.Y + (float)screen.Y - _press.Y; ConstrainPan(); Invalidate(); return; }
-        var p = ToSource(screen); var start = _startState;
+        var frame = ToFrame(screen); var p = Tool == PhotoTool.Crop ? new SKPoint(Numeric.Unit((float)frame.X), Numeric.Unit((float)frame.Y)) : ToSource(screen); var start = _startState;
+        if (!float.IsFinite(p.X) || !float.IsFinite(p.Y)) return;
         if (Tool == PhotoTool.Crop)
         {
             var c = start.Crop; float l = c.Left, t = c.Top, r = c.Right, b = c.Bottom;
@@ -187,13 +187,15 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     private void Release(object sender, PointerRoutedEventArgs e)
     {
         if (!_dragging) return; Move(sender, e); _dragging = false; _surface.ReleasePointerCapture(e.Pointer);
-        if (Tool != PhotoTool.Edit) _session.CommitGesture(Tool == PhotoTool.Brush ? (_brushStart?.Erase == true ? "Erase brush stroke" : "Paint brush stroke") : Tool == PhotoTool.Crop ? "Crop" : _maskAction is null ? "Create gradient mask" : "Transform mask");
-        _strokeBuilder = null; _brushStart = null; _startState = null; _dragComparison = false; ViewChanged?.Invoke(); e.Handled = true;
+        if (Tool != PhotoTool.Edit) _session.CommitGesture(Tool == PhotoTool.Straighten ? "Straighten horizon" : Tool == PhotoTool.Brush ? (_brushStart?.Erase == true ? "Erase brush stroke" : "Paint brush stroke") : Tool == PhotoTool.Crop ? "Crop" : _maskAction is null ? "Create gradient mask" : "Transform mask");
+        _strokeBuilder = null; _brushStart = null; _startState = null; _dragComparison = false; _straightenStart = _straightenEnd = null;
+        if (Tool == PhotoTool.Straighten) SetTool(PhotoTool.Crop);
+        ViewChanged?.Invoke(); e.Handled = true;
     }
     private void Cancel()
     {
         if (!_dragging) return; _dragging = false; _surface.ReleasePointerCaptures(); _session.CancelGesture(); _startState = null; _dragComparison = false;
-        _strokeBuilder = null; _brushStart = null;
+        _strokeBuilder = null; _brushStart = null; _straightenStart = _straightenEnd = null;
         ActiveMask = Math.Clamp(ActiveMask, -1, (_session.Active?.State.Masks.Length ?? 0) - 1); Invalidate();
     }
     private void Wheel(object sender, PointerRoutedEventArgs e)
@@ -208,8 +210,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     private void ConstrainPan()
     {
         if (_session.Active is not { } photo) return;
-        var (w, h) = DisplayCrop.OutputSize(photo.Width, photo.Height);
-        var aw = Math.Max(1, (float)ActualWidth - 52); var ah = Math.Max(1, (float)ActualHeight - 48);
+        var (w, h) = DisplayCrop.OutputSize(photo.Width, photo.Height); var aw = Math.Max(1, (float)ActualWidth - 52); var ah = Math.Max(1, (float)ActualHeight - 48);
         var scale = Math.Min(aw / w, ah / h) * Zoom;
         PanX = Math.Clamp(PanX, -Math.Max(0, (aw + w * scale) / 2 - 32), Math.Max(0, (aw + w * scale) / 2 - 32));
         PanY = Math.Clamp(PanY, -Math.Max(0, (ah + h * scale) / 2 - 32), Math.Max(0, (ah + h * scale) / 2 - 32));
