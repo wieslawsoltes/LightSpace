@@ -3,9 +3,6 @@ namespace LightSpace.Workbench;
 public sealed partial class StudioView
 {
     private Border? _dialogOverlay;
-    private Task CreateAlbumAsync() => TextPromptAsync("New album", "Album name", "Untitled album", value =>
-    { Session.CreateAlbum(value); SetStatus("Album created from the current selection."); });
-    private Task SaveVersionAsync() => TextPromptAsync("Create version", "Version name", "Version " + ((Session.Active?.Versions.Count ?? 0) + 1), Session.SaveVersion);
     private Task TextPromptAsync(string title, string placeholder, string value, Action<string> apply)
     {
         var input = Theme.Input(placeholder, placeholder, value); var panel = new StackPanel { Spacing = 12 }; panel.Children.Add(input);
