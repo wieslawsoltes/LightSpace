@@ -50,7 +50,7 @@ public static class GeometryProjection
     private static ProjectiveTransform Build(GeometrySettings g, double aspect, double extraScale)
     {
         var angle = g.Rotate * Math.PI / 180; var c = Math.Cos(angle); var s = Math.Sin(angle);
-        var rotate = new ProjectiveTransform(c, -s, 0, s, c, 0, 0, 1);
+        var rotate = new ProjectiveTransform(c, -s, 0, s, c, 0, 0, 0, 1);
         var perspective = new ProjectiveTransform(1, 0, 0, 0, 1, 0, g.Horizontal * .005 / aspect, g.Vertical * .005, 1);
         var scale = g.Scale * .01 * extraScale;
         return ProjectiveTransform.Translate(.5 + g.XOffset / 400, .5 + g.YOffset / 400)

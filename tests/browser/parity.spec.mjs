@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { boot, state, box, click, drag, slider, reveal, shot } from './support.mjs';
 
-test('color grading wheel, range selection, undo and schema-4 catalog export', async ({ page }) => {
+test('color grading wheel, range selection, undo and schema-5 catalog export', async ({ page }) => {
   await boot(page); await click(page, 'Color grading');
   const wheel = await box(page, 'grading-wheel');
   await page.mouse.move(wheel.x + wheel.width / 2, wheel.y + wheel.height / 2); await page.mouse.down();
@@ -17,7 +17,7 @@ test('color grading wheel, range selection, undo and schema-4 catalog export', a
   const expected = (await state(page)).grading; const pending = page.waitForEvent('download'); await click(page, 'Save catalog');
   const download = await pending; await mkdir('artifacts/browser-exports', { recursive: true }); await download.saveAs('artifacts/browser-exports/graded.lightspace');
   const catalog = JSON.parse(await readFile('artifacts/browser-exports/graded.lightspace', 'utf8'));
-  expect(catalog.SchemaVersion).toBe(4); expect(catalog.Photos[0].State.Develop.Grading.Shadows.Saturation).toBe(22);
+  expect(catalog.SchemaVersion).toBe(5); expect(catalog.Photos[0].State.Develop.Grading.Shadows.Saturation).toBe(22);
   await boot(page); expect((await state(page)).grading).toEqual(expected);
 });
 

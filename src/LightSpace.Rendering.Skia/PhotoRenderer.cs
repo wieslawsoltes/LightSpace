@@ -15,12 +15,13 @@ public sealed partial class PhotoRenderer : IDisposable
         public SKShader? Shader { get; set; }
         public PresentationShader Edited { get; } = new();
         public PresentationShader Before { get; } = new();
+        public PresentationShader Analysis { get; } = new();
         public GeometrySettings? Geometry { get; set; }
         public LensCorrectionSettings? GeometryOptics { get; set; }
         public SKMatrix Matrix { get; set; }
         public long Used { get; set; }
         public long Bytes => (long)Image.Width * Image.Height * 4;
-        public void Dispose() { Edited.Dispose(); Before.Dispose(); Shader?.Dispose(); Image.Dispose(); }
+        public void Dispose() { Edited.Dispose(); Before.Dispose(); Analysis.Dispose(); Shader?.Dispose(); Image.Dispose(); }
     }
     private readonly Dictionary<Guid, CachedPhoto> _cache = [];
     private readonly SKRuntimeEffect _effect;
@@ -143,9 +144,9 @@ public sealed partial class PhotoRenderer : IDisposable
         var cache = GetImage(photo); using var surface = SKSurface.Create(new SKImageInfo(192, 128, SKColorType.Rgba8888, SKAlphaType.Premul));
         using var temporary = cache.Overlay >= 0 && !IsNeutral(photo.State) ? CreateShader(cache.Image, photo.State, photo.Width, photo.Height) : null;
         var development = cache.Overlay >= 0 ? temporary : GetShader(cache, photo, -1);
-        using var presentation = photo.State.Optics.IsNeutral ? null : CreatePresentation(cache.Image, development, photo.State.Optics, ClippingIndicators.None);
+        var presentation = cache.Analysis.Get(cache.Image, development, photo.State.Optics, ClippingIndicators.None, CreatePresentation);
         surface.Canvas.Clear(SKColors.Transparent);
-        DrawSource(surface.Canvas, cache.Image, presentation ?? development, photo.State.Crop, SKRect.Create(192, 128), GetGeometry(cache, photo.State));
+        DrawSource(surface.Canvas, cache.Image, presentation, photo.State.Crop, SKRect.Create(192, 128), GetGeometry(cache, photo.State));
         using var snapshot = surface.Snapshot(); using var bitmap = SKBitmap.FromImage(snapshot); return Histogram.FromPixels(bitmap.Pixels);
     }
     public DevelopSettings Auto(PhotoDocument photo)

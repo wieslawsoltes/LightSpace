@@ -4,9 +4,9 @@ namespace LightSpace.Rendering.Skia;
 
 [Flags]
 public enum ClippingIndicators { None = 0, Shadows = 1, Highlights = 2, Both = Shadows | Highlights }
-public sealed record PresentationStatistics(long ShaderBuilds, long GeometryBuilds, long IntermediatePixelReadbacks);
+/// <summary>Actual completed construction counts, not GPU timings or inferred readback measurements.</summary>
+public sealed record PresentationStatistics(long ShaderBuilds, long GeometryBuilds);
 
-/// <summary>One retained GPU-composable presentation stage. Inputs are borrowed; native references are retained by the resulting shader.</summary>
 internal sealed class PresentationShader : IDisposable
 {
     private SKShader? _shader, _input;
@@ -30,7 +30,7 @@ public sealed partial class PhotoRenderer
 {
     private SKRuntimeEffect? _presentationEffect;
     private long _presentationBuilds, _geometryBuilds;
-    public PresentationStatistics Presentation => new(_presentationBuilds, _geometryBuilds, 0);
+    public PresentationStatistics Presentation => new(_presentationBuilds, _geometryBuilds);
     private SKShader CreatePresentation(SKImage image, SKShader? input, LensCorrectionSettings optics, ClippingIndicators clipping)
     {
         if (_presentationEffect is null)

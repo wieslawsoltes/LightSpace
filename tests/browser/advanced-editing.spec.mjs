@@ -42,21 +42,17 @@ test('arbitrary RGB curves edit real pixels, undo, cancel and recover', async ({
 });
 
 test('brush paint, temporary erase, undo and cancellation preserve gesture boundaries', async ({ page }) => {
-  await boot(page); await click(page, 'Brush tool');
-  const before = await photoPixels(page);
+  await boot(page); await click(page, 'Brush tool'); const before = await photoPixels(page);
   await stroke(page, [[.3, .45], [.5, .5], [.7, .45]]);
   await expect.poll(async () => (await state(page)).brushes[0]?.strokes).toBe(1);
-  expect((await state(page)).maskSettings[0].kind).toBe(3);
-  expect((await state(page)).brushes[0].dabs).toBeGreaterThan(10);
+  expect((await state(page)).maskSettings[0].kind).toBe(3); expect((await state(page)).brushes[0].dabs).toBeGreaterThan(10);
   expect((await photoPixels(page)).equals(before)).toBe(false);
   await stroke(page, [[.4, .48], [.6, .48]], { erase: true });
-  await expect.poll(async () => (await state(page)).brushes[0]?.strokes).toBe(2);
-  expect((await state(page)).brushes[0].lastErase).toBe(true);
+  await expect.poll(async () => (await state(page)).brushes[0]?.strokes).toBe(2); expect((await state(page)).brushes[0].lastErase).toBe(true);
   await click(page, 'Undo'); await expect.poll(async () => (await state(page)).brushes[0]?.strokes).toBe(1);
   const revision = (await state(page)).revision;
   await stroke(page, [[.35, .7], [.65, .7]], { cancel: true });
-  await expect.poll(async () => (await state(page)).brushes[0]?.strokes).toBe(1);
-  expect((await state(page)).revision).toBe(revision);
+  await expect.poll(async () => (await state(page)).brushes[0]?.strokes).toBe(1); expect((await state(page)).revision).toBe(revision);
   await click(page, 'Mask coverage'); await shot(page, 'brush-mask');
   await expect.poll(async () => (await state(page)).recovery.state).toBe('Saved');
   const brushes = (await state(page)).brushes; await boot(page); expect((await state(page)).brushes).toEqual(brushes);
@@ -64,12 +60,10 @@ test('brush paint, temporary erase, undo and cancellation preserve gesture bound
 
 test('brush density controls and local adjustments reuse coverage textures', async ({ page }) => {
   await boot(page); await click(page, 'Masking'); await click(page, 'New brush mask');
-  await click(page, 'section-Brush settings');
-  await slider(page, 'advanced-Brush size', .28); await slider(page, 'advanced-Brush flow', .8);
+  await click(page, 'section-Brush settings'); await slider(page, 'advanced-Brush size', .28); await slider(page, 'advanced-Brush flow', .8);
   await stroke(page, [[.25, .55], [.5, .35], [.75, .55]]);
   await expect.poll(async () => (await state(page)).brushes[0]?.strokes).toBe(1);
-  await click(page, 'section-Brush settings');
-  await reveal(page, 'mask-Exposure');
+  await click(page, 'section-Brush settings'); await reveal(page, 'mask-Exposure');
   await expect.poll(async () => (await state(page)).recovery.state).toBe('Saved'); await page.waitForTimeout(400);
   const before = await state(page);
   for (const fraction of [.6, .65, .55]) await slider(page, 'mask-Exposure', fraction);
@@ -78,8 +72,7 @@ test('brush density controls and local adjustments reuse coverage textures', asy
   expect(after.brushCache.dabsRasterized).toBe(before.brushCache.dabsRasterized);
   expect(after.brushCache.textureBuilds).toBe(before.brushCache.textureBuilds);
   expect(after.curveLookupBuilds).toBe(before.curveLookupBuilds);
-  expect(after.performance.inspectorBuilds).toBe(before.performance.inspectorBuilds);
-  expect(after.brushes[0].strokes).toBe(1);
+  expect(after.performance.inspectorBuilds).toBe(before.performance.inspectorBuilds); expect(after.brushes[0].strokes).toBe(1);
   await mkdir('artifacts/browser-exports', { recursive: true });
   await writeFile('artifacts/browser-exports/brush-performance.json', JSON.stringify({ scope: 'Three real local-exposure gestures after a painted mask; work-avoidance counters, not GPU timings', before: { brush: before.brushCache, curveTables: before.curveLookupBuilds, inspectorBuilds: before.performance.inspectorBuilds }, after: { brush: after.brushCache, curveTables: after.curveLookupBuilds, inspectorBuilds: after.performance.inspectorBuilds } }, null, 2));
 });
@@ -94,13 +87,11 @@ const fixture = `<?xml version="1.0" encoding="utf-8"?>
 async function importFixture(page, xml = fixture) {
   await click(page, 'Photo information');
   const pending = page.waitForEvent('filechooser'); await click(page, 'Import XMP'); const picker = await pending;
-  await picker.setFiles({ name: 'interop-fixture.xmp', mimeType: 'application/rdf+xml', buffer: Buffer.from(xml) });
-  await box(page, 'Apply XMP');
+  await picker.setFiles({ name: 'interop-fixture.xmp', mimeType: 'application/rdf+xml', buffer: Buffer.from(xml) }); await box(page, 'Apply XMP');
 }
 
 test('XMP sidecar import reports unsupported fields, applies undoably and exports losslessly', async ({ page }) => {
-  await boot(page); await importFixture(page); await shot(page, 'xmp-import');
-  expect((await state(page)).exposure).toBe(0);
+  await boot(page); await importFixture(page); await shot(page, 'xmp-import'); expect((await state(page)).exposure).toBe(0);
   await click(page, 'Apply XMP'); await expect.poll(async () => (await state(page)).exposure).toBe(.75);
   expect((await state(page)).rating).toBe(4); expect((await state(page)).caption).toBe('Światło & mountains');
   expect((await state(page)).keywords).toEqual(['alpine', 'sidecar']); expect((await state(page)).curves.blue.points.length).toBe(3);
@@ -109,17 +100,15 @@ test('XMP sidecar import reports unsupported fields, applies undoably and export
   await click(page, 'Export XMP'); const pending = page.waitForEvent('download'); await click(page, 'Save XMP'); const download = await pending;
   await mkdir('artifacts/browser-exports', { recursive: true }); const path = 'artifacts/browser-exports/roundtrip.xmp'; await download.saveAs(path);
   const xml = await readFile(path, 'utf8'); expect(xml).toContain('ls:Settings'); expect(xml).toContain('crs:Exposure2012="0.75"');
-  expect(xml).toContain('Światło &amp; mountains'); expect(xml).toContain('ls:SchemaVersion="4"');
+  expect(xml).toContain('Światło &amp; mountains'); expect(xml).toContain('ls:SchemaVersion="5"');
   await expect.poll(async () => (await state(page)).recovery.state).toBe('Saved'); const expected = await state(page);
   await importFixture(page, xml); await click(page, 'Apply XMP');
-  await expect.poll(async () => (await state(page)).curves).toEqual(expected.curves);
-  expect((await state(page)).revision).toBe(expected.revision);
+  await expect.poll(async () => (await state(page)).curves).toEqual(expected.curves); expect((await state(page)).revision).toBe(expected.revision);
 });
 
 test('XMP metadata-only import does not alter processing or brush masks', async ({ page }) => {
   await boot(page); await click(page, 'Brush tool'); await stroke(page, [[.3,.5],[.7,.5]]);
-  await expect.poll(async () => (await state(page)).brushes[0]?.strokes).toBe(1);
-  const before = (await state(page)).brushes;
+  await expect.poll(async () => (await state(page)).brushes[0]?.strokes).toBe(1); const before = (await state(page)).brushes;
   await importFixture(page); await click(page, 'XMP metadata only'); await click(page, 'Apply XMP');
   await expect.poll(async () => (await state(page)).rating).toBe(4);
   expect((await state(page)).exposure).toBe(0); expect((await state(page)).brushes).toEqual(before);
