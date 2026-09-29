@@ -10,18 +10,32 @@ public sealed partial class PhotoViewport
     {
         add
         {
-            if (_navigationChanged is null) { ViewChanged += PublishNavigation; _surface.PointerMoved += TrackNavigation; }
+            if (_navigationChanged is null)
+            {
+                ViewChanged += PublishNavigation; _surface.PointerMoved += TrackNavigation; SizeChanged += TrackNavigationLayout;
+            }
             _navigationChanged += value;
         }
         remove
         {
             _navigationChanged -= value;
-            if (_navigationChanged is null) { ViewChanged -= PublishNavigation; _surface.PointerMoved -= TrackNavigation; }
+            if (_navigationChanged is null)
+            {
+                ViewChanged -= PublishNavigation; _surface.PointerMoved -= TrackNavigation; SizeChanged -= TrackNavigationLayout;
+            }
         }
     }
     private void TrackNavigation(object sender, PointerRoutedEventArgs e)
     {
         if (_dragging && Tool == PhotoTool.Edit && !_dragComparison) PublishNavigation();
+    }
+    private void TrackNavigationLayout(object sender, SizeChangedEventArgs e)
+    {
+        if (e.NewSize.Width <= 0 || e.NewSize.Height <= 0) return;
+        var navigation = e.PreviousSize.Width > 0 && e.PreviousSize.Height > 0
+            ? new PhotoNavigationState(Zoom, PanX / (float)e.PreviousSize.Width, PanY / (float)e.PreviousSize.Height)
+            : _publishedNavigation;
+        SetNavigation(navigation); _navigationChanged?.Invoke(Navigation);
     }
     private void PublishNavigation()
     {

@@ -51,9 +51,12 @@ public sealed partial class StudioView
     {
         Session.CommitGesture("Adjustment");
         if (Session.Active is not { } photo || _referenceView is null) return;
+        ReferencePhotoSnapshot captured;
+        try { captured = ReferencePhotoSnapshot.Capture(photo); }
+        catch (ArgumentException error) { SetStatus(error.Message); return; }
         var previous = _referenceSnapshot;
-        _referenceSnapshot = ReferencePhotoSnapshot.Capture(photo); _referenceCatalog = Session.Catalog;
-        _referenceView.Photo = _referenceSnapshot.Photo;
+        _referenceSnapshot = captured; _referenceCatalog = Session.Catalog;
+        _referenceView.Photo = captured.Photo;
         if (previous is not null) _renderer.ReleasePhoto(previous.Photo.Id);
         _referenceOpen = true; SetGrid(false); ArrangeReference(); Viewport.Fit(); _referenceView.Fit(); RefreshReference();
         SetStatus("Reference pinned. Choose another photo in the filmstrip, or edit the active photo against this frozen look.");
@@ -117,6 +120,3 @@ public sealed partial class StudioView
         CloseReference();
     }
 }
-
-public sealed record ReferenceDiagnostics(bool Visible, bool Stacked, bool Linked, Guid? SourceId, string? Name, float? Exposure,
-    PhotoNavigationState ActiveNavigation, PhotoNavigationState ReferenceNavigation, long ReferenceDraws);

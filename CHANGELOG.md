@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — reference comparison and selective settings
+
+Added a session-local frozen reference beside the active photograph, with side-by-side/stacked layouts, linked or independent fit-relative navigation, pin/fit/close controls, and selective application of the pinned look. The reference does not create a catalog photo or recovery revision. Both panes render through the existing composed Skia pipeline; matching immutable source arrays share one decoded image while retaining independent per-photo shaders.
+
+Added thirteen independently selectable processing groups for copy, paste and synchronization. Dialogs capture the source look and target identities before review. Applications stage all target results and commit one undoable transaction, retaining metadata and unselected edits. Batch application no longer repeatedly scans the catalog for each target; undo/redo builds one identity lookup.
+
+Added source-pool ownership, eviction, forced-finalization, deferred-draw, group-isolation, frozen-pixel and actual-browser comparison/synchronization regressions. RendererStatistics retains its original six-field constructor/deconstruction while exposing unique source counts and reuse counters. The shader-lifetime repair and all development-slider stress checks remain enabled. No catalog or recovery schema changes were introduced. See docs/REFERENCE-AND-SYNC.md.
+
 ## 0.5.0-alpha.1
 
 ### Photography tools and workspace

@@ -19,7 +19,8 @@ public sealed partial class StudioView
         panel.Children.Add(Note(synchronize ? $"Apply selected groups to {ids.Length} photo(s). The source look and target identities are captured for this review." : "Choose which edit groups to copy. Paste applies only these groups to the current selection."));
         panel.Children.Add(editor);
         var title = suppliedSource is not null ? "Match reference settings" : synchronize ? "Synchronize settings" : "Copy settings";
-        ShowDialog(title, panel, synchronize ? "Apply selected settings" : "Copy selected settings", () =>
+        var confirmation = synchronize ? "Apply selected settings" : "Copy selected settings";
+        ShowDialog(title, panel, confirmation, () =>
         {
             if (editor.Groups == EditSettingsGroup.None) throw new InvalidOperationException("Select at least one settings group.");
             if (!ReferenceEquals(catalog, Session.Catalog)) throw new InvalidOperationException("The catalog changed. Review the settings again.");
@@ -37,6 +38,11 @@ public sealed partial class StudioView
             _settingsGroups = editor.Groups;
             return Task.CompletedTask;
         });
+        if (_widgets.TryGetValue(confirmation, out var reference) && reference.TryGetTarget(out var element) && element is LightButton button)
+        {
+            button.IsEnabled = editor.Groups != EditSettingsGroup.None;
+            editor.SelectionChanged += groups => button.IsEnabled = groups != EditSettingsGroup.None;
+        }
     }
     private void CopyAllSettings()
     {
