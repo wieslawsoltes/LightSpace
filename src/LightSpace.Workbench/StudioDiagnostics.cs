@@ -8,4 +8,4 @@ public sealed record StudioDiagnostics(string ActivePhoto, string View, string T
     int Masks, int CloneSpots, bool CanUndo, bool CanRedo, long Revision, string Status, WidgetBounds[] Widgets,
     RecoveryStatus Recovery, ColorGradingSettings Grading, LocalMask[] MaskSettings, float ComparisonPosition, WorkbenchPerformance Performance,
     ChannelCurves Curves, BrushDiagnostic[] Brushes, BrushCacheStatistics BrushCache, long CurveLookupBuilds, string Caption, string[] Keywords,
-    RecoveryPersistenceStatistics? Persistence, long SourceSamplePixels, PhotographyDiagnostics Photography);
+    RecoveryPersistenceStatistics? Persistence, long SourceSamplePixels, PhotographyDiagnostics Photography, ReferenceDiagnostics Reference);

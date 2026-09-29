@@ -15,12 +15,13 @@ XmpTests.Register(Test);
 ColorRangeTests.Register(Test);
 RendererLifetimeTests.Register(Test);
 PhotographyTests.Register(Test);
+ComparisonTransferTests.Register(Test);
+SharedSourceLifetimeTests.Register(Test);
 foreach (var legacy in Enumerable.Range(1, CatalogDocument.CurrentSchemaVersion - 1))
 {
     Test($"Schema {legacy} migrates with neutral brush and channel settings", () =>
     {
-        var source = new CatalogDocument();
-        var photo = Fixtures.Tiny(); source.Photos.Add(photo); source.ActivePhoto = photo.Id;
+        var source = new CatalogDocument(); var photo = Fixtures.Tiny(); source.Photos.Add(photo); source.ActivePhoto = photo.Id;
         var json = CatalogSerializer.Serialize(source).Replace($"\"SchemaVersion\":{CatalogDocument.CurrentSchemaVersion}", $"\"SchemaVersion\":{legacy}");
         var migrated = CatalogSerializer.Deserialize(json);
         Fixtures.Check(migrated.SchemaVersion == CatalogDocument.CurrentSchemaVersion && migrated.Photos[0].State.Develop.Channels.IsIdentity && migrated.Photos[0].State.Masks.Length == 0);

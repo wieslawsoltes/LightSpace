@@ -24,6 +24,11 @@ public sealed partial class StudioView
             var origin = Viewport.TransformToVisual(this).TransformPoint(new(0, 0));
             var image = Viewport.ImageBounds; list.Add(new("image", origin.X + image.X, origin.Y + image.Y, image.Width, image.Height));
             foreach (var handle in Viewport.InteractionHandles()) list.Add(new(handle.Id, origin.X + handle.X - 7, origin.Y + handle.Y - 7, 14, 14));
+            if (_referenceOpen && _referenceView is not null)
+            {
+                var position = _referenceView.TransformToVisual(this).TransformPoint(new(0, 0)); var bounds = _referenceView.ImageBounds;
+                list.Add(new("reference-image", position.X + bounds.X, position.Y + bounds.Y, bounds.Width, bounds.Height));
+            }
         }
         var p = Session.Active;
         var masks = p?.State.Masks ?? [];
@@ -34,7 +39,7 @@ public sealed partial class StudioView
             list.ToArray(), _recovery.Status, p?.State.Develop.Grading ?? new(), summaries, Viewport.ComparisonPosition,
             new(_renderer.Statistics, _thumbnails.Statistics, _thumbnails.Renders, _cardBuilds, _libraryBuilds, _inspectorBuilds),
             p?.State.Develop.Channels ?? new(), brush, _renderer.BrushStatistics, _renderer.CurveLookupBuilds, p?.State.Caption ?? "", p?.State.Keywords ?? [],
-            _persistence?.Statistics, _renderer.SourceSamplePixels, Photography(p)));
+            _persistence?.Statistics, _renderer.SourceSamplePixels, Photography(p), ReferenceInfo()));
     }
     private void AdvancedKeyboard(object sender, KeyRoutedEventArgs e)
     {

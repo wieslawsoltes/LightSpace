@@ -6,7 +6,14 @@ public sealed partial class StudioView
     {
         var rail = new Grid { Background = Theme.Brush("#1b1b1b"), RowDefinitions = { new() { Height = new(1, GridUnitType.Star) }, new() { Height = GridLength.Auto } } };
         var top = new StackPanel { Spacing = 8, Margin = new(3, 12, 3, 0) };
-        top.Children.Add(Button("Add photos", Glyph.Add, null, () => Run(ImportAsync))); top.Children.Add(Button("Grid view", Glyph.Grid, null, () => SetGrid(true))); top.Children.Add(Button("Detail view", Glyph.Photo, null, () => SetGrid(false))); rail.Children.Add(top);
+        top.Children.Add(Button("Add photos", Glyph.Add, null, () => Run(ImportAsync)));
+        top.Children.Add(Button("Grid view", Glyph.Grid, null, () => SetGrid(true)));
+        top.Children.Add(Button("Detail view", Glyph.Photo, null, () => SetGrid(false)));
+        top.Children.Add(Button("Reference view", Glyph.Compare, null, ToggleReference));
+        top.Children.Add(Button("Copy settings", Glyph.Edit, null, () => ShowSettingsDialog(false)));
+        top.Children.Add(Button("Paste selected settings", Glyph.Check, null, PasteSelectedSettings));
+        top.Children.Add(Button("Synchronize settings", Glyph.Link, null, () => ShowSettingsDialog(true)));
+        rail.Children.Add(top);
         var bottom = new StackPanel { Spacing = 8, Margin = new(3, 0, 3, 12) };
         bottom.Children.Add(Button("Help", Glyph.Help, null, () => Run(ShowHelpAsync))); bottom.Children.Add(Button("Local storage", Glyph.Info, null, () => SetStatus("Local-only catalog. Export a catalog backup to retain originals and edits."))); Grid.SetRow(bottom, 1); rail.Children.Add(bottom); _body.Children.Add(rail);
         var tools = new StackPanel { Background = Theme.Brush("#202020"), Spacing = 9, Padding = new(3, 12, 3, 0) };
@@ -29,7 +36,7 @@ public sealed partial class StudioView
         pages.Children.Add(Button("Toggle filmstrip", Glyph.Photo, null, ToggleFilmstrip)); pages.Children.Add(Button("Focus mode", Glyph.Compare, null, ToggleFocusMode));
         pages.Children.Add(Button("Previous page", text: "‹", action: () => { if (_page > 0) { _page--; RefreshCatalog(); } }));
         pages.Children.Add(Button("Next page", text: "›", action: () => { if ((_page + 1) * PageSize < _visible.Count) { _page++; RefreshCatalog(); } })); Grid.SetColumn(pages, 1); breadcrumb.Children.Add(pages); center.Children.Add(breadcrumb);
-        var photo = new Grid(); photo.Children.Add(Viewport); photo.Children.Add(_gridScroll); Grid.SetRow(photo, 1); center.Children.Add(photo);
+        var photo = CreateReferenceLayout(); photo.Children.Add(_gridScroll); Grid.SetRow(photo, 1); center.Children.Add(photo);
         var toolbar = new Grid { Background = Theme.Brush("#202020"), Padding = new(9, 0, 9, 0), ColumnDefinitions = { new() { Width = new(1, GridUnitType.Star) }, new() { Width = GridLength.Auto }, new() { Width = new(1, GridUnitType.Star) } } };
         var left = Row(); left.Spacing = 2;
         left.Children.Add(Button("Fit image", text: "Fit", action: Viewport.Fit)); left.Children.Add(Button("Zoom image", text: "100%", action: Viewport.ToggleZoom));

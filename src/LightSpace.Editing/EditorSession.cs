@@ -70,10 +70,27 @@ public sealed class EditorSession
     {
         CommitGesture("Adjustment");
         var targets = selected ? Catalog.Photos.Where(p => Selection.Contains(p.Id)).ToArray() : Active is { } active ? [active] : Array.Empty<PhotoDocument>();
-        var changes = targets.Select(p => new Change(p.Id, p.State, edit(p.State).Normalize())).Where(c => !PhotoStateEquality.All(c.Before, c.After)).ToArray();
-        if (changes.Length == 0) return;
-        foreach (var change in changes) { var target = Catalog.Photos.First(p => p.Id == change.Id); target.State = change.After; target.Revision++; }
+        ApplyTransaction(name, targets, edit);
+    }
+    private void ApplyTransaction(string name, PhotoDocument[] targets, Func<PhotoState, PhotoState> edit)
+    {
+        // Stage every result before mutating any photo. Indexed targets avoid an
+        // O(catalog size * target count) lookup loop for batch synchronization.
+        var staged = targets.Select(photo => (Photo: photo, After: edit(photo.State).Normalize()))
+            .Where(item => !PhotoStateEquality.All(item.Photo.State, item.After)).ToArray();
+        if (staged.Length == 0) return;
+        var changes = staged.Select(item => new Change(item.Photo.Id, item.Photo.State, item.After)).ToArray();
+        foreach (var item in staged) { item.Photo.State = item.After; item.Photo.Revision++; }
         Push(new(name, changes)); Notify();
+    }
+    public void ApplySettings(EditSettingsTransfer transfer, IEnumerable<Guid> photoIds)
+    {
+        ArgumentNullException.ThrowIfNull(transfer); ArgumentNullException.ThrowIfNull(photoIds);
+        var ids = photoIds.ToHashSet();
+        var targets = Catalog.Photos.Where(p => ids.Contains(p.Id)).ToArray();
+        if (targets.Length != ids.Count) throw new InvalidOperationException("A target photo is no longer in this catalog. Review the selection again.");
+        if (ids.Count == 0 || transfer.Groups == EditSettingsGroup.None) return;
+        CommitGesture("Adjustment"); ApplyTransaction("Apply selected edit settings", targets, transfer.Apply);
     }
     private void Push(Transaction transaction) { _undo.Add(transaction); if (_undo.Count > 100) _undo.RemoveAt(0); _redo.Clear(); }
     public void Undo()
@@ -87,13 +104,15 @@ public sealed class EditorSession
     }
     private void Apply(Transaction t, bool forward)
     {
-        foreach (var c in t.Changes) if (Catalog.Photos.FirstOrDefault(p => p.Id == c.Id) is { } p) { p.State = forward ? c.After : c.Before; p.Revision++; }
+        var targets = Catalog.Photos.ToDictionary(p => p.Id);
+        foreach (var c in t.Changes) if (targets.TryGetValue(c.Id, out var p)) { p.State = forward ? c.After : c.Before; p.Revision++; }
     }
-    public void SyncSelected()
+    public void SyncSelected() => SyncSelected(EditSettingsGroup.All);
+    public void SyncSelected(EditSettingsGroup groups)
     {
-        if (Active is not { } p) return; var source = p.State;
-        Edit("Sync edit settings", target => target with
-        { Develop = source.Develop, Crop = source.Crop, Geometry = source.Geometry, Optics = source.Optics, Masks = source.Masks, CloneSpots = source.CloneSpots }, true);
+        CommitGesture("Adjustment");
+        if (Active is not { } p) return;
+        ApplySettings(new(p.State, groups), Selection);
     }
     public void SaveVersion(string name)
     {

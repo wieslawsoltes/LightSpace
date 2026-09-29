@@ -6,10 +6,18 @@ namespace LightSpace.Rendering.Skia;
 /// <summary>Owner-thread renderer. Development, optical presentation and projective geometry have independent invalidation.</summary>
 public sealed partial class PhotoRenderer : IDisposable
 {
-    private sealed class CachedPhoto(SKImage image, byte[] original) : IDisposable
+    private sealed class DecodedSource(SKImage image, byte[] original)
     {
         public SKImage Image { get; } = image;
         public byte[] Original { get; } = original;
+        public int References { get; set; }
+        public long Bytes => (long)Image.Width * Image.Height * 4;
+    }
+    private sealed class CachedPhoto(DecodedSource source) : IDisposable
+    {
+        public DecodedSource Source { get; } = source;
+        public SKImage Image => Source.Image;
+        public byte[] Original => Source.Original;
         public PhotoState? State { get; set; }
         public int Overlay { get; set; } = -1;
         public SKShader? Shader { get; set; }
@@ -20,20 +28,20 @@ public sealed partial class PhotoRenderer : IDisposable
         public LensCorrectionSettings? GeometryOptics { get; set; }
         public SKMatrix Matrix { get; set; }
         public long Used { get; set; }
-        public long Bytes => (long)Image.Width * Image.Height * 4;
-        public void Dispose() { Edited.Dispose(); Before.Dispose(); Analysis.Dispose(); Shader?.Dispose(); Image.Dispose(); }
+        public void Dispose() { Edited.Dispose(); Before.Dispose(); Analysis.Dispose(); Shader?.Dispose(); }
     }
     private readonly Dictionary<Guid, CachedPhoto> _cache = [];
+    private readonly Dictionary<byte[], DecodedSource> _sources = new(ReferenceEqualityComparer.Instance);
     private readonly SKRuntimeEffect _effect;
     private readonly ToneLookupCache _curves = new();
     private readonly BrushCoverageCache _brushes = new();
     private readonly int _previewMaxDimension, _maxImages;
     private readonly long _maxBytes;
-    private long _clock, _bytes, _decodes, _shaders, _draws, _autoSamples;
+    private long _clock, _bytes, _decodes, _shaders, _draws, _autoSamples, _sharedSourceHits;
     private bool _disposed;
     public int CachedImages => _cache.Count;
     public string Pipeline => "Composed Skia shaders · optics / geometry · sRGB";
-    public RendererStatistics Statistics => new(_decodes, _shaders, _draws, _bytes, _cache.Count, _autoSamples);
+    public RendererStatistics Statistics => new(_decodes, _shaders, _draws, _bytes, _cache.Count, _autoSamples, _sources.Count, _sharedSourceHits);
     public long CurveLookupBuilds => _curves.Builds;
     public BrushCacheStatistics BrushStatistics => _brushes.Statistics;
     public PhotoRenderer(int previewMaxDimension = 2560, int maxImages = 5, long maxDecodedBytes = 128L * 1024 * 1024)
@@ -49,17 +57,32 @@ public sealed partial class PhotoRenderer : IDisposable
     private void Remove(Guid id)
     {
         if (!_cache.Remove(id, out var entry)) return;
-        _bytes -= entry.Bytes; entry.Dispose();
+        // Release view-specific shaders before releasing the last source owner.
+        entry.Dispose();
+        if (--entry.Source.References == 0)
+        {
+            _sources.Remove(entry.Original); _bytes -= entry.Source.Bytes; entry.Image.Dispose();
+        }
     }
+    /// <summary>Release a session-only render identity (for example a replaced reference) without clearing other views.</summary>
+    public void ReleasePhoto(Guid id) { ObjectDisposedException.ThrowIf(_disposed, this); Remove(id); }
     private CachedPhoto GetImage(PhotoDocument photo)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_cache.TryGetValue(photo.Id, out var value) && !ReferenceEquals(value.Original, photo.Original)) { Remove(photo.Id); value = null; }
         if (value is null)
         {
-            var image = PhotoCodec.Decode(photo.Original, _previewMaxDimension); _decodes++; value = new(image, photo.Original);
-            while (_cache.Count > 0 && (_cache.Count >= _maxImages || _bytes + value.Bytes > _maxBytes)) Remove(_cache.MinBy(p => p.Value.Used).Key);
-            _cache.Add(photo.Id, value); _bytes += value.Bytes;
+            if (_sources.TryGetValue(photo.Original, out var source)) _sharedSourceHits++;
+            else
+            {
+                source = new(PhotoCodec.Decode(photo.Original, _previewMaxDimension), photo.Original);
+                _sources.Add(photo.Original, source); _bytes += source.Bytes; _decodes++;
+            }
+            // Acquire before eviction: the LRU render identity may be the only
+            // other owner of this same original. Each identity retains its own edits.
+            source.References++; value = new(source);
+            while (_cache.Count > 0 && (_cache.Count >= _maxImages || _bytes > _maxBytes)) Remove(_cache.MinBy(p => p.Value.Used).Key);
+            _cache.Add(photo.Id, value);
         }
         value.Used = ++_clock; return value;
     }
@@ -161,7 +184,8 @@ public sealed partial class PhotoRenderer : IDisposable
     }
     public void Clear()
     {
-        foreach (var p in _cache.Values) p.Dispose(); _cache.Clear(); _bytes = 0; _curves.Clear(); _brushes.Clear();
+        foreach (var id in _cache.Keys.ToArray()) Remove(id);
+        _curves.Clear(); _brushes.Clear();
     }
     public void Dispose()
     {

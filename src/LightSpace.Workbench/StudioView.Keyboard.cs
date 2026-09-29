@@ -19,8 +19,8 @@ public sealed partial class StudioView
                 case VirtualKey.S: Run(SaveCatalogAsync); break;
                 case VirtualKey.E: Run(ShowExportAsync); break;
                 case VirtualKey.A: Session.Selection.UnionWith(_visible.Select(p => p.Id)); RefreshCatalog(); break;
-                case VirtualKey.C: _clipboard = Session.Active?.State; SetStatus("Edit settings copied."); break;
-                case VirtualKey.V: PasteSettings(); break;
+                case VirtualKey.C: if (shift) ShowSettingsDialog(false); else CopyAllSettings(); break;
+                case VirtualKey.V: PasteSelectedSettings(); break;
                 default: handled = false; break;
             }
         }
@@ -30,7 +30,7 @@ public sealed partial class StudioView
         {
             case VirtualKey.G: SetGrid(true); break;
             case VirtualKey.E: case VirtualKey.D: ChooseTool(PhotoTool.Edit); break;
-            case VirtualKey.R: ChooseTool(PhotoTool.Crop); break;
+            case VirtualKey.R: if (shift) ToggleReference(); else ChooseTool(PhotoTool.Crop); break;
             case VirtualKey.M: ChooseTool(PhotoTool.RadialMask); break;
             case VirtualKey.W: StartWhiteBalance(); break;
             case VirtualKey.J: SetClipping(Viewport.Clipping == ClippingIndicators.None ? ClippingIndicators.Both : ClippingIndicators.None); break;

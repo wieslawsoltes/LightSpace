@@ -5,8 +5,7 @@ public sealed partial class StudioView
     private Border? _dialogOverlay;
     private Task TextPromptAsync(string title, string placeholder, string value, Action<string> apply)
     {
-        var input = Theme.Input(placeholder, placeholder, value);
-        var panel = new StackPanel { Spacing = 12 }; panel.Children.Add(input);
+        var input = Theme.Input(placeholder, placeholder, value); var panel = new StackPanel { Spacing = 12 }; panel.Children.Add(input);
         ShowDialog(title, panel, "Create", () =>
         {
             if (string.IsNullOrWhiteSpace(input.Text)) throw new InvalidOperationException("A name is required.");
@@ -20,14 +19,17 @@ public sealed partial class StudioView
         var sheet = new Grid
         {
             MaxWidth = 520, MaxHeight = Math.Max(300, ActualHeight - 60), MinWidth = 340,
+            VerticalAlignment = VerticalAlignment.Center,
             Background = Theme.Panel, Padding = new(24), CornerRadius = new(8),
-            RowDefinitions = { new() { Height = GridLength.Auto }, new() { Height = new(1, GridUnitType.Star) }, new() { Height = GridLength.Auto } }
+            RowDefinitions = { new() { Height = GridLength.Auto }, new() { Height = GridLength.Auto }, new() { Height = GridLength.Auto } }
         };
         var heading = Theme.Text(title, 21); heading.Margin = new(0, 0, 0, 18); sheet.Children.Add(heading);
+        // Bound only the scrollable body. Short forms should not stretch into
+        // full-height blank sheets; long reports still leave actions reachable.
         var scroll = new ScrollViewer
         {
-            Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            Content = body, MaxHeight = Math.Max(100, ActualHeight - 210),
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
         };
         Grid.SetRow(scroll, 1); sheet.Children.Add(scroll);
         var actions = Row(); actions.HorizontalAlignment = HorizontalAlignment.Right; actions.Margin = new(0, 18, 0, 0);
@@ -45,6 +47,7 @@ public sealed partial class StudioView
             Background = Theme.Brush("#aa000000"), Child = sheet,
             HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch
         };
+        Register("dialog-sheet", sheet);
         Grid.SetRowSpan(_dialogOverlay, 2); root.Children.Add(_dialogOverlay); PublishDiagnostics();
     }
     private void CloseDialog()
