@@ -20,8 +20,7 @@ public static partial class XmpSidecar
             description.Add(new XAttribute(Crs + "ConvertToGrayscale", state.Develop.Monochrome ? "True" : "False"), new XAttribute(Crs + "ToneCurveName2012", "Custom"));
             for (var i = 0; i < 4; i++)
             {
-                var curve = state.Develop.Channels.Get((CurveChannel)i);
-                var points = curve.Points;
+                var curve = state.Develop.Channels.Get((CurveChannel)i); var points = curve.Points;
                 if (i == 0 && !state.Develop.Curve.IsIdentity)
                 {
                     var master = curve.Compile(); points = Enumerable.Range(0, 32).Select(x => new CurvePoint(x / 31f, master.Evaluate(state.Develop.Curve.Evaluate(x / 31f)))).ToArray();
@@ -32,8 +31,8 @@ public static partial class XmpSidecar
             }
             warnings.Add("Camera Raw export is a parameter subset, not Adobe processing parity. Curve coordinates are quantized to 0–255.");
             if (state.Masks.Length > 0 || state.CloneSpots.Length > 0 || state.Crop != new CropSettings() || !state.Develop.Grading.IsNeutral
-                || state.Develop.Temperature != 0 || state.Develop.Tint != 0 || state.Develop.Vignette != 0)
-                warnings.Add("Masks, cloning, crop, grading, relative white balance and vignette are not represented by the standard Camera Raw subset.");
+                || state.Develop.Temperature != 0 || state.Develop.Tint != 0 || state.Develop.Vignette != 0 || !state.Geometry.IsIdentity || !state.Optics.IsNeutral || state.Geometry.ConstrainCrop)
+                warnings.Add("Masks, cloning, crop, geometry, optics, grading, relative white balance and vignette require the native extension; they are not represented by the standard Camera Raw subset.");
             if (includeNativeSettings)
             {
                 description.Add(new XAttribute(XNamespace.Xmlns + "ls", Native.NamespaceName), new XAttribute(Native + "SchemaVersion", NativeSchemaVersion),

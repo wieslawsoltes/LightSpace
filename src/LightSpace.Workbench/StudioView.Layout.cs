@@ -12,15 +12,23 @@ public sealed partial class StudioView
         var tools = new StackPanel { Background = Theme.Brush("#202020"), Spacing = 9, Padding = new(3, 12, 3, 0) };
         foreach (var (tool, glyph, name) in new[] { (PhotoTool.Edit, Glyph.Edit, "Edit photo"), (PhotoTool.Crop, Glyph.Crop, "Crop photo"), (PhotoTool.Clone, Glyph.Clone, "Clone tool"), (PhotoTool.RadialMask, Glyph.Mask, "Masking") })
         { var button = Button(name, glyph, null, () => ChooseTool(tool)); button.Padding = new(8); _tools[tool] = button; tools.Children.Add(button); }
-        tools.Children.Add(Theme.Divider()); tools.Children.Add(Button("Presets", Glyph.Presets, null, () => ShowInspector("Presets")));
+        tools.Children.Add(Theme.Divider());
+        void Open(string panel) { _focusMode = false; Resize(); SetGrid(false); Viewport.SetTool(PhotoTool.Edit); ShowInspector(panel); }
+        tools.Children.Add(Button("Optics panel", Glyph.Photo, null, () => Open("Optics")));
+        tools.Children.Add(Button("Geometry panel", Glyph.Rotate, null, () => Open("Geometry")));
+        tools.Children.Add(Button("Presets", Glyph.Presets, null, () => ShowInspector("Presets")));
         tools.Children.Add(Button("Versions and history", Glyph.History, null, () => ShowInspector("History"))); tools.Children.Add(Button("Photo information", Glyph.Info, null, () => ShowInspector("Info")));
         Grid.SetColumn(tools, 4); _body.Children.Add(tools);
     }
     private UIElement BuildCenter()
     {
         var center = new Grid { RowDefinitions = { new() { Height = new(42) }, new() { Height = new(1, GridUnitType.Star) }, new() { Height = new(39) }, new() { Height = new(116) }, new() { Height = new(25) } } };
+        _centerLayout = center;
         var breadcrumb = new Grid { Padding = new(18, 0, 14, 0), Background = Theme.Brush("#1c1c1c"), ColumnDefinitions = { new() { Width = new(1, GridUnitType.Star) }, new() { Width = GridLength.Auto } } }; breadcrumb.Children.Add(_title);
-        var pages = Row(); pages.Children.Add(Button("Previous page", text: "‹", action: () => { if (_page > 0) { _page--; RefreshCatalog(); } })); pages.Children.Add(Button("Next page", text: "›", action: () => { if ((_page + 1) * PageSize < _visible.Count) { _page++; RefreshCatalog(); } })); Grid.SetColumn(pages, 1); breadcrumb.Children.Add(pages); center.Children.Add(breadcrumb);
+        var pages = Row(); pages.Spacing = 2;
+        pages.Children.Add(Button("Toggle filmstrip", Glyph.Photo, null, ToggleFilmstrip)); pages.Children.Add(Button("Focus mode", Glyph.Compare, null, ToggleFocusMode));
+        pages.Children.Add(Button("Previous page", text: "‹", action: () => { if (_page > 0) { _page--; RefreshCatalog(); } }));
+        pages.Children.Add(Button("Next page", text: "›", action: () => { if ((_page + 1) * PageSize < _visible.Count) { _page++; RefreshCatalog(); } })); Grid.SetColumn(pages, 1); breadcrumb.Children.Add(pages); center.Children.Add(breadcrumb);
         var photo = new Grid(); photo.Children.Add(Viewport); photo.Children.Add(_gridScroll); Grid.SetRow(photo, 1); center.Children.Add(photo);
         var toolbar = new Grid { Background = Theme.Brush("#202020"), Padding = new(9, 0, 9, 0), ColumnDefinitions = { new() { Width = new(1, GridUnitType.Star) }, new() { Width = GridLength.Auto }, new() { Width = new(1, GridUnitType.Star) } } };
         var left = Row(); left.Spacing = 2;

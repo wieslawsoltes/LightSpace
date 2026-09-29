@@ -36,8 +36,7 @@ public sealed class EditorSession
     public void Add(PhotoDocument photo)
     {
         if (Catalog.Photos.Any(p => p.Id == photo.Id)) throw new InvalidOperationException("Photo already in catalog.");
-        CommitGesture("Adjustment");
-        Catalog.Photos.Add(photo); Catalog.ActivePhoto = photo.Id; Selection.Clear(); Selection.Add(photo.Id); Notify();
+        CommitGesture("Adjustment"); Catalog.Photos.Add(photo); Catalog.ActivePhoto = photo.Id; Selection.Clear(); Selection.Add(photo.Id); Notify();
     }
     public void BeginGesture()
     {
@@ -93,7 +92,8 @@ public sealed class EditorSession
     public void SyncSelected()
     {
         if (Active is not { } p) return; var source = p.State;
-        Edit("Sync edit settings", target => target with { Develop = source.Develop, Crop = source.Crop, Masks = source.Masks, CloneSpots = source.CloneSpots }, true);
+        Edit("Sync edit settings", target => target with
+        { Develop = source.Develop, Crop = source.Crop, Geometry = source.Geometry, Optics = source.Optics, Masks = source.Masks, CloneSpots = source.CloneSpots }, true);
     }
     public void SaveVersion(string name)
     {
@@ -111,23 +111,16 @@ public sealed class EditorSession
         var album = Catalog.Albums.First(a => a.Id == id); album.Photos = album.Photos.Concat(Selection).Distinct().ToList(); Notify();
     }
     public CommittedCatalogSnapshot CaptureCommittedSnapshot() => new(Revision, CatalogSerializer.Serialize(CopyCommittedCatalog()));
-
-    public CatalogDocument CopyCommittedCatalog()
+    public CatalogDocument CopyCommittedCatalog() => new()
     {
-        var committed = new CatalogDocument
+        SchemaVersion = Catalog.SchemaVersion, ActivePhoto = Catalog.ActivePhoto,
+        Albums = Catalog.Albums.Select(album => new Album { Id = album.Id, Name = album.Name, Photos = [.. album.Photos] }).ToList(),
+        Photos = Catalog.Photos.Select(photo => new PhotoDocument
         {
-            SchemaVersion = Catalog.SchemaVersion, ActivePhoto = Catalog.ActivePhoto,
-            Albums = Catalog.Albums.Select(album => new Album { Id = album.Id, Name = album.Name, Photos = [.. album.Photos] }).ToList(),
-            Photos = Catalog.Photos.Select(photo => new PhotoDocument
-            {
-                Id = photo.Id, Name = photo.Name, Original = photo.Original,
-                Width = photo.Width, Height = photo.Height, ImportedAt = photo.ImportedAt,
-                Camera = photo.Camera, Lens = photo.Lens, ExposureInfo = photo.ExposureInfo,
-                State = _gestureBefore is not null && photo.Id == _gesturePhoto ? _gestureBefore : photo.State,
-                Versions = [.. photo.Versions]
-            }).ToList()
-        };
-        return committed;
-    }
+            Id = photo.Id, Name = photo.Name, Original = photo.Original, Width = photo.Width, Height = photo.Height, ImportedAt = photo.ImportedAt,
+            Camera = photo.Camera, Lens = photo.Lens, ExposureInfo = photo.ExposureInfo,
+            State = _gestureBefore is not null && photo.Id == _gesturePhoto ? _gestureBefore : photo.State, Versions = [.. photo.Versions]
+        }).ToList()
+    };
     public void Notify() { Revision++; Changed?.Invoke(); ViewChanged?.Invoke(); }
 }

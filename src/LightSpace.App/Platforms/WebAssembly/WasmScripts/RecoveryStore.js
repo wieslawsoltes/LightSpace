@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   const MAX_SOURCE = 64 * 1024 * 1024, MAX_TOTAL = 256 * 1024 * 1024;
+  const MAX_CATALOG_SCHEMA = 5;
   const validKey = key => typeof key === 'string' && /^[a-f0-9]{64}$/.test(key);
   const validId = id => typeof id === 'string' && /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id);
   const stats = { commits: 0, blobWrites: 0, blobBytes: 0, blobReads: 0, referencesChecked: 0, manifestBytes: 0, durability: 'unrequested' };
@@ -14,7 +15,6 @@
       };
       request.onsuccess = () => {
         const db = request.result;
-        // A blocked open can succeed after its caller has already handled failure.
         if (rejected) { db.close(); return; }
         db.onversionchange = () => db.close(); resolve(db);
       };
@@ -39,7 +39,7 @@
     if (manifestBytes > MAX_SOURCE) throw new Error('Recovery manifest exceeds the safety limit.');
     const value = JSON.parse(json);
     if (!value || value.Format !== 'LightSpace.Recovery' || value.Version !== 1 || !Number.isSafeInteger(value.Revision) || value.Revision < 0
-        || !value.Catalog || !Number.isInteger(value.Catalog.SchemaVersion) || value.Catalog.SchemaVersion < 1 || value.Catalog.SchemaVersion > 4
+        || !value.Catalog || !Number.isInteger(value.Catalog.SchemaVersion) || value.Catalog.SchemaVersion < 1 || value.Catalog.SchemaVersion > MAX_CATALOG_SCHEMA
         || !value.Sources || typeof value.Sources !== 'object' || Array.isArray(value.Sources)
         || !Array.isArray(value.Catalog.Photos) || value.Catalog.Photos.length > 5000)
       throw new Error('Unsupported recovery manifest.');
@@ -89,7 +89,6 @@
     const sources = JSON.parse(encodedSources);
     if (!Array.isArray(sources) || sources.length > 5000) throw new Error('Invalid recovery staging.');
     const staged = new Map(); let stagedBytes = 0;
-    // WebCrypto work must finish before the IndexedDB transaction is created.
     for (const source of sources) {
       if (!source || !validKey(source.key) || !required.has(source.key) || staged.has(source.key)) throw new Error('Invalid staged recovery key.');
       const bytes = fromBase64(source.data); stagedBytes += bytes.length;
@@ -105,11 +104,9 @@
       let tx, failure;
       const abort = error => {
         failure ??= error instanceof Error ? error : new Error(String(error));
-        try { tx.abort(); }
-        catch { db.close(); reject(failure); }
+        try { tx.abort(); } catch { db.close(); reject(failure); }
       };
       try {
-        // A durability hint, not a promise of power-loss immunity.
         tx = db.transaction(['workspace', 'originals'], 'readwrite', { durability: 'strict' });
         tx.oncomplete = () => {
           db.close(); stats.commits++; stats.blobWrites += staged.size; stats.blobBytes += stagedBytes;
@@ -119,15 +116,13 @@
         tx.onabort = () => { db.close(); reject(failure || tx.error || new Error('Recovery commit failed.')); };
         const originals = tx.objectStore('originals');
         for (const [key, blob] of staged) originals.put(blob, key);
-        // Key-only reads avoid loading unchanged encoded image data.
         for (const key of required) originals.getKey(key).onsuccess = event => {
           if (event.target.result === undefined) abort(new Error('Recovery source is missing. Retry saving or export a catalog backup.'));
         };
         const workspace = tx.objectStore('workspace');
         workspace.put(manifest, 'manifest-v1'); workspace.delete('catalog');
       } catch (error) {
-        // Without an explicit abort, a synchronous exception after queued writes
-        // could reject this promise while the transaction still auto-commits.
+        // Synchronous failures must roll back any requests already enqueued.
         if (tx) abort(error); else { db.close(); reject(error); }
       }
     });

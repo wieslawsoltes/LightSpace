@@ -9,7 +9,8 @@ public sealed partial class StudioView
         if (_buildingInspector) return; _buildingInspector = true;
         try
         {
-            _inspectorBuilds++; _inspector.Children.Clear(); _sliders.Clear(); _curve = null; _gradingEditor = null; _maskEditor = null; _mixerEditor = null; _maskStructure = MaskStructure();
+            _inspectorBuilds++; _inspector.Children.Clear(); _sliders.Clear(); _curve = null; _gradingEditor = null; _maskEditor = null; _mixerEditor = null;
+            _geometryEditor = null; _opticsEditor = null; _maskStructure = MaskStructure();
             var heading = new Grid { Padding = new(18, 16, 12, 12), ColumnDefinitions = { new() { Width = new(1, GridUnitType.Star) }, new() { Width = GridLength.Auto } } };
             heading.Children.Add(Theme.Text(_inspectorMode == "History" ? "Versions" : _inspectorMode, 20));
             var actions = Row(); actions.Spacing = 0;
@@ -30,6 +31,8 @@ public sealed partial class StudioView
                 case "Crop": BuildCrop(photo); return;
                 case "Masks": BuildMasks(photo); return;
                 case "Clone": BuildClone(photo); return;
+                case "Geometry": BuildGeometry(photo); return;
+                case "Optics": BuildOptics(photo); return;
                 case "RGB curves":
                     var curves = CreatePointCurves(photo); curves.Margin = new(18, 0, 18, 18); _inspector.Children.Add(curves); return;
                 case "Color grading":
@@ -45,7 +48,8 @@ public sealed partial class StudioView
             var curve = new StackPanel(); _curve = new ToneCurveView { Curve = photo.State.Develop.Curve }; Register("tone-curve", _curve);
             _curve.CurveChanged += value => Session.Preview(s => s with { Develop = s.Develop with { Curve = value } }); _curve.Committed += () => Session.CommitGesture("Point curve"); _curve.Canceled += Session.CancelGesture;
             curve.Children.Add(_curve); curve.Children.Add(Note("Legacy five-point curve, applied before RGB curves. Double-click to reset.")); _inspector.Children.Add(Section("Point curve", curve, false));
-            var color = new StackPanel(); var wb = Row(); wb.Margin = new(0, 0, 0, 8); wb.Children.Add(Theme.Text("White balance", 11, true));
+            var color = new StackPanel(); var wb = Row(); wb.Spacing = 2; wb.Margin = new(0, 0, 0, 8); wb.Children.Add(Theme.Text("WB", 11, true));
+            wb.Children.Add(Button("White balance picker", Glyph.Search, null, StartWhiteBalance));
             wb.Children.Add(Button("Reset white balance", text: "As imported", action: () => Session.Edit("Reset white balance", s => s with { Develop = s.Develop with { Temperature = 0, Tint = 0 } }))); color.Children.Add(wb);
             foreach (var name in new[] { "Temperature", "Tint", "Vibrance", "Saturation" }) color.Children.Add(DevelopSlider(name)); _inspector.Children.Add(Section("Color", color));
             _mixerEditor = new ColorMixerEditor { Value = photo.State.Develop.Mixer };
@@ -55,10 +59,12 @@ public sealed partial class StudioView
             _inspector.Children.Add(Section("Color grading", CreateGrading(photo), false));
             var effects = new StackPanel(); foreach (var name in new[] { "Texture", "Clarity", "Dehaze", "Vignette", "Grain" }) effects.Children.Add(DevelopSlider(name)); _inspector.Children.Add(Section("Effects", effects, false));
             var detail = new StackPanel(); detail.Children.Add(DevelopSlider("Sharpening")); detail.Children.Add(DevelopSlider("NoiseReduction")); detail.Children.Add(Note("Fast spatial smoothing, not AI denoising.")); _inspector.Children.Add(Section("Detail", detail, false));
+            _inspector.Children.Add(Section("Optics", CreateOpticsEditor(photo), false));
+            _inspector.Children.Add(Section("Geometry", CreateGeometryEditor(photo), false));
             var commands = new StackPanel { Margin = new(12, 12, 12, 14), Spacing = 5 }; var copy = Row();
             copy.Children.Add(Button("Copy edit settings", text: "Copy", action: () => { _clipboard = Session.Active?.State; SetStatus("Edit settings copied in this workspace."); }));
             copy.Children.Add(Button("Paste edit settings", text: "Paste", action: PasteSettings)); copy.Children.Add(Button("Sync selected photos", Glyph.Link, "Sync", Session.SyncSelected)); commands.Children.Add(copy);
-            commands.Children.Add(Button("Reset all edits", Glyph.Undo, "Reset edits", () => Session.Edit("Reset edits", s => s with { Develop = new(), Crop = new(), Masks = [], CloneSpots = [] }))); _inspector.Children.Add(commands);
+            commands.Children.Add(Button("Reset all edits", Glyph.Undo, "Reset edits", () => Session.Edit("Reset edits", s => s with { Develop = new(), Crop = new(), Geometry = new(), Optics = new(), Masks = [], CloneSpots = [] }))); _inspector.Children.Add(commands);
         }
         finally { _buildingInspector = false; }
     }
@@ -85,7 +91,7 @@ public sealed partial class StudioView
     };
     private void BuildPresets()
     {
-        _inspector.Children.Add(new Border { Margin = new(18, 0, 18, 12), Child = Note("Presets replace global development settings, retaining your crop and local masks.") });
+        _inspector.Children.Add(new Border { Margin = new(18, 0, 18, 12), Child = Note("Presets replace global development settings, retaining crop, optics, geometry and local masks.") });
         foreach (var group in BuiltInPresets.All.GroupBy(p => p.Group))
         {
             var panel = new StackPanel { Spacing = 4 };
@@ -120,20 +126,6 @@ public sealed partial class StudioView
         if (Session.Catalog.Albums.Count > 0) { info.Children.Add(Theme.Text("Add selection to album", 11, true)); foreach (var album in Session.Catalog.Albums) info.Children.Add(Button("Add to " + album.Name, Glyph.Folder, album.Name, () => { Session.AddSelectionToAlbum(album.Id); SetStatus("Added selection to " + album.Name); })); }
         info.Children.Add(Note("Rendered image exports do not retain EXIF/IPTC metadata. XMP sidecars transfer the supported metadata and editing subset; catalog backups retain original bytes.")); _inspector.Children.Add(info);
     }
-    private void BuildCrop(PhotoDocument photo)
-    {
-        var panel = new StackPanel { Spacing = 10, Margin = new(18, 0, 18, 18) }; panel.Children.Add(Note("Drag a new crop, resize its handles, or move an existing crop. Escape cancels the active gesture.")); panel.Children.Add(Theme.Text("Aspect ratio", 12, true));
-        foreach (var (label, ratio) in new[] { ("Original", 0d), ("1 × 1", 1d), ("4 × 3", 4d / 3), ("3 × 2", 1.5d), ("16 × 9", 16d / 9) })
-            panel.Children.Add(Button("Crop " + label, text: label, action: () =>
-            {
-                var w = 1f; var h = 1f; if (ratio > 0) { var original = (double)photo.Width / photo.Height; if (original > ratio) w = (float)(ratio / original); else h = (float)(original / ratio); }
-                Session.Edit("Crop " + label, s => s with { Crop = s.Crop with { Left = (1 - w) / 2, Right = (1 + w) / 2, Top = (1 - h) / 2, Bottom = (1 + h) / 2 } });
-            }));
-        var transform = Row(); transform.Children.Add(Button("Rotate right", Glyph.Rotate, null, () => Session.Edit("Rotate right", s => s with { Crop = s.Crop with { QuarterTurns = s.Crop.QuarterTurns + 1 } })));
-        transform.Children.Add(Button("Flip horizontal", Glyph.Flip, null, () => Session.Edit("Flip horizontal", s => s with { Crop = s.Crop with { FlipX = !s.Crop.FlipX } })));
-        transform.Children.Add(Button("Flip vertical", text: "Flip Y", action: () => Session.Edit("Flip vertical", s => s with { Crop = s.Crop with { FlipY = !s.Crop.FlipY } }))); panel.Children.Add(transform);
-        panel.Children.Add(Button("Reset crop", Glyph.Undo, "Reset crop", () => Session.Edit("Reset crop", s => s with { Crop = new() }))); panel.Children.Add(Button("Apply crop", Glyph.Check, "Done", () => ChooseTool(PhotoTool.Edit))); _inspector.Children.Add(panel);
-    }
     private void BuildClone(PhotoDocument photo)
     {
         var panel = new StackPanel { Spacing = 10, Margin = new(18, 0, 18, 18) }; panel.Children.Add(Note("Alt-click sets the source. Click a destination to clone from that source. This is feathered cloning, not generative removal."));
@@ -143,6 +135,6 @@ public sealed partial class StudioView
     private void PasteSettings()
     {
         if (_clipboard is not { } source) { SetStatus("Copy edit settings from a photograph first."); return; }
-        Session.Edit("Paste edit settings", s => s with { Develop = source.Develop, Crop = source.Crop, Masks = source.Masks, CloneSpots = source.CloneSpots }, true);
+        Session.Edit("Paste edit settings", s => s with { Develop = source.Develop, Crop = source.Crop, Geometry = source.Geometry, Optics = source.Optics, Masks = source.Masks, CloneSpots = source.CloneSpots }, true);
     }
 }

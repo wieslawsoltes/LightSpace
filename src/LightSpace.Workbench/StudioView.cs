@@ -42,7 +42,6 @@ public sealed partial class StudioView : UserControl, IDisposable
     public EditorSession Session { get; }
     public PhotoViewport Viewport { get; }
     public event Action<StudioDiagnostics>? DiagnosticsChanged;
-
     public StudioView(EditorSession session, IWorkspaceStorage storage, bool recoveryLoaded = true, RecoveryPersistence? persistence = null)
     {
         Session = session; _storage = storage;
@@ -78,14 +77,13 @@ public sealed partial class StudioView : UserControl, IDisposable
         _saveTimer.Tick += async (_, _) => { _saveTimer.Stop(); await SaveRecoveryAsync(); };
         _histogramTimer.Tick += (_, _) =>
         {
-            _histogramTimer.Stop();
-            if (Session.Active is not { } photo) return;
+            _histogramTimer.Stop(); if (Session.Active is not { } photo) return;
             try { _histogram.Histogram = _renderer.CalculateHistogram(photo); _histogramPhoto = photo.Id; _histogramState = photo.State; }
             catch (Exception error) { SetStatus(error.Message); }
         };
         _diagnosticsTimer.Tick += (_, _) => PublishDiagnostics();
         Loaded += (_, _) => { if (DiagnosticsChanged is not null) _diagnosticsTimer.Start(); Resize(); RefreshAll(); };
-        RefreshAll(); RecoveryChanged(_recovery.Status); if (!recoveryLoaded) _saveTimer.Start();
+        InitializePhotography(); RefreshAll(); RecoveryChanged(_recovery.Status); if (!recoveryLoaded) _saveTimer.Start();
     }
     private static StackPanel Row() => new() { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
     private T Register<T>(string id, T widget) where T : FrameworkElement
@@ -104,13 +102,18 @@ public sealed partial class StudioView : UserControl, IDisposable
     private void Resize()
     {
         if (ActualWidth <= 0) return;
-        _body.ColumnDefinitions[1].Width = new(_sidebarVisible && ActualWidth >= 1080 ? 212 : 0);
-        _body.ColumnDefinitions[3].Width = new(ActualWidth < 850 ? 250 : 302); PublishDiagnostics();
+        _body.ColumnDefinitions[1].Width = new(!_focusMode && _sidebarVisible && ActualWidth >= 1080 ? _libraryWidth : 0);
+        _body.ColumnDefinitions[3].Width = new(_focusMode ? 0 : ActualWidth < 850 ? Math.Min(270, _inspectorWidth) : _inspectorWidth);
+        if (_libraryGrip is not null) _libraryGrip.Visibility = _body.ColumnDefinitions[1].Width.Value > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (_inspectorGrip is not null) _inspectorGrip.Visibility = _focusMode ? Visibility.Collapsed : Visibility.Visible;
+        if (_centerLayout is not null) _centerLayout.RowDefinitions[3].Height = new(!_focusMode && _filmstripVisible ? 116 : 0);
+        PublishDiagnostics();
     }
     public void SetGrid(bool enabled) { _gridMode = enabled; _gridScroll.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed; Viewport.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible; PublishDiagnostics(); }
     public void ChooseTool(PhotoTool tool)
     {
-        SetGrid(false); Viewport.SetTool(tool); ShowInspector(tool switch { PhotoTool.Crop => "Crop", PhotoTool.Clone => "Clone", PhotoTool.RadialMask or PhotoTool.LinearMask or PhotoTool.Brush or PhotoTool.ColorRange => "Masks", _ => "Edit" }); RefreshToolButtons();
+        SetGrid(false); Viewport.SetTool(tool);
+        ShowInspector(tool switch { PhotoTool.Crop or PhotoTool.Straighten => "Crop", PhotoTool.Clone => "Clone", PhotoTool.RadialMask or PhotoTool.LinearMask or PhotoTool.Brush or PhotoTool.ColorRange => "Masks", _ => "Edit" }); RefreshToolButtons();
     }
     private void RefreshToolButtons()
     {
@@ -127,8 +130,7 @@ public sealed partial class StudioView : UserControl, IDisposable
     private string MaskStructure() => Session.Active is { } p ? string.Join("|", p.State.Masks.Select(m => m.Id + ":" + m.Name)) : "";
     private void Committed()
     {
-        RefreshCatalog(); RefreshLive();
-        if (_inspectorMode == "History" || _inspectorMode == "Masks" && _maskStructure != MaskStructure()) BuildInspector();
+        RefreshCatalog(); RefreshLive(); if (_inspectorMode == "History" || _inspectorMode == "Masks" && _maskStructure != MaskStructure()) BuildInspector();
         _saveTimer.Stop(); _saveTimer.Start();
     }
     private void RefreshAll() { RefreshCatalog(); BuildInspector(); RefreshLive(); }
@@ -144,6 +146,7 @@ public sealed partial class StudioView : UserControl, IDisposable
             if (_mixerEditor is not null) _mixerEditor.Value = photo.State.Develop.Mixer;
             if (_gradingEditor is not null) _gradingEditor.Value = photo.State.Develop.Grading;
             if (_maskEditor is not null && Viewport.ActiveMask >= 0 && Viewport.ActiveMask < photo.State.Masks.Length) _maskEditor.Value = photo.State.Masks[Viewport.ActiveMask];
+            RefreshPhotography(photo);
             for (var i = 0; i < _ratingButtons.Count; i++) _ratingButtons[i].Selected = i < photo.State.Rating;
             if ((_histogramPhoto != photo.Id || _histogramState is null || !PhotoStateEquality.Pixels(_histogramState, photo.State)) && !_histogramTimer.IsEnabled) _histogramTimer.Start();
             RefreshToolButtons();

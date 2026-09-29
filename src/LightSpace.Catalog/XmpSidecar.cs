@@ -13,7 +13,7 @@ public sealed record XmpExportResult(string Xml, string[] Warnings);
 public static partial class XmpSidecar
 {
     public const int MaximumBytes = 16 * 1024 * 1024;
-    public const int NativeSchemaVersion = 4;
+    public const int NativeSchemaVersion = 5;
     public static readonly XNamespace Rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
     public static readonly XNamespace Xmp = "http://ns.adobe.com/xap/1.0/";
     public static readonly XNamespace Dc = "http://purl.org/dc/elements/1.1/";
@@ -29,7 +29,6 @@ public static partial class XmpSidecar
     ];
     private static readonly string[] CurveProperties = ["ToneCurvePV2012", "ToneCurvePV2012Red", "ToneCurvePV2012Green", "ToneCurvePV2012Blue"];
     private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
-
     private static XDocument Parse(string xml)
     {
         ArgumentNullException.ThrowIfNull(xml);

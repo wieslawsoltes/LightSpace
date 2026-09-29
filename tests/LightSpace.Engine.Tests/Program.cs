@@ -14,15 +14,16 @@ AdvancedEditingTests.Register(Test);
 XmpTests.Register(Test);
 ColorRangeTests.Register(Test);
 RendererLifetimeTests.Register(Test);
-foreach (var legacy in new[] { 1, 2, 3 })
+PhotographyTests.Register(Test);
+foreach (var legacy in Enumerable.Range(1, CatalogDocument.CurrentSchemaVersion - 1))
 {
     Test($"Schema {legacy} migrates with neutral brush and channel settings", () =>
     {
         var source = new CatalogDocument();
         var photo = Fixtures.Tiny(); source.Photos.Add(photo); source.ActivePhoto = photo.Id;
-        var json = CatalogSerializer.Serialize(source).Replace("\"SchemaVersion\":4", $"\"SchemaVersion\":{legacy}");
+        var json = CatalogSerializer.Serialize(source).Replace($"\"SchemaVersion\":{CatalogDocument.CurrentSchemaVersion}", $"\"SchemaVersion\":{legacy}");
         var migrated = CatalogSerializer.Deserialize(json);
-        Fixtures.Check(migrated.SchemaVersion == 4 && migrated.Photos[0].State.Develop.Channels.IsIdentity && migrated.Photos[0].State.Masks.Length == 0);
+        Fixtures.Check(migrated.SchemaVersion == CatalogDocument.CurrentSchemaVersion && migrated.Photos[0].State.Develop.Channels.IsIdentity && migrated.Photos[0].State.Masks.Length == 0);
     });
 }
 foreach (var (name, action) in RecoveryTests.Cases.Concat(IncrementalRecoveryTests.Cases))

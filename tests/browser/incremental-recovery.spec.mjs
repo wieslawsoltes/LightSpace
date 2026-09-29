@@ -45,9 +45,7 @@ test('warm metadata autosave avoids original bytes, hashing and IndexedDB blob r
 
 test('missing blob aborts publication and explicit retry restages sources', async ({ page }) => {
   await boot(page); const previous = await manifest(page); const key = Object.values(previous.Sources)[0].Key;
-  await removeSource(page, key);
-  await click(page, 'Rate 1');
-  // Let the scheduled write fail before explicitly requesting its retry.
+  await removeSource(page, key); await click(page, 'Rate 1');
   await expect.poll(async () => (await state(page)).recovery.state).toBe('Failed');
   expect((await manifest(page)).Revision).toBe(previous.Revision);
   await click(page, 'Save recovery now'); await saved(page);
@@ -61,18 +59,16 @@ test('missing original during restore is protected until explicit replacement', 
   await click(page, 'Rate 1'); await page.waitForTimeout(1200);
   expect((await manifest(page)).Revision).toBe(original.Revision);
   await click(page, 'Save recovery now'); await click(page, 'Replace recovery'); await saved(page);
-  await shot(page, 'incremental-recovery');
-  await boot(page); expect((await state(page)).rating).toBe(1);
+  await shot(page, 'incremental-recovery'); await boot(page); expect((await state(page)).rating).toBe(1);
 });
 
 test('legacy portable recovery migrates on the next commit without losing originals', async ({ page }) => {
-  await boot(page);
-  const portable = await page.evaluate(() => globalThis.lightSpaceFiles.load());
+  await boot(page); const portable = await page.evaluate(() => globalThis.lightSpaceFiles.load());
   const old = JSON.parse(portable); old.SchemaVersion = 3; old.Photos[0].State.Rating = 2;
   await page.evaluate(value => globalThis.lightSpaceFiles.save(value), JSON.stringify(old));
   await boot(page); expect((await state(page)).rating).toBe(2);
   await click(page, 'Rate 4'); await click(page, 'Save recovery now'); await saved(page);
-  const newManifest = await manifest(page); expect(newManifest.Catalog.SchemaVersion).toBe(4);
+  const newManifest = await manifest(page); expect(newManifest.Catalog.SchemaVersion).toBe(5);
   const hydrated = await page.evaluate(async () => JSON.parse(await globalThis.lightSpaceFiles.load()));
   expect(hydrated.Photos.map(p => p.Original)).toEqual(old.Photos.map(p => p.Original));
   expect(hydrated.Photos[0].State.Rating).toBe(4);

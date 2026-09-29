@@ -6,6 +6,8 @@ public sealed record PhotoState
 {
     public DevelopSettings Develop { get; init; } = new();
     public CropSettings Crop { get; init; } = new();
+    public GeometrySettings Geometry { get; init; } = new();
+    public LensCorrectionSettings Optics { get; init; } = new();
     public LocalMask[] Masks { get; init; } = [];
     public CloneSpot[] CloneSpots { get; init; } = [];
     public int Rating { get; init; }
@@ -18,12 +20,12 @@ public sealed record PhotoState
         var normalized = this with
         {
             Develop = (Develop ?? new()).Normalize(), Crop = (Crop ?? new()).Normalize(),
+            Geometry = (Geometry ?? new()).Normalize(), Optics = (Optics ?? new()).Normalize(),
             Masks = NormalizeItems(Masks, 8, static m => m.Normalize()),
             CloneSpots = NormalizeItems(CloneSpots, 32, static s => s.Normalize()),
             Rating = Math.Clamp(Rating, 0, 5), Flag = Enum.IsDefined(Flag) ? Flag : PhotoFlag.None,
             Label = (Label ?? "")[..Math.Min(Label?.Length ?? 0, 64)],
-            Caption = (Caption ?? "")[..Math.Min(Caption?.Length ?? 0, 16384)],
-            Keywords = NormalizeKeywords(Keywords)
+            Caption = (Caption ?? "")[..Math.Min(Caption?.Length ?? 0, 16384)], Keywords = NormalizeKeywords(Keywords)
         };
         return normalized == this ? this : normalized;
     }
@@ -55,7 +57,6 @@ public sealed record PhotoState
             .Select(word => word[..Math.Min(word.Length, 200)]).Distinct(StringComparer.OrdinalIgnoreCase).Take(100).ToArray();
     }
 }
-
 public sealed class PhotoDocument
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -80,7 +81,7 @@ public sealed class Album
 }
 public sealed class CatalogDocument
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public Guid ActivePhoto { get; set; }
     public List<PhotoDocument> Photos { get; set; } = [];

@@ -106,20 +106,20 @@ internal static class ColorRangeTests
             p.State = p.State with { Masks = [p.State.Masks[0] with { ColorRange = Red with { Tolerance = .2f } }] }; r.Draw(s.Canvas, p, SKRect.Create(300, 180));
             Check(r.Statistics.ImageDecodes == before.ImageDecodes && r.CurveLookupBuilds == curves && r.Statistics.ShaderBuilds == before.ShaderBuilds + 1);
         });
-        test("Color samples roundtrip through schema four and undo", () =>
+        test("Color samples roundtrip through the current schema and undo", () =>
         {
             var p = Stripes(); var s = new EditorSession(new CatalogDocument { Photos = [p], ActivePhoto = p.Id });
             s.Edit("Color selection", state => state with { Masks = [new LocalMask { Kind = MaskKind.ColorRange, ColorRange = Red }] });
             var loaded = CatalogSerializer.Deserialize(CatalogSerializer.Serialize(s.Catalog));
-            Check(loaded.SchemaVersion == 4 && PhotoStateEquality.All(p.State, loaded.Photos[0].State));
+            Check(loaded.SchemaVersion == CatalogDocument.CurrentSchemaVersion && PhotoStateEquality.All(p.State, loaded.Photos[0].State));
             s.Undo(); Check(p.State.Masks.Length == 0); s.Redo(); Check(p.State.Masks[0].ColorRange.Samples.Length == 1);
         });
         test("Native XMP preserves color ranges and imports legacy schema three", () =>
         {
             var state = new PhotoState { Masks = [new LocalMask { Kind = MaskKind.ColorRange, ColorRange = Red }] };
             Check(PhotoStateEquality.All(state, XmpSidecar.Import(XmpSidecar.Export(state).Xml).State));
-            var legacy = XmpSidecar.Export(new()).Xml.Replace("ls:SchemaVersion=\"4\"", "ls:SchemaVersion=\"3\"");
-            Check(XmpSidecar.Import(legacy).State.Masks.Length == 0);
+            var legacy = XmpSidecar.Export(new()).Xml.Replace($"ls:SchemaVersion=\"{XmpSidecar.NativeSchemaVersion}\"", "ls:SchemaVersion=\"3\"");
+            var loaded = XmpSidecar.Import(legacy); Check(loaded.UsedNativeSettings && loaded.State.Masks.Length == 0);
         });
         test("Color coverage is viewport-only and does not leak into export", () =>
         {
