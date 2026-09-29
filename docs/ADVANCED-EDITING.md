@@ -2,81 +2,78 @@
 
 ## RGB point curves
 
-Choose **RGB curves** from Edit. RGB is the master transfer curve; Red, Green and Blue are independent channel curves. Click the graph to add a point, drag it, or enter Input/Output values. Delete removes an interior point; Reset clears the selected channel. Endpoints keep input coordinates 0 and 255 but their output can change. Each channel supports up to 32 points.
+Open RGB curves in Edit. RGB is the master curve; Red, Green and Blue are independent channel curves. Click to add an interior point, drag it or enter Input/Output values. Endpoints retain input positions 0/255 but can change output. Delete removes interior points and Reset clears the selected channel. Each channel supports 32 points.
 
-Smooth uses shape-preserving cubic Hermite interpolation with limited endpoint slopes and harmonic interior slopes where adjacent secants agree. Linear interpolates directly. Arrow keys move the selected point in 1/255 steps. Escape cancels a captured pointer gesture; release commits one undo transaction.
+Smooth uses shape-preserving cubic Hermite interpolation: harmonic interior slopes when adjacent secants agree, zero slopes at changes of direction, and limited endpoint slopes. Linear interpolates directly. Arrows move the selected point in 1/255 steps. Escape cancels a drag; release commits one transaction.
 
-Processing order is the legacy five-point curve, master point curve, then the independent RGB curves. Keeping the legacy stage preserves existing presets. Values are normalized sRGB-encoded components, not scene-referred RAW values. The interpolation is original code, not Adobe's curve implementation.
+Processing order is legacy five-point curve, master curve, then independent RGB channels. Keeping the older curve preserves existing presets. Curves operate on normalized sRGB-encoded values, not scene-referred RAW. The interpolation is original, not Adobe-equivalent.
 
-`PointCurve`, `ChannelCurves` and `CompiledPointCurve` are UI-independent. Compiled evaluation is allocation-free. The renderer composes curves into a 2048-entry RGBA-float lookup with up to eight cached tables. Exposure, mask parameters and metadata reuse the table; a curve edit changes it. Linear texture sampling approximates the analytic curve between entries. Image exports remain 8-bit sRGB.
+`PointCurve` and `ChannelCurves` are UI-independent. `CompiledPointCurve` copies its points and evaluates without allocation. `ToneLookupCache` composes them into a 2048-entry RGBA-float image, retaining up to eight tables. Exposure, masks, optics, geometry and metadata reuse an unchanged table. Finite texture sampling approximates the analytic curve; exported images remain 8-bit sRGB.
 
 ```csharp
+var curve = new PointCurve
+{
+    Interpolation = CurveInterpolation.Smooth,
+    Points = [new(0, 0), new(.25f, .16f), new(.75f, .84f), new(1, 1)]
+};
 session.Edit("Contrast curve", state => state with
 {
-    Develop = state.Develop with
-    {
-        Channels = state.Develop.Channels with
-        {
-            Master = new PointCurve
-            {
-                Interpolation = CurveInterpolation.Smooth,
-                Points = [new(0, 0), new(.25f, .16f), new(.75f, .84f), new(1, 1)]
-            }
-        }
-    }
+    Develop = state.Develop with { Channels = state.Develop.Channels with { Master = curve } }
 });
 ```
 
-`PointCurveEditor` exposes Value/Previewed/Committed/Canceled. Its host owns transactions and refreshes Value after external changes. The workbench retains it during an active gesture.
+`PointCurveEditor` exposes Value, Previewed, Committed and Canceled. The host refreshes Value after undo, loading or photo selection and supplies its own transaction policy. The workbench retains pointer-captured editors during a gesture.
 
 ## Freehand brush masks
 
-Choose Brush, press B, or use New brush / Paint selected in Masking. A new brush mask starts at zero spatial coverage. On an existing gradient/range mask, paint adds spatial coverage and erase subtracts it. Luminance/color restrictions, inversion and amount are applied afterward.
+Choose Brush/B, New brush or Paint selected. New brush starts with zero coverage. Painting existing radial/linear/luminance/color selections modifies spatial coverage; luminance/color restriction, inversion and amount apply afterward. Paint adds, Erase subtracts, and Alt temporarily erases.
 
-Brush settings include size, feather, flow, density and supplied pen pressure. Alt temporarily erases; bracket keys change size. Settings are captured at stroke start, not applied retroactively. Mouse input uses full pressure. Physical pen hardware is not certified by headless tests.
+Expand Brush settings for size, feather, flow and density. Settings are captured per stroke rather than rewriting earlier strokes. Brackets change size. Mouse input uses full pressure; supplied pen pressure scales radius and flow. Headless browser tests do not certify physical pen hardware.
 
-Pointer input is transformed back through crop, flips and quarter turns to source-normalized coordinates. Radius is relative to source height with aspect correction. Arc-length resampling uses one quarter of the base radius, avoiding pointer-event-density-dependent strokes. Escape or lost capture cancels a stroke; release creates one undo transaction.
+Pointer coordinates reverse manual optical/projective correction, crop, flips and quarter turns. Radius is source-height-relative with source-aspect correction. The cursor follows the same nonlinear/projective display mapping. Arc-length resampling at one quarter of the base radius avoids density depending on pointer-event frequency. Release commits one stroke; Escape/lost capture cancels it.
 
-Each dab contains X/Y and pressure. A stroke accumulates `amount += (density - amount) * flow * pressure * falloff`; radial feather uses a smooth transition. Paint adds `(1 - coverage) * amount`; erase multiplies coverage by `1 - amount`. Incremental coverage stores an affine transform on analytic coverage:
+A dab stores source X/Y and pressure. Stroke accumulation is `amount += (density - amount) * flow * pressure * falloff`. Feather smooths the inner/outer radius transition. A completed stroke is composited once: erase multiplies current coverage by `1 - amount`, while paint adds `(1 - coverage) * amount`.
+
+### Incremental coverage cache
 
 ```text
 coverage = multiplier * analyticCoverage + bias
 ```
 
-Append-only growth processes new dabs inside their raster bounds instead of replaying earlier dabs. Undo or changed earlier strokes require replay. Local tonal adjustments reuse geometry. Coefficient texture publication still produces an immutable 8-bit texture; CPU accumulation is floating-point, and this is not a sparse GPU update.
+The cache retains floating-point accumulation and recognizes append-only dab growth. New dabs update bounded regions using equivalent residual coverage, keeping density as a per-stroke ceiling rather than repeatedly compositing partial snapshots. An immutable two-channel texture stores the coefficients. Local exposure, color/luminance restriction, optical sampling and geometric framing do not replay unchanged brush geometry. Undo or an edited earlier stroke triggers replay.
 
-Coverage has a **1024-pixel maximum long edge, including export**. Fine edges can differ from a native-resolution reference. Limits are eight masks, 64 strokes per mask, 4096 dabs per stroke and 65,536 total dabs per mask. Replay is limited to 200 million visited pixels. Budgets bound retained coverage, not all scratch/GPU allocations.
+The texture has a **1024-pixel maximum long edge**, even for export. Coefficients are 8-bit while CPU accumulation is floating-point. This bounds work but is not native-resolution brushing for large originals. Limits are 64 strokes/mask, 4096 dabs/stroke, 65,536 dabs/mask and a 200-million visited-pixel replay budget. Cache budgets exclude transient object arrays, codecs and GPU copies.
 
-`BrushStrokeBuilder`, `BrushStroke`, `BrushDab`, `BrushCoverageCache` and `BrushSettingsEditor` are reusable. Arrays are immutable by contract. Rendering/cache objects are owner-thread-confined and disposable. Statistics count work; they are not GPU timings.
+`BrushStrokeBuilder`, `BrushStroke`, `BrushDab`, `BrushCoverageCache` and `BrushSettingsEditor` are reusable. Arrays are immutable by contract; create new arrays rather than editing retained data in place. Statistics count actual replay/dabs/pixels/textures, not GPU durations.
 
 ## XMP interchange
 
-Photo information / XMP provides Import XMP and Export XMP. Import presents applied-field and compatibility reports before **Apply**. Metadata only preserves processing; Prefer embedded LightSpace settings selects the native extension when present. Applying is one undoable edit on the reviewed photo; changing that photo during review prevents application to the wrong target.
+Photo information/XMP provides user-selected sidecar import and export. Import presents a report before Apply. Metadata only leaves development, geometry, optics, crop, masks and cloning unchanged. Prefer embedded LightSpace settings chooses the native extension when present; otherwise the explicit Camera Raw subset is mapped. Application is one undoable active-photo edit; a changed target during review is rejected.
 
-Standard metadata includes `xmp:Rating`, `xmp:Label`, `dc:description` and `dc:subject`. Captions prefer `x-default`; keywords accept RDF Bag/Seq. Rating -1 maps to rejection. Namespace URIs—not prefix spelling—identify properties. Mapped scalar fields accept attributes and simple elements. This is not a complete EXIF/IPTC editor.
+Standard metadata covers `xmp:Rating`, `xmp:Label`, `dc:description` and `dc:subject`. Captions prefer `x-default`, keywords accept RDF Bag/Seq, and rating -1 maps to rejection. Namespace URIs identify fields, not prefix spelling. Scalars support attributes or simple elements. This is not full IPTC/EXIF editing.
 
-The Camera Raw subset maps Exposure2012, Contrast2012, Highlights2012, Shadows2012, Whites2012, Blacks2012, Vibrance, Saturation, Texture, Clarity2012, Dehaze, Sharpness, LuminanceSmoothing, GrainAmount, ConvertToGrayscale and the four ToneCurvePV2012 sequences. Unsupported fields are reported. Camera Kelvin white balance, lens profiles, Adobe AI/mask serialization, crop/grading and proprietary processing versions are not imported as equivalent edits. Matching parameter numbers do not imply matching Adobe-rendered pixels.
+The Camera Raw subset maps Exposure2012, Contrast2012, Highlights2012, Shadows2012, Whites2012, Blacks2012, Vibrance, Saturation, Texture, Clarity2012, Dehaze, Sharpness, LuminanceSmoothing, GrainAmount, ConvertToGrayscale and four ToneCurvePV2012 sequences. Unsupported fields are reported. Camera Kelvin white balance, lens profiles, Adobe AI/masks, crop/projective geometry, grading and proprietary processing versions are not treated as equivalent settings. Equal values do not guarantee equal pixels.
 
-Export writes a separate UTF-8 sidecar without modifying original images. The supported curve subset quantizes coordinates to 0–255; a non-neutral legacy/master combination is sampled to at most 32 points. Metadata-only export omits processing. The optional LightSpace namespace carries complete normalized settings, including brushes, sampled color ranges, curves, crop and grading. Other software may ignore/remove it. Standard metadata is read after native settings so externally edited metadata can override stale embedded values.
+Export writes a separate UTF-8 sidecar without modifying the image. Camera Raw curve coordinates are quantized to 0–255; a combined non-neutral legacy/master curve is sampled to 32 points. Metadata-only export excludes processing. The optional native namespace retains the complete normalized LightSpace state, including optics and geometry. Other applications may ignore or remove it. Standard metadata is read after native state so externally changed ratings/captions can override stale embedded metadata.
 
-Native extension version **4** preserves new color selections and accepts version 3. Full Adobe catalog/preset/profile compatibility is not claimed. Unknown third-party properties are not retained on re-export. Tests use namespace-correct synthetic packets and native round trips, not interactive Adobe-app certification.
-
-Packets are bounded to 16 MiB and 64 XML nesting levels. DTDs/external resolution are disabled. Conflicting scalar properties and multiple RDF subjects are rejected. Invalid supported numbers are reported or explicitly clamped.
+Packets are capped at 16 MiB and 64 nesting levels. DTDs and external resolution are disabled. Conflicting scalar values and multiple RDF subjects are rejected. Malformed/out-of-range values are reported or clamped. Unknown third-party properties are not retained when exporting a new packet. Tests use namespace-correct synthetic packets and native round trips, not interactive Adobe application certification.
 
 ```csharp
 var result = XmpSidecar.Import(xml, session.Active!.State,
     new XmpImportOptions(MetadataOnly: false, PreferLightSpaceSettings: true));
-// Review result.Warnings before applying.
-session.Edit("Import XMP", _ => result.State);
-var sidecar = XmpSidecar.Export(session.Active.State);
+// Present result.Warnings before applying.
+session.Edit("Import sidecar", _ => result.State);
+var exported = XmpSidecar.Export(session.Active.State);
 ```
 
-`ISidecarStorage` is an optional host capability. A host without it receives an explicit unsupported-picker message.
+`ISidecarStorage` is an optional host capability alongside `IWorkspaceStorage`; a missing capability produces an explicit unsupported-picker message.
 
-## Catalog migration and validation
+## Catalog and native-settings versions
 
-New catalogs use **schema 4**; schemas 1–3 migrate with neutral defaults. Older builds reject unsupported schemas rather than silently drop settings. Preserve pre-upgrade backups when using older readers. Browser IndexedDB version 2 is a separate storage contract; old builds requesting version 1 cannot open the upgraded database.
+Current catalogs use **schema 5**. Catalogs 1–4 load with neutral defaults for missing fields and save as5. Native XMP settings version5 accepts3–4. Older builds reject unsupported versions rather than silently drop corrections. The recovery manifest stays format1 and browser database stays version2. Retain older portable backups for older-version interoperability.
 
-Tests cover curve interpolation/pixels, scalar-versus-raster brush coefficients, append/replay equivalence, undo/cancellation, bounded XML, namespaces, native round trips, shader/cache reuse and real browser input. [Color/range semantics](COLOR-AND-MASKS.md) · [Recovery](RECOVERY.md) · [Performance evidence](PERFORMANCE.md)
+## Validation
 
-Primary external references: [Adobe XMP documentation](https://developer.adobe.com/xmp/docs/) and the [XMP Toolkit SDK](https://github.com/adobe/XMP-Toolkit-SDK). These define external formats; they do not certify complete LightSpace interoperability.
+Engine tests cover interpolation, scalar/raster brush references, append/replay equivalence, actual exported pixels, undo invalidation, source mapping through optical/projective geometry, native round trips, rejected unsafe XML and avoided cache work. Browser tests use actual pointer capture, keyboard input, file pickers, downloads and reload. Opt-in diagnostics show curve values and brush counts but omit brush coordinates; normal sessions do not periodically serialize diagnostic trees.
+
+External format/workflow references: [Adobe XMP documentation](https://developer.adobe.com/xmp/docs/), [XMP Toolkit SDK](https://github.com/adobe/XMP-Toolkit-SDK), and [Lightroom metadata workflow](https://helpx.adobe.com/lightroom-classic/desktop/organize-photos-in-lightroom-classic/metadata-basics-actions.html). These references describe external contracts; they do not certify complete implementation by LightSpace.

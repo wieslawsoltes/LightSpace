@@ -1,61 +1,61 @@
 # Performance architecture and evidence
 
-## Measured scope
+## Evidence, not universal frame-rate claims
 
-The engine suite emits `artifacts/engine/performance.json`, comparing serialization-based equality with direct value comparison on the same normalized states for 10,000 warmed iterations. It reports elapsed CPU time and thread-local managed allocations. A separate 250-iteration warm metadata-redraw check records additional image decodes and shader builds.
+The engine runner emits scoped reports in `artifacts/engine`; browser tests emit real-input counters in `artifacts/browser-exports`. CPU timings, native/raster execution and avoided-work counts are identified separately. CI uses Chromium/SwiftShader and is not a physical-GPU benchmark. Stable linear-memory capacity does not prove that every allocation is leak-free.
 
-`artifacts/engine/advanced-performance.json` measures 100 warm exposure updates with both a painted mask and non-neutral RGB curve on a raster canvas. It verifies that those updates do not rasterize additional brush dabs, publish new brush textures or rebuild curve tables. The elapsed time is CPU/raster execution, not GPU frame latency.
+`performance.json` compares serialization-based equality with direct normalized-value comparisons over 10,000 warm iterations, including thread-local managed allocations. It also checks that 250 warm metadata redraws do not trigger new decodes or development shader builds.
 
-Browser acceptance emits `artifacts/browser-exports/metadata-performance.json` for seven real rating changes and `brush-performance.json` for three local-exposure gestures after painting. Counters verify stable card/library/inspector construction and reuse of decoded images, shaders, thumbnails, brush coverage and curve tables where applicable.
+`advanced-performance.json` performs 100 warm exposure updates with a painted mask and non-neutral curve on a raster canvas. It asserts no additional brush-dab rasterization, brush texture publication or curve-table builds. Browser `metadata-performance.json` and `brush-performance.json` test the corresponding behavior through actual rating/local-exposure gestures.
 
-These are scoped microbenchmarks and work-avoidance assertions. They are not application startup measurements, physical-GPU timings, pen-hardware certification or universal speedup claims. CI uses Chromium/SwiftShader. Compare timing distributions on target devices before making hardware claims.
+`recovery-performance.json` measures 20 warm metadata commits after an 8 MiB original is stored by an in-memory adapter. The browser report separately records real IndexedDB counters. Unchanged originals are not rehashed, rewritten or read as values, but metadata writes and source-key existence checks still occur. This is not zero storage I/O or a disk-latency benchmark.
 
-## Pixel-aware invalidation
+`geometry-performance.json` performs 100 warm geometry updates and raster draws at 96×64 with development and optics enabled. It records source decodes, development/presentation builds, matrix builds, elapsed CPU time and managed allocation. The invariant is that geometry updates rebuild matrices, not the other shader stages, curve tables or brush coverage. Browser photography tests repeat the work-avoidance assertion through three actual geometry-slider gestures with histogram updates.
 
-`PhotoStateEquality.All` compares normalized values without serializing JSON. `Shader` compares only processing inputs; `Pixels` adds crop geometry. Ratings, captions, mask names and mask IDs do not change identical pixel results. Original byte-array identity prevents reuse of a different source under the same photo ID.
+Raw timing varies with the runner and active state. Use the reports attached to the exact commit under evaluation, and profile target-device distributions before promising latency or frame rates.
 
-Metadata edits reuse decoded sources, runtime effects and thumbnails even if document revisions advance. Crop changes affect the matrix instead of rebuilding the development shader. Neutral photographs use direct image drawing. Neutral optional curve, mixer, grading, grain and vignette calculations are bypassed.
+## Independent render stages
 
-Normalize methods retain valid object/array identities and copy only collections requiring repair. Callers must not mutate retained snapshot arrays in place. Brush-dab normalization is memoized by immutable array identity. This is an ownership contract, not a mechanism that detects arbitrary external mutation.
+`PhotoStateEquality.Shader` compares development, masks and clone inputs. `Pixels` additionally includes crop, geometry and optics. `All` includes metadata and catalog-only distinctions. Normalized direct comparison avoids JSON allocation and lets metadata edits retain pixel caches.
 
-## Curve tables
+The main development shader feeds a presentation runtime effect for manual distortion, channel alignment, lens falloff and display-only clipping. That stage directly evaluates its child; it does not create a CPU intermediate image between display effects. Geometry is a separate draw matrix. A geometry-only change therefore retains both shader stages. A separate analysis cache keeps histogram refreshes from invalidating the viewport's optical/clipping variant.
 
-`ToneLookupCache` compiles master/channel curves into a 2048-entry RGBA-float image and retains up to eight semantically keyed tables. A curve edit rebuilds a table; exposure, mask adjustments, metadata and crop changes reuse it. Shape-preserving interpolation is compiled once per point set; evaluation is allocation-free. Sampling a finite table is an approximation of the analytic curve, while export remains 8-bit sRGB.
+Chromatic alignment can require three development-child evaluations per output point. It is not automatically cheaper than every alternative for a complex mask/detail stack. We retain the single composed graph here to avoid adding an intermediate render target and synchronization/readback path; target-device profiling is still required for a future tiled/multi-pass engine.
 
-## Incremental brush coverage
+Neutral development uses direct image drawing. Neutral presentation bypasses its wrapper. Optional neutral curve, mixer, grading, grain and vignette work is bypassed in the development effect. Source identity prevents stale reuse after opening another catalog with the same photo ID.
 
-The cache stores the affine transform `coverage = multiplier * analyticCoverage + bias`. It retains floating-point stroke accumulation and recognizes append-only dab growth. New dabs update only their bounded raster region; changing local exposure or luminance restriction does not replay geometry. Undo or edits to an earlier stroke trigger replay.
+The `RuntimeShaderScope` lifecycle repair is preserved for new composition: compiled output stays field-rooted through staging cleanup, borrowed children are not accidentally disposed, and ownership transfers only afterward. Native finalization/deferred-draw tests and the full browser slider stress guard this path.
 
-Texture publication currently rebuilds an immutable 8-bit coefficient image after coverage changes. Thus a stroke does not rerasterize all previous dabs on each update, but publication is not a sparse GPU-texture upload. Coverage has a 1024-pixel maximum long edge, including export. This precision/quality boundary is explicit rather than described as native-resolution processing.
+## Projective and pointer mapping
 
-Per-mask limits are 64 strokes and 65,536 dabs, with 4096 dabs per stroke. Replay aborts after 200 million visited pixels. Retained brush caches default to 128 MiB, independently of decoded-image caches. These budgets exclude temporary snapshot arrays, codec scratch memory, source buffers and GPU copies; they are not total-process peak-memory limits.
+Projective framing is solved in double precision. Constrain crop brackets and binary-searches a conservative covered frame; it does not perform a per-pixel CPU remap. The result becomes a Skia draw matrix. Weakly keyed projection/inverse caches avoid recomputing that solve for each point in a mask outline or brush cursor.
 
-## Decode and image-cache budgets
+Optical source/display inversion is analytic. Color picking, brush input and white balance reverse crop/orientation, geometry and optics without reading the rendered canvas. A color or white-balance pick reads only a bounded original-preview patch—25 pixels at the default interior footprint—not a managed copy of the entire image.
 
-The viewport targets a 2560-pixel long edge, up to five retained source previews and a 128 MiB decoded-image budget. Thumbnails use a 384-pixel target, at most two retained decoded sources and an 8 MiB budget. Their rendered images are at most 240×160, with 128 cached thumbnails. Codec implementations may decode full-resolution data before resizing, so retained budgets do not limit every transient decode allocation.
+## Curves and brush coverage
 
-Auto tone reads a 96×64 image (6,144 pixels), rather than allocating a managed copy of the whole preview. It remains a simple deterministic luminance heuristic.
+Curve compilation produces a 2048-entry RGBA-float image. Up to eight semantically keyed lookup tables are retained. Only curve edits rebuild them; unrelated tone, metadata, optics and geometry reuse the table. Finite lookup sampling and 8-bit exports remain precision boundaries.
 
-## Stable Uno controls and diagnostics
+Brush coverage is represented as `multiplier * analyticCoverage + bias`. Floating-point stroke accumulation recognizes appended dabs and updates bounded raster regions. Local exposure, color ranges and geometry do not replay unchanged dabs. Undo or edits to earlier strokes cause replay. Texture publication still rebuilds an immutable coefficient image rather than issuing sparse GPU subregion updates.
 
-Filmstrip/grid `PhotoCard` instances survive metadata updates while page membership is unchanged. Labels and selection state update in place, and only pixel edits invalidate thumbnails. Changes to filters or page membership legitimately rebuild the bounded page.
+Brush coverage is capped at a 1024-pixel long edge, including export. Per mask: 64 strokes, 4096 dabs per stroke, 65,536 total dabs, and a 200-million visited-pixel replay safety limit. The retained brush cache budget is separate from decoded-image budgets; it excludes transient arrays and GPU copies.
 
-Sidebar construction follows structural/filter changes. Continuous mask and curve editing retains captured controls; selection or structural changes rebuild the appropriate inspector. Section expansion survives reconstruction within the session. Histograms are reduced-resolution, scheduled only for pixel changes and throttled during continuous gestures.
+## Decode and retained memory
 
-Diagnostic registrations use weak references, avoiding ownership of discarded controls. Large brush coordinate arrays are excluded from diagnostic serialization; brush summaries contain IDs and counts only. Normal sessions do not subscribe to periodic diagnostic-tree snapshots. Test counters represent completed operations, not an inferred GPU timeline.
+Viewport decoding targets a 2560-pixel long edge, five images and a 128 MiB retained decoded-image budget. Thumbnail decoding targets 384 pixels, two sources and 8 MiB; rendered thumbnails are at most 240×160 with up to 128 entries. Some codecs decode larger scratch buffers before resizing, so these are retention limits, not total peak-allocation guarantees.
 
-## Remaining performance boundaries
+Histogram analysis remains a throttled 192×128 raster sample. Auto tone reads 96×64 pixels instead of copying a full preview. New histogram interaction and clipping visualization do not turn analysis into a GPU compute reduction. Export decodes retained originals and encodes an 8-bit sRGB raster, with an 8192-pixel long-edge cap.
 
-Decode, image encoding, brush texture publication and catalog serialization still perform synchronous CPU/native work. Recovery now serializes a source-free metadata manifest on the incremental store path. First-use source hashing/staging and restore still process originals; the legacy embedded-host snapshot writer still includes them. Photos are not tiled; source-pixel zoom cannot reveal information absent from the bounded preview. Browsing uses 60-photo pages rather than an indexed durable catalog.
+## UI reuse and diagnostics
 
-Source-relative detail/grain coordinates improve consistency, but downsampling changes available information and brush rasterization is bounded, so preview/full-resolution export are not guaranteed identical for fine details. Native-resolution tiled processing, asynchronous decode/export scheduling, source paging/compaction and target-device profiling remain separate workstreams.
+Photo cards survive metadata edits while page membership is unchanged. Filter/page changes may rebuild the bounded page. Sidebar reconstruction follows structure/filter changes; captured editor controls remain alive through continuous gestures. Histogram changes do not replace the pointer-captured histogram itself.
 
-## Source-separated recovery and bounded color sampling (0.4)
+Panel resizing uses coordinates relative to a stable parent, avoiding feedback as the grip moves. Layout visibility/width changes do not create photo transactions. Session-only section expansion and panel layout remain separate from photographic state.
 
-`RecoveryPersistence` weakly memoizes encoded-original SHA-256 keys by immutable array identity. After a successful initial write, a metadata-only capture contains source references and metadata but no encoded-original payload. Known sources are not hashed or resent. A failed commit clears the known-key set so retry can restage missing data; restore validates hashes and primes the warm cache. Native commits still check source-file existence, and browser commits perform key-only IndexedDB requests. This is avoided original-byte work, not zero storage I/O.
+Diagnostic registrations are weak. Brush coordinate arrays are omitted, and normal sessions do not subscribe to periodic UI-tree serialization. Test helpers require fresh, stable arranged bounds before input. Reports distinguish actual constructed resources and completed operations from GPU timing, which is not inferred from these counters.
 
-The engine report `recovery-performance.json` measures 20 warm metadata commits with one 8 MiB source using an in-memory store. It includes additional bytes hashed, blob writes, manifest bytes, CPU elapsed time and thread-local managed allocations. Browser acceptance emits its own `browser-exports/recovery-performance.json` for real rating edits and real IndexedDB transactions, including original-value reads and bytes written. Timings from the in-memory test are not claims about native disks or browser persistence latency.
+## Remaining performance work
 
-Source color picking reads a maximum 5×5 patch at the default radius, not `bitmap.Pixels` for a full decoded image. The public sampler permits radius 0–8 and counts the actual patch pixels. It reads the retained preview before development, avoiding full-original decode for each click. Color-range samples are transformed to Oklab when uniforms are prepared; the shader converts source color once per pixel only when a range is active. Masks retain existing brush/curve cache separation.
+Decode, image encoding, first-use source hashing, manifest serialization, brush texture preparation and some native resource creation remain synchronous. Recovery startup loads referenced originals; it does not page them on demand. Display sources are not tiled. Source-pixel zoom describes geometry but cannot reveal information missing from a bounded preview.
 
-Manifest metadata still scales with photo, stroke and version counts. Startup still restores all referenced originals. First writes can have substantial interop and encoding allocation, and this release does not implement source paging, automatic orphan cleanup, texture tiling or a transactional indexed catalog database.
+The next large architectural steps are tiled native-resolution source/render storage, asynchronous decode/export scheduling, source compaction/paging, GPU analysis reductions and measured multi-pass tradeoffs on real devices. None is represented as complete by these work-avoidance tests. See [feature boundaries](FEATURE-COVERAGE.md) and [optical/geometry semantics](OPTICS-GEOMETRY.md).

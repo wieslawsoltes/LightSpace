@@ -1,6 +1,6 @@
 # Architecture
 
-## Dependency graph
+## Libraries and ownership
 
 ```text
 LightSpace.App (browser / native hosts)
@@ -14,81 +14,84 @@ LightSpace.App (browser / native hosts)
                  └─ LightSpace.Imaging → LightSpace.Core
 ```
 
-Core, Catalog, Editing and Storage have no Uno dependency. Imaging and Rendering.Skia require SkiaSharp and matching native assets. Controls and Workbench target Uno browser and desktop. The eight libraries are independently packable; tagged releases publish them to NuGet.org via Trusted Publishing.
+Core, Catalog, Editing and Storage have no Uno dependency. Imaging and Rendering.Skia use SkiaSharp and matched native assets. Controls and Workbench target Uno browser/desktop. All eight libraries are packable, with metadata, symbols and SourceLink. Tagged releases use the existing NuGet Trusted Publishing configuration.
 
-## Models and transactions
+`CatalogDocument` owns identities, encoded original bytes, photo states, album references and active-photo identity. State records and their arrays follow an immutable/copy-on-write contract. Rendering, transactions and persistence are confined to a single logical owner, normally the UI synchronization context. Mutation of retained arrays or source bytes in place violates cache and undo contracts.
 
-`CatalogDocument` owns photo identities, original encoded bytes, album references and the active photo. `PhotoDocument.State` is replaced with a normalized record snapshot. Arrays are copy-on-write by contract: do not mutate retained originals, point arrays, mask collections or brush dabs in place.
+## Transactions and schema
 
-`EditorSession.Preview` opens or updates a gesture. `CommitGesture` records one before/after transaction; cancellation restores its opening state. Batch settings changes form one transaction. Undo is bounded to 100 transactions; redo is cleared after a new committed edit. Imports and album structural operations are not yet undoable.
+`EditorSession.Preview` opens or updates a gesture; commit records one before/after transaction and cancellation restores its opening state. Batch settings changes are one transaction. Undo is bounded to 100 entries and redo is cleared after a new edit. Imports and album structural operations are not yet undoable.
 
-`Changed` reports committed catalog changes; `ViewChanged` also reports previews and selection. Document revisions can advance for preview rendering, while the session revision advances on committed changes. `PhotoStateEquality.All`, `Shader` and `Pixels` distinguish catalog, shader and crop-sensitive changes without serializing JSON. Metadata and sample-pin position changes do not invalidate identical processed pixels.
+`Changed` reports committed catalog edits; `ViewChanged` also reports previews/selection. The photo revision can advance during previews while the session revision advances only on committed changes. Recovery captures a copy with the opening state of an active gesture, never its visible uncommitted preview.
 
-Catalog schema 4 records sampled color ranges alongside the previous grading, curves and brush data. Schemas 1–3 migrate with neutral defaults. Future schemas are rejected. Portable catalogs contain originals; recovery manifests deliberately do not.
+Schema **5** stores separate `Develop`, `Crop`, `Geometry`, `Optics`, masks and clone settings. Catalogs 1–4 migrate with neutral missing fields. Native XMP settings version 5 accepts versions 3–4. Unsupported future schemas fail explicitly. Portable catalogs contain originals; recovery manifests contain their references. The recovery manifest stays format 1 and IndexedDB stays version 2.
 
-## Processing order
+## Processing stages
 
-Image import validates encoded length and dimensions before decoding. Skia normalizes all eight EXIF orientations and converts to sRGB. Retained viewport previews target a 2560-pixel long edge; thumbnails use a separate 384-pixel decode target. Some codecs still require a full-size decode before resizing.
+Decode validates encoded size and image dimensions, normalizes all EXIF orientations and produces sRGB data. Retained viewport previews target a 2560-pixel long edge; thumbnail sources target 384 pixels. Codec-specific full-resolution scratch allocations can precede resizing.
 
-The shader samples the unmodified source for luminance/color range selection, applies feathered clone stamps and detail taps, then performs exposure, relative white balance and tonal operations with explicit sRGB transfer conversion. The legacy five-point curve precedes arbitrary master/channel curves. Hue-weighted mixing, vibrance/saturation, monochrome and four-way grading follow. Local mask adjustments, vignette and grain finish the 8-bit output path.
+The development runtime effect samples the source for luminance/color-range selection before applying clone stamps, detail taps, exposure, relative white balance and tonal operations. The legacy five-point curve precedes arbitrary master/channel curves. Hue mixing, saturation/vibrance, monochrome and four-way grading follow. Local corrections, creative vignette and grain finish that stage.
 
-The algorithm is original LightSpace processing. It is not scene-referred RAW development or Adobe pixel equivalence. Detail taps, LDR clamps and preview downsampling impose quality boundaries. Source-relative spatial coordinates improve consistency but cannot recover detail missing from a preview.
+`ToneLookupCache` compiles master/channel composition into a 2048-entry floating-point lookup image. `BrushCoverageCache` represents paint/erase as an affine operation on analytic mask coverage: `coverage = multiplier * analyticCoverage + bias`. Appended dabs update bounded raster regions; local tonal changes reuse coverage. Undo or changed earlier strokes cause replay. Coefficient texture publication remains an immutable-image update rather than sparse GPU upload, with a 1024-pixel long-edge cap even for export.
 
-`ToneLookupCache` stores master/R/G/B curve composition in a 2048-entry floating-point image. It reuses tables on unrelated exposure/metadata changes. `BrushCoverageCache` stores an affine operation on analytic coverage, `coverage = multiplier * analyticCoverage + bias`. Append-only dabs update bounded affected raster regions; local tonal adjustments reuse coverage. Undo or changed earlier strokes trigger replay. Texture publication still creates an immutable coefficient image; it is not sparse GPU-texture upload. Brush coverage is capped at 1024 pixels even for export.
+Color ranges are unions of up to five Oklab neighborhoods. Samples come from a bounded original-preview patch. Spatial/brush coverage intersects luminance and color restrictions before inversion and amount. The optional selected-mask overlay is omitted from export and histogram analysis.
 
-Color ranges form a union of up to five Oklab neighborhoods. A bounded source-preview patch supplies each sample. Sample coordinates are transformed into Oklab when uniforms are built; source color is converted once per pixel only when an active color range exists. Spatial/brush coverage intersects luminance and color restrictions before inversion and amount. The optional red coverage overlay is excluded from export and histogram sampling.
+The **presentation effect** evaluates the development shader directly. It remaps coordinates for manual distortion, separately samples displaced red/blue channels when requested, applies linear-light lens falloff, and optionally shows LDR clipping. No intermediate CPU image is materialized between the two display stages. Channel alignment can evaluate the development child three times; composition is not a universal performance guarantee.
 
-Crop, quarter turns and flips compose into an invertible source-to-view matrix. Pointer input uses its inverse. Source-pixel zoom describes geometry, not a guarantee of native-resolution inspection for previews larger than the decode target.
+The **geometry stage** is a cached homography supplied to the draw. It covers perspective, source-aspect-corrected rotation, scale/aspect/offsets and conservative constrained framing. Crop, quarter turns and flips are applied afterward. Source/display mapping uses the corresponding analytic optical inverse and cached projective inverse, keeping masks and source pickers attached to original coordinates.
 
-## Rendering and scheduling
+The model is original LDR processing, not scene-referred RAW, calibrated lens correction or Adobe-rendered pixel equivalence. Clamps, preview downsampling, finite curve tables and bounded brush textures are explicit quality limits. See [optical/projective math](OPTICS-GEOMETRY.md) and [advanced editing](ADVANCED-EDITING.md).
 
-The viewport is `Uno.WinUI.Graphics2DSK.SKCanvasElement`, with runtime effects integrated into Uno's existing Skia composition path. Hardware execution depends on the host supplying a GPU-backed canvas. There is no separate WebGPU compute device or texture-sharing backend in this release.
+## GPU integration and resource lifetime
 
-Decoded images, curve lookups and brush coverage have separate bounded caches. Their budgets cover retained buffers, not codec scratch space, original bytes, object graphs or GPU copies. Thumbnails retain at most 128 rendered images. Stable `PhotoCard` instances survive metadata updates when the visible page membership stays unchanged. A changed filter/page can rebuild its bounded 60-photo page.
+`Uno.WinUI.Graphics2DSK.SKCanvasElement` supplies the host-owned canvas. SkSL effects become stages of the Skia drawing pipeline. On a GPU-backed host canvas, child effects can compose into the GPU shader; software rendering remains supported. There is no independent WebGPU device or browser/native texture-sharing engine. [Skia runtime-effect composition](https://skia.org/docs/user/sksl/) · [Uno canvas integration](https://platform.uno/docs/articles/controls/SKCanvasElement.html)
 
-Inspectors keep pointer-captured controls alive during gestures. Structural changes rebuild the relevant panel; expansion state survives reconstruction within the running workbench. Histograms sample a reduced-resolution raster and are scheduled only for pixel changes. Auto tone reads 96×64 pixels rather than copying the entire preview.
+`RuntimeShaderScope` preserves the 0.4.1 crash repair: staging inputs and compiled output have separate ownership, the output is field-rooted through cleanup, and transfer occurs only after staging release. Owned children are disposed; borrowed children are retained through compilation without taking ownership. Failure releases untransferred resources. Deferred-picture and forced-finalization tests cover composed effects as well as ordinary development.
 
-Decode, shader configuration, brush texture publication, metadata serialization and image export still use synchronous CPU/native work. Storage commits are asynchronous. A fully tiled rendering graph, asynchronous decode/export scheduling and an indexed durable catalog remain separate workstreams. See [measured performance scopes](PERFORMANCE.md).
+`PhotoRenderer`, `ThumbnailCache`, `PhotoViewport` and `StudioView` must be disposed. A standalone viewport does not own its externally supplied renderer. The workbench owns its private renderer and thumbnails. Native reference retention does not remove the requirement to dispose managed wrappers correctly.
 
-## Recovery and interoperability
+## Invalidation and scheduling
 
-`IWorkspaceStorage` supplies user-authorized import/export and the legacy recovery contract. `ISidecarStorage` adds an optional XMP picker. `IRecoveryStore` supplies source-by-key retrieval and atomic publication of a source-separated `RecoveryWrite`.
+`PhotoStateEquality.All`, `Shader` and `Pixels` separate full-catalog equality, development inputs and complete pixel effects. Geometry and optics do not invalidate the development shader. Geometry updates rebuild the matrix while retaining source images, presentation/development shaders, brush coverage and curve tables. Metadata updates preserve all pixel stages. Source-array identity detects a changed original under a reused photo ID.
 
-`RecoveryPersistence` builds frozen committed manifests, weakly memoizes original-array hashes and avoids resending known sources. Restore verifies lengths and SHA-256 hashes before exposing a catalog. The browser stores originals as Blobs, checks unchanged references with key-only requests and publishes sources plus manifest in one transaction. Native storage stages sources before atomically replacing its manifest. A failed publication does not advance the acknowledged session revision. Synchronous browser errors explicitly abort the transaction; Promise rejection alone would not roll back queued writes.
+Viewport, original comparison and histogram analysis have separate presentation caches. Histogram refresh does not change viewport clipping or repeatedly rebuild its optical stage. Weak projection caches avoid solving constrained framing for every outline point.
 
-Legacy recovery is read only when no modern manifest exists. The next committed save publishes the modern representation. Missing/corrupt recovery is protected until the user explicitly confirms replacement. Unreferenced sources remain retained; there is no automatic garbage collection, encryption, cross-tab merge or crash journal. [Recovery contract](RECOVERY.md) · [Publication hardening](RECOVERY-PUBLICATION.md)
+Photo cards survive metadata changes while page membership remains unchanged. A filter/page change can legitimately rebuild the bounded 60-photo page. Pointer-captured editors remain alive through gestures; section expansion survives inspector reconstruction. Histogram calculation is throttled on pixel changes, using a 192×128 raster; Auto uses a 96×64 source sample.
 
-`XmpSidecar` accepts a bounded metadata/Camera Raw subset and reports unsupported fields before application. Namespace URIs identify fields. DTD/external entity resolution is disabled; size, nesting and subject counts are bounded. The versioned LightSpace extension round-trips complete native settings; other applications may ignore it. Unknown external properties are not preserved on re-export. See [XMP mappings](ADVANCED-EDITING.md#xmp-interchange).
+Decode, uniform configuration, brush texture publication, source hashing, metadata serialization and encoded image export retain CPU/native work. Fully tiled processing, asynchronous source paging/export and indexed durable catalogs remain separate workstreams. Cache budgets cover retained buffers, not total process or GPU peak memory. [Performance evidence](PERFORMANCE.md)
 
-## Embedding and ownership
+## Storage and interchange
+
+`IWorkspaceStorage` supplies user-authorized import/export and legacy string recovery. Optional `ISidecarStorage` adds an XMP picker. `IRecoveryStore` supplies source-by-key reads and atomic publication of a source-separated `RecoveryWrite`.
+
+`RecoveryPersistence` freezes committed manifests, weakly memoizes source hashes and avoids resending known originals. Restore verifies lengths/hashes before exposing a catalog. Browser commits stage Blobs and publish a manifest in one transaction with key-only checks for unchanged originals; native storage stages sources before manifest replacement. Failed writes never advance acknowledged revisions. Synchronous browser errors explicitly abort queued transactions.
+
+Legacy recovery is read only when no modern manifest exists. Missing/corrupt data is protected until explicit replacement. Orphan sources remain retained; encryption, cross-tab conflict resolution, automatic cleanup and a crash journal are not implemented. [Recovery](RECOVERY.md) · [Publication hardening](RECOVERY-PUBLICATION.md)
+
+`XmpSidecar` reports its supported metadata/Camera Raw subset before applying changes. Namespace-aware parsing disables DTD/external resolution and bounds size/nesting/resource count. Native settings preserve complete corrections; standard Camera Raw geometry/profile equivalence is not claimed. Unknown third-party properties are not retained on re-export.
+
+## Embedding controls
 
 ```csharp
 var session = new EditorSession(catalog);
 var workspace = new StudioView(session, storage, recoveryLoaded);
 window.Content = workspace;
-// Dispose workspace when its containing host closes.
+// Dispose workspace at host shutdown.
 ```
 
-An application that restores through `RecoveryPersistence` should pass that same instance to `StudioView` to reuse its verified-source/hash state. Embedded hosts implementing only `IWorkspaceStorage` retain the source-inclusive snapshot writer.
-
-`PhotoRenderer`, `ThumbnailCache`, `PhotoViewport` and `StudioView` own native resources or subscriptions and must be disposed. A standalone viewport does not dispose its externally supplied renderer. The workbench owns its private renderer and thumbnails. All rendering, transaction and persistence objects are confined to one logical owner, normally the UI synchronization context.
+Pass an existing `RecoveryPersistence` instance after restore to reuse its verified-source/hash state. A host with only `IWorkspaceStorage` retains source-inclusive recovery.
 
 ```csharp
-var editor = new PointCurveEditor { Value = session.Active!.State.Develop.Channels };
-editor.Previewed += channels => session.Preview(state => state with
-{
-    Develop = state.Develop with { Channels = channels }
-});
-editor.Committed += () => session.CommitGesture("RGB curves");
-editor.Canceled += session.CancelGesture;
+var geometry = new GeometryEditor { Value = session.Active!.State.Geometry };
+geometry.Previewed += value => session.Preview(state => state with { Geometry = value });
+geometry.Committed += () => session.CommitGesture("Geometry");
+geometry.Canceled += session.CancelGesture;
 ```
 
-Hosts refresh editor values after external changes such as undo or photo selection. Grading, mixer, mask and color-range editors follow the same transaction-neutral contract. Brush settings affect subsequent strokes, not earlier stroke snapshots.
+Optics, curve, grading, mixer, mask and color-range controls follow the same transaction-neutral contract. Histogram events supply the selected tone and a delta from gesture start. Grip events supply stable-parent-coordinate width deltas. Hosts refresh values after undo, loading and photo selection. Brush settings affect subsequent strokes rather than rewriting old stroke snapshots.
 
 ## Validation and delivery
 
-The engine runner emits machine-readable model, pixel, interpolation, brush replay, XMP, recovery and performance results. Browser tests drive real Uno pointers, keyboard, file pickers and downloads using read-only arranged bounds. Store-boundary tests deliberately inject transaction failures and inspect actual IndexedDB data. They do not mutate editor state through a testing-only editing API.
+The engine suite covers models, pixels, interpolation, brush replay, XMP, geometry/optics, source mapping, recovery, shader lifetimes and scoped work counters. Browser tests use real pointers, keyboard, file pickers and downloaded outputs; store-boundary tests inject failures into real IndexedDB transactions. Normal sessions do not periodically serialize diagnostics, and brush coordinates remain omitted from opt-in payloads.
 
-Normal sessions do not periodically serialize UI diagnostics. Weak registrations avoid retaining discarded controls; brush coordinates are omitted from diagnostic payloads. CI Chromium uses SwiftShader; desktop jobs verify compilation on three operating systems. Neither proves physical-GPU or pen-hardware behavior.
-
-Build runs attach tested browser bundles, reports, source snapshots and all eight packages. Pages accepts a successful trusted main build, verifies artifact commit identity, deploys and repeats public-site tests. Release builds single-file native executables for win/linux/osx x64 and arm64, the browser archive, packages and checksums; tags publish packages to NuGet.org via Trusted Publishing. Native signing, notarization and installers are not configured.
+CI uses Chromium/SwiftShader. Native jobs certify compilation, not every driver or physical pen. Build retains reports, packages and source snapshots. Pages verifies a trusted main artifact's commit, deploys and tests the public URL. Release preserves six-RID single-file native packaging and tag-based NuGet Trusted Publishing; signing/notarization/installers remain separate configuration.

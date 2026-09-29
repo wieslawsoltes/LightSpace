@@ -1,9 +1,11 @@
-# LightSpace 0.4.1-alpha.1
+# LightSpace 0.5.0-alpha.1
 
-Hotfix for fatal WebAssembly failures during repeated edit-slider changes. PR #11 isolates compiled-shader ownership from native staging cleanup, releases uniform/child inputs deterministically and simplifies the hot neutral-comparison path without disabling rendering features.
+Adds GPU-composable manual optical correction and independent projective framing to the shared Uno photography workspace. New tools include distortion, lens falloff and channel-alignment sliders; vertical/horizontal perspective, rotation, aspect, scale/offsets and constrained framing; on-canvas horizon straightening; a source-based relative white-balance picker; an interactive five-region histogram and clipping indicators; and resizable side panels with focus/filmstrip controls.
 
-Adds forced-finalization/deferred-draw lifetime regressions and a real-pointer sweep of every development slider, including histogram updates, undo/redo, actual JPEG and catalog export, final-value verification and recovery reload. CI and public Pages validation retain one combined acceptance report. Published build information includes the version and commit.
+Geometry edits reuse development/optical shaders, source decodes, curve lookups and brush coverage. Source hit testing follows inverse optics, geometry, crop and orientation without image readback. Optical effects evaluate the existing development shader directly rather than materializing a CPU intermediate. The 0.4.1 shader-lifetime crash repair and all-slider stress regression remain enabled.
 
-Catalog schema 4 and recovery database version 2 are unchanged. Existing originals, edits and recovery do not need to be cleared. Reload an old or fatally terminated tab to load the patch.
+Catalog schema 5 and native XMP settings version 5 preserve the new corrections. Catalogs 1–4 and native XMP versions 3–4 migrate with neutral defaults. Recovery manifest format 1 and IndexedDB version 2 are unchanged; do not clear site data to upgrade. Older application builds reject new settings, so retain portable pre-upgrade backups when needed.
 
-See [the crash investigation and evidence](WASM-SLIDER-FIX.md). The application-level reproduction is fixed; the exact upstream runtime mechanism is not claimed proven. Physical GPU drivers and every browser engine are not certified by Chromium/SwiftShader tests. Existing feature-parity boundaries remain documented in FEATURE-COVERAGE.md.
+The existing single-file desktop packaging, six runtime identifiers, SourceLink/symbols, and tag-based NuGet Trusted Publishing workflows are preserved. Build artifacts are not themselves proof of a published NuGet version or signed native release.
+
+These are original manual algorithms and additional Lightroom-style workflows, not full Adobe processing or UI parity. RAW/AI, calibrated camera/lens profiles, automatic Upright, HDR/panorama, native-resolution tiling, printing/proofing and cloud synchronization remain unimplemented. GPU execution depends on the Uno host; decode, histogram, brush texture preparation and export still include CPU/raster work. See OPTICS-GEOMETRY.md, PERFORMANCE.md and FEATURE-COVERAGE.md.

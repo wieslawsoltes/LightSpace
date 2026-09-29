@@ -1,39 +1,51 @@
 # Changelog
 
+## 0.5.0-alpha.1
+
+### Photography tools and workspace
+
+Added manual optical distortion, linear-light lens-falloff correction and radial channel alignment; projective vertical/horizontal correction, arbitrary rotation, aspect, scale/offsets and conservative constrained framing. Added on-canvas horizon straightening, a source-based relative white-balance picker, five-region histogram dragging, display-only clipping indicators, custom panel resizing, focus mode and filmstrip visibility controls.
+
+Source/display mapping now includes inverse optical correction, projective geometry, crop and orientation for mask handles, brushes, clone positions and sampled colors. Compact crop controls and public GeometryEditor, OpticsEditor, HistogramView and PanelResizeGrip extend the reusable Uno components.
+
+### Rendering and verification
+
+Development feeds a composed presentation runtime effect directly, without an intermediate CPU image. Geometry is a separately cached draw matrix. Geometry-only gestures reuse decodes, development/optical shaders, curves and brush coverage; histogram analysis retains an independent presentation cache. Weak inverse-projection caching avoids repeated constrained-framing solves per outline point. The 0.4.1 ownership repair and full slider-crash stress remain enabled.
+
+Added mathematical/pixel/lifetime/migration/synchronization tests and actual-browser correction, histogram, white-balance, panel-layout, export and recovery regressions. Performance reports distinguish actual resource counts and CPU/raster timings from physical-GPU certification.
+
+### Compatibility and delivery
+
+Catalog schema5 and native XMP settings version5 preserve optics/geometry. Catalogs1–4 and native XMP3–4 migrate with neutral missing fields. Recovery manifest format1 and IndexedDB2 are unchanged. Existing single-file six-RID desktop packaging, package metadata/symbols and NuGet Trusted Publishing workflows are preserved.
+
+These manual original algorithms and UI improvements do not complete Lightroom parity. RAW/AI, calibrated camera/lens profiles, automatic Upright, HDR/panorama, tiled native-resolution rendering, printing/proofing and cloud workflows remain absent. CPU decode, brush texture preparation, histogram and export remain explicit.
+
 ## 0.4.1-alpha.1
 
-Fixed the reproduced WebAssembly slider-crash path by separating compiled-shader ownership from native input cleanup, deterministically disposing uniform staging, retaining source/output lifetimes explicitly and using scalar mixer comparison in neutral transitions. No editing feature or accelerated runtime capability was disabled.
+Fixed the reproduced WebAssembly slider-crash path by separating compiled-shader ownership from input cleanup, deterministically disposing uniform staging, retaining source/output lifetimes and simplifying neutral-state mixer comparisons. No editing or accelerated-runtime feature was disabled.
 
-Added forced-finalization, deferred-draw and independent-uniform-snapshot regressions. The real-pointer stability test exercises all 17 development sliders, extremes/neutral crossings, histogram redraws, undo/redo, JPEG/catalog export and recovery reload. It verifies one transaction per gesture and every final saved value. Build and Pages retain a unified report, and build-info.json includes the application version.
-
-Catalog schema 4 and IndexedDB version 2 are unchanged. Reload a crashed or old tab; do not delete local recovery to load this patch. See docs/WASM-SLIDER-FIX.md for reproduction evidence and the limits of the runtime diagnosis.
+Added forced-finalization/deferred-draw/independent-uniform regressions and a real-pointer stress test covering all17 development sliders, histogram redraws, undo/redo, JPEG/catalog export and recovery reload. CI/Pages retain a unified report and build-info includes version. Schema4 and IndexedDB2 were unchanged; loading the fix required reload, not deleting recovery.
 
 ## 0.4.0-alpha.1
 
-Added five-source-color selection with click replacement, Shift-add, Alt-remove, swatch removal, tolerance/smoothness and existing-mask restriction. Selection uses Oklab neighborhoods against source sRGB before clone/development, intersects spatial/brush/luminance coverage before inversion, and participates in undo, versions, native XMP and recovery. Sampling reads a small patch of the retained source preview; it does not copy the entire decoded image. Coverage remains a viewport-only aid.
+Added five-color Oklab selections with click replacement, Shift-add, Alt/swatches removal, tolerance/smoothness and existing-mask restriction. Sampling reads a bounded source-preview patch and selection remains before development. Masks participate in undo, versions, native XMP and recovery; overlay stays view-only.
 
-Originals are SHA-256-addressed immutable blobs; a separate manifest records committed metadata and source references. Warm edits avoid source writes, source-value reads and hashing. IndexedDB publishes new blobs and the manifest in one transaction; native storage stages blobs before replacing the manifest. Missing/corrupt sources fail restore, recovery is protected, failed commits stay dirty and retries restage originals. Legacy recovery remains readable; portable catalogs still embed originals. Unreferenced sources are retained, not automatically collected.
-
-Publication validates source lengths/hashes and duplicate identities, aborts synchronous failures after queued writes, and requests strict IndexedDB durability where supported. Color-swatch geometry remains stable and pointer tests require fresh diagnostic layout publications. Catalog schema 4 migrates versions 1–3; native XMP settings version 4 accepts version 3. Added source-selection pixel tests, integrity/atomic-publication tests and actual IndexedDB regressions. See the recovery and performance documentation for limits.
+Introduced source-separated SHA-256 originals and committed manifests. Warm metadata writes avoid unchanged original values/hashing, and restore verifies integrity. Browser publication stages sources/manifests transactionally with explicit synchronous-failure abort; native publication stages source files first. Corrupt data is protected, failed writes stay dirty and retry restages sources. Schema4 migrated1–3; orphan sources remained retained.
 
 ## 0.3.0-alpha.1
 
-Added arbitrary-point master/R/G/B curves, shape-preserving interpolation, numeric and pointer editing, and an independently cached 2048-entry floating-point render lookup. Added add/erase brush masks with pressure-aware dabs, feather/flow/density, arc-length resampling, incremental affine coverage caching, gesture undo/cancel and brush modifications of existing analytic masks.
+Added arbitrary master/R/G/B curves, shape-preserving interpolation, numeric/pointer editing and separate floating-point lookup caching. Added pressure-aware add/erase brushes, arc-length resampling, incremental affine coverage, gesture undo/cancel and modifications of existing masks.
 
-Added bounded XMP sidecar import/export with standard metadata, an explicitly reported Camera Raw parameter/curve subset, review-before-apply, metadata-only mode and an optional complete LightSpace settings extension. New catalog saves use schema 3; schemas 1 and 2 migrate with neutral defaults.
-
-Merged the outstanding Actions and Playwright update PRs after validation. Split workbench layout/catalog/diagnostics responsibilities into separate partial files, removed strong diagnostic references to discarded controls, and excluded potentially large brush coordinate arrays from periodic opt-in diagnostics. Added engine/pixel/interchange/browser tests and work-avoidance counters. No RAW, AI or complete Lightroom compatibility is claimed.
+Added bounded XMP metadata/Camera Raw subset with compatibility reporting, review-before-apply, metadata-only import and complete native settings. Schema3 migrated1–2. Merged Actions/Playwright updates, split workbench partials, weakened diagnostic ownership and excluded large stroke-coordinate payloads.
 
 ## 0.2.0-alpha.1
 
-Added shadows/midtones/highlights/global color grading, reusable grading and mixer controls, rotatable gradients with on-canvas handles, luminance-range masks and restrictions, coverage overlay, local color/tone settings, mask management and a draggable comparison divider. Added schema 2 migration.
-
-Introduced allocation-free value comparisons, pixel-aware cache invalidation, stable photo cards/inspectors, bounded thumbnail decode and Auto sampling, neutral shader bypasses and opt-in diagnostics. Added actual-pixel, geometry, cache and real browser regression tests.
+Added four-way grading, reusable color controls, rotatable gradients/handles, luminance ranges, coverage, local adjustments, mask management and comparison divider. Schema2 migration accompanied pixel-aware invalidation, direct state comparisons, stable cards, bounded thumbnails/Auto and opt-in diagnostics.
 
 ## 0.1.1-alpha.1
 
-Fixed autosave capturing uncommitted previews and acknowledging stale revisions. Added a reusable single-writer recovery coordinator, explicit save/retry status, protected unreadable recovery, browser unload warning, slider cancellation and source/state-aware image caches. Added delayed-write, retry, preview/cancel and browser recovery regressions.
+Fixed autosave of uncommitted previews and stale acknowledgements. Added revision-aware single-writer recovery, explicit save/retry, protected corrupt data, unload warnings, slider cancellation and source/state-aware caches, with asynchronous and browser regressions.
 
 ## 0.1.0-alpha.1
 
-Initial shared Uno photography workspace and eight reusable libraries: local catalog, original-byte retention, tonal/color editing, curves/presets, crop, gradient masks, clone stamps, transactions, versions, export, recovery, custom controls and native/browser delivery workflows.
+Initial shared Uno workspace and eight reusable libraries: local catalog, retained originals, tonal/color editing, presets, crop, gradients, clones, transactions, versions, export/recovery and custom desktop/browser controls.

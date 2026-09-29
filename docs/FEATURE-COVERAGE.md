@@ -1,36 +1,36 @@
 # Feature coverage and compatibility boundaries
 
-**0.4.0-alpha.1** is an independent, functional Uno photography workspace. This ledger is a scope statement, not a claim of exact Lightroom UI, processing, file-format or feature parity.
+**0.5.0-alpha.1** is a functional, independent Uno photography workspace. This ledger distinguishes implemented behavior from remaining Lightroom/UI/processing parity; it is not an Adobe compatibility certification.
 
 | Area | Implemented | Remaining boundary |
 | --- | --- | --- |
-| Shell | Custom dark photography layout, navigation, albums, filmstrip, inspector, tool rail, icons and application dialogs | Not pixel-identical Adobe UI; no Lightroom Classic module suite; narrow-screen usability is limited |
-| Reuse | Eight packable libraries; independent engine; reusable sliders, cards, grading/mixer/mask/brush/curve controls | Some workspace composition remains in StudioView partials; standard Uno input/scroll/select primitives remain |
-| Input | JPEG, PNG, WebP, BMP and first GIF frame; EXIF orientation normalization and sRGB decode | No camera RAW/demosaic, DNG, HEIF/HEIC, TIFF, video or animated workflows |
-| Catalog | Original bytes, albums, selection, ratings/flags, captions/keywords, search/filtering, 60-photo pages | Not an indexed catalog database; no folder watching, relinking, stacks, face/location indexing or Lightroom lrcat support |
-| Global development | Tone, relative white balance, saturation/vibrance, monochrome, effects/detail approximations | Original LDR processing, not calibrated Adobe RAW algorithms; no profile authoring, camera/lens calibration or calibrated white-balance eyedropper |
-| Curves | Legacy five-point curve plus arbitrary-point master/R/G/B, linear or shape-preserving smooth interpolation, numeric/pointer/keyboard editing | Maximum 32 points per channel; 2048-entry sampled render lookup; no claim of Adobe interpolation equivalence |
-| Color grading | Shadows/midtones/highlights/global wheels, luminance, blending, balance, presets and undo | Original tonal weighting and tint model, not Adobe pixel equivalence |
-| Color mixer | Eight weighted HSV bands with hue/saturation/luminance | No point-color selection or perceptual color-space parity |
-| Crop/navigation | Rectangle and handles, centered ratios, quarter turns/flips, fit/source-pixel geometry, pan, wheel zoom | No arbitrary straightening angle, perspective/Upright or continuous aspect locking; previews remain bounded rather than native-resolution tiled |
-| Gradient/range masks | Rotatable radial/linear masks, handles, luminance and sampled five-color Oklab ranges/intersection, coverage display, amount, enable/invert and local tone/color | Up to five averaged source-preview colors; no region-drag color sampler, AI selection or arbitrary mask-group boolean graph; no Adobe algorithm equivalence |
-| Brush masks | Add/erase, pressure-aware radius/flow, feather/density, arc-length sampling, undo/cancel; brush modifications of analytic masks | 8 masks, 64 strokes/mask, 4096 dabs/stroke, 65,536 dabs/mask; coverage raster capped at 1024px long edge even for export; physical pen hardware unverified |
-| Cloning | 32 feathered source stamps with source selection | Not healing, content-aware or generative removal |
-| Comparison | Original view and draggable before/after divider | No reference-photo or multi-photo survey mode |
-| Transactions | Gesture-coalesced undo/redo, atomic selected-photo settings, named versions | Session-only 100-step undo; imports and album structural changes are not undoable |
-| XMP | Metadata subset, reported Camera Raw parameter/curve subset, review-before-apply, native extension and lossless LightSpace settings round trips | No full Adobe preset/profile/mask/crop processing compatibility; unknown properties not retained; no interactive Adobe-app interoperability certification |
-| Output | JPEG/PNG/WebP, quality/size, ZIP batch, catalog and XMP sidecars | Image output is 8-bit sRGB, maximum 8192px long edge, source EXIF/IPTC not embedded; no print, soft proof or tethering |
-| Recovery | Revision-aware single writer, source-separated SHA-256 blobs, atomically published manifests, legacy migration, integrity checks, retry and protected unreadable data | No encrypted vault, journal, cross-tab merge, orphan-source cleanup, cloud sync or guaranteed close-time flush |
-| Performance | Pixel-aware caches, stable UI cards, neutral bypass, bounded decode/Auto sampling, cached floating-point curves, incremental brush rasterization, weak diagnostic registrations | CPU decode/export/recovery and brush texture publication remain synchronous; budgets do not bound all peak memory or GPU allocations |
-| GPU | Runtime-effect integration in Uno's Skia canvas | No separate WebGPU compute graph; host/device-dependent acceleration; SwiftShader tests are not physical-GPU certification |
-| Delivery | Updated Actions and Playwright, engine/browser checks, desktop matrix, provenance-checked Pages, NuGet artifacts, single-file desktop executables and Trusted Publishing to NuGet.org on release tags | No signed installers, notarization or auto-update service |
+| Workspace | Original dark chrome, library, filmstrip, inspector/tool rail, resizable side panels, focus/filmstrip toggles, compact crop layout | Not pixel-identical Adobe chrome or all keyboard/accessibility parity; widths are session-only; phone layout remains limited |
+| Reuse | Eight packable libraries; independent engine; public curve, grading, mask, optics, geometry, histogram and grip controls | Some composition remains in StudioView partials; standard Uno input/scroll/select primitives remain |
+| Input | JPEG, PNG, WebP, BMP, first GIF frame; EXIF orientation and sRGB decode | No RAW/demosaic, DNG, HEIF/HEIC, TIFF, video or animation workflow |
+| Catalog | Originals, albums, multi-selection, ratings/flags, captions/keywords, search/filtering, 60-photo pages | No durable indexed large catalog, folder watcher, relinking, stacks, face/location indexing or lrcat support |
+| Development | Global tone, relative white balance and source picker, saturation/vibrance, monochrome, effects/detail approximations | Not calibrated camera Kelvin, scene-referred RAW or Adobe algorithm equivalence; no AI denoise |
+| Curves | Legacy five-point plus master/R/G/B arbitrary points, numeric/keyboard/pointer editing, linear or shape-preserving interpolation | 32 points/channel, 2048-entry rendering lookup; no claim of Adobe interpolation equivalence |
+| Grading/mixer | Four-way grading, blending/balance, tonal luminance; eight weighted HSV bands | Original models, not Adobe pixel parity; no point-color adjustment workflow |
+| Optics | Manual distortion, linear-light radial falloff, red/cyan and blue/yellow radial alignment | Fixed-frame original model; no lens database, automatic calibration, calibrated defringe/profile correction |
+| Geometry/crop | Manual vertical/horizontal perspective, -45° to +45° rotate, aspect, scale/offsets, conservative constrain crop, drawn-horizon straightening; crop handles/ratios/quarter turns/flips | No automatic/guided Upright solver or maximum-area crop optimization; ratio buttons are presets, not continuous aspect locks |
+| Histogram/clipping | Five-region tone dragging, one-gesture undo/cancel, endpoint indicators, independent clipping triangles and J shortcut | Reduced-resolution CPU/raster analysis and LDR thresholds; no scene-linear HDR histogram or clipping recovery guarantees |
+| Navigation/comparison | Source-pixel zoom geometry, fit/pan/wheel zoom, draggable before/after divider retaining corrected framing | Bounded preview, not tiled native-resolution inspection; no reference-photo/survey view |
+| Gradient/range masks | Rotatable gradients/handles, luminance and five-color Oklab ranges, intersections, coverage, amount/enable/invert and local tone/color; corrected source mapping | Eight masks; no AI selection, region-drag sampler or arbitrary boolean mask-group graph |
+| Brush masks | Paint/erase, pressure-aware radius/flow, feather/density, arc-length sampling, undo/cancel and analytic-mask modifications; corrected cursor geometry | 64 strokes/mask, 4096 dabs/stroke, 65,536 dabs/mask; coverage capped at 1024px including export; physical pen unverified |
+| Clone | 32 feathered source stamps | No healing, content-aware or generative removal |
+| Transactions | Gesture-coalesced and batch edits, named versions, geometry/optics synchronization, protected recovery snapshots | 100-step session-only undo; imports and album structural operations not undoable |
+| XMP | Metadata subset, reported Camera Raw scalar/curve subset, review-before-apply, native full-settings round trips | No full Adobe profile/preset/mask/geometry processing equivalence; unknown properties are not preserved |
+| Output | JPEG/PNG/WebP, quality/size, batch ZIP, catalog and sidecars; geometry/optics included, overlays excluded | 8-bit sRGB, 8192px long edge, source EXIF/IPTC not embedded; raster encoding; no print/soft proof/tethering |
+| Recovery | Revision-aware source-separated SHA-256 storage, atomic manifests, integrity checks, retry and unreadable-data protection | No encryption, journal, cross-tab merge, orphan cleanup, cloud sync or guaranteed close flush |
+| GPU/performance | Composed development/optical shaders and independent cached draw geometry; pixel-aware caches, no CPU intermediate between display stages, weak inverse mapping cache | Host-dependent GPU execution; no separate WebGPU compute engine; decode, brush preparation, histogram and export retain CPU work; CA can multiply child evaluations |
+| Delivery | Build/browser/desktop/Pages checks, SourceLink/symbol packages, six-RID single-file releases, NuGet Trusted Publishing configuration | No signed/notarized installers or automatic updater; artifact creation is not proof of package publication |
 
-## Compatibility guarantees in this implementation
+## Compatibility
 
-Original encoded bytes are not modified by development or sidecar operations. Curve/brush edits participate in undo, selected-photo synchronization, versions and recovery. New catalogs use schema 4; schemas 1–3 migrate with neutral defaults. Unsupported future schemas are rejected. XMP import reports unsupported Camera Raw fields instead of silently claiming equivalent results.
+Original encoded bytes are not changed by editing or sidecars. New corrections participate in undo, synchronization, versions, native XMP and recovery. Catalog schema 5 accepts versions 1–4 through migration; native XMP settings version 5 accepts versions 3–4. Unsupported future schemas fail rather than silently discard data. The recovery manifest format remains 1 and IndexedDB remains version 2. Retain older portable backups for interoperability with older applications.
 
-## Next production-level areas
+## Validation boundaries
 
-RAW decoding and scene-linear floating-point color management, calibrated camera/lens profiles, full-resolution tiled rendering, asynchronous decode/render scheduling and indexed catalog operations remain substantial separate workstreams. AI inference, panorama/HDR merging, print/proofing and cloud workflows are also absent. Adding controls for those workflows without real processing would not close their parity boundary.
+Tests use synthetic images, mathematical references, actual encoded outputs, native lifetime stress and real browser pointer/keyboard/file input. CI browser rendering uses SwiftShader; native jobs certify compilation rather than every driver, browser engine or pen device. Performance evidence identifies its scope and does not claim that every edit is GPU-only or reaches a universal frame rate.
 
-See [advanced editing and XMP semantics](ADVANCED-EDITING.md), [performance evidence](PERFORMANCE.md), [recovery](RECOVERY.md) and [architecture](ARCHITECTURE.md).
+[Optics/geometry and controls](OPTICS-GEOMETRY.md) · [Advanced editing/XMP](ADVANCED-EDITING.md) · [Performance](PERFORMANCE.md) · [Recovery](RECOVERY.md)
