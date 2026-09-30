@@ -72,6 +72,7 @@ public sealed partial class StudioView
         _surveyMode = false; _surveyRoot!.Visibility = Visibility.Collapsed; _surveyView!.SetActive(false); _surveyView.SetPhotos([], Guid.Empty);
         _survey.Open([]); _surveyPhotos.Clear(); _surveyCatalog = null;
         if (_detailHost is not null) _detailHost.Visibility = Visibility.Visible;
+        _gridMode = false; _gridScroll.Visibility = Visibility.Collapsed; Viewport.Visibility = Visibility.Visible;
         _displayedPhoto = Guid.Empty; SetSurveyChrome(false);
         // Fallback surveys can activate a candidate outside the original selection.
         // Never return to Detail with a hidden, unrelated metadata-edit target.

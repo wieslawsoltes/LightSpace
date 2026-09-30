@@ -136,4 +136,9 @@ test('leaving a fallback survey selects the displayed Detail photo rather than a
     if (photo.Id === id) expect(actual.State.Rating).toBe(4);
     else expect(actual.State).toEqual(photo.State);
   }
+  await click(page, 'Survey view'); await ready(page);
+  await click(page, 'Photo information');
+  await expect.poll(async () => (await state(page)).view).toBe('Detail');
+  const canvas = await stableBox(page, 'canvas');
+  expect(canvas.width).toBeGreaterThan(100); expect(canvas.height).toBeGreaterThan(100);
 });
