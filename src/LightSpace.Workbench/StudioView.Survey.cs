@@ -61,7 +61,7 @@ public sealed partial class StudioView
         _gridScroll.Visibility = Viewport.Visibility = Visibility.Collapsed;
         _surveyRoot!.Visibility = Visibility.Visible; _surveyView!.Before = false; _surveyView.SetActive(true);
         _survey.Open(candidates.Select(p => p.Id), Session.Catalog.ActivePhoto);
-        Resize();
+        SetSurveyChrome(true); Resize();
         SetStatus(selected.Length >= 2
             ? "Survey: click a photo, use 0–5 or P/X/U, and exclude with Delete. No source files are deleted."
             : "Surveying filtered photos because fewer than two were selected. Exclusions affect only this survey.");
@@ -72,7 +72,19 @@ public sealed partial class StudioView
         _surveyMode = false; _surveyRoot!.Visibility = Visibility.Collapsed; _surveyView!.SetActive(false); _surveyView.SetPhotos([], Guid.Empty);
         _survey.Open([]); _surveyPhotos.Clear(); _surveyCatalog = null;
         if (_detailHost is not null) _detailHost.Visibility = Visibility.Visible;
-        _displayedPhoto = Guid.Empty; Resize(); RefreshLive();
+        _displayedPhoto = Guid.Empty; SetSurveyChrome(false);
+        // Fallback surveys can activate a candidate outside the original selection.
+        // Never return to Detail with a hidden, unrelated metadata-edit target.
+        if (Session.Active is { } active && !Session.Selection.Contains(active.Id)) Session.Select(active.Id);
+        Resize(); RefreshLive();
+    }
+    private void SetSurveyChrome(bool surveying)
+    {
+        var visibility = surveying ? Visibility.Collapsed : Visibility.Visible;
+        if (_widgets.TryGetValue("inspector-scroll", out var reference) && reference.TryGetTarget(out var inspector)) inspector.Visibility = visibility;
+        if (_centerLayout is not null)
+            foreach (var child in _centerLayout.Children.OfType<FrameworkElement>())
+                if (Grid.GetRow(child) == 2) child.Visibility = visibility;
     }
     private void RefreshSurvey()
     {

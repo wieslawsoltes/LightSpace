@@ -18,7 +18,7 @@ A tile's cross, or Delete/Backspace while Survey has focus, **excludes it from t
 
 Exclusions are session-only and are not document undo transactions. Ratings and flags do use document undo/redo. Closing/reopening Survey starts from the current selection/filter again; exclusions are not persisted across reload. The source-inclusive catalog still contains every source photo, including excluded and rejected candidates. Use the explicit tile controls to avoid confusing rejection, exclusion and file deletion.
 
-The Current selection button rebuilds candidates from the current selection/filter. Control-click can update the filmstrip selection before using that button. Clicking a candidate in the filmstrip activates it without changing the survey group. Clicking a photo outside the group opens Detail. Replacing the catalog exits Survey and releases its references to the old catalog.
+The Current selection button rebuilds candidates from the current selection/filter. Control-click can update the filmstrip selection before using that button. Clicking a candidate in the filmstrip activates it without changing the survey group. Clicking a photo outside the group opens Detail. Replacing the catalog exits Survey and releases its references to the old catalog. On returning to Detail, an active photo that was outside the original catalog selection becomes the sole selected photo; this prevents subsequent toolbar ratings from editing an unrelated hidden target. Existing multi-selection is retained when it already contains the active photo.
 
 ## GPU-capable display and preparation policy
 

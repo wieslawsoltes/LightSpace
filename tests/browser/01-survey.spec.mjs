@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { boot, state, stableBox, click, shot } from './support.mjs';
+import { boot, state, stableBox, click, slider, shot } from './support.mjs';
 
 async function ready(page) {
   await expect.poll(async () => (await state(page)).view).toBe('Survey');
@@ -17,9 +17,21 @@ async function catalog(page, name) {
 }
 
 test('survey culls independently, retains source records, and restores excluded candidates', async ({ page }) => {
-  await boot(page); const start = await state(page);
+  await boot(page); await slider(page, 'slider-Exposure', .6);
+  await expect.poll(async () => (await state(page)).exposure).toBeCloseTo(1, 2);
+  const start = await state(page);
   await click(page, 'Survey view'); await ready(page);
   expect((await state(page)).survey.total).toBe(start.photos);
+  async function photoPixels() {
+    await page.mouse.move(20, 15); const b = await stableBox(page, 'survey-photo-0');
+    await page.waitForTimeout(250);
+    return page.screenshot({ clip: { x: b.x + b.width / 4, y: b.y + b.height / 4, width: b.width / 2, height: b.height / 2 } });
+  }
+  const edited = await photoPixels();
+  await click(page, 'Survey original');
+  expect((await photoPixels()).equals(edited)).toBe(false);
+  await click(page, 'Survey original');
+  expect((await photoPixels()).equals(edited)).toBe(true);
   const first = (await state(page)).survey.visibleIds[0];
   await click(page, 'survey-exclude-0'); await ready(page);
   expect((await state(page)).survey.excluded).toBe(1);
@@ -101,4 +113,24 @@ test('survey reject hiding is view-only and source/edited toggle does not change
   expect((await state(page)).revision).toBe(revision);
   await click(page, 'Survey restore excluded'); await ready(page);
   expect((await state(page)).survey.excluded).toBe(0);
+});
+
+
+test('leaving a fallback survey selects the displayed Detail photo rather than a hidden target', async ({ page }) => {
+  await boot(page); const before = await catalog(page, 'survey-handoff-before');
+  await click(page, 'Survey view'); await ready(page);
+  await click(page, 'survey-photo-1');
+  const id = (await state(page)).survey.activeId; expect(id).not.toBe(before.ActivePhoto);
+  const revision = (await state(page)).revision;
+  await click(page, 'Survey done');
+  await expect.poll(async () => (await state(page)).view).toBe('Detail');
+  expect((await state(page)).revision).toBe(revision);
+  await click(page, 'Rate 4'); await expect.poll(async () => (await state(page)).rating).toBe(4);
+  const after = await catalog(page, 'survey-handoff-after');
+  expect(after.ActivePhoto).toBe(id);
+  for (const photo of before.Photos) {
+    const actual = after.Photos.find(candidate => candidate.Id === photo.Id);
+    if (photo.Id === id) expect(actual.State.Rating).toBe(4);
+    else expect(actual.State).toEqual(photo.State);
+  }
 });

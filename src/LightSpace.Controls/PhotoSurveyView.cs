@@ -18,6 +18,7 @@ public sealed class PhotoSurveyView : UserControl, IDisposable
         public PhotoDocument Photo = photo;
         public PhotoState State = photo.State;
         public byte[] Original = photo.Original;
+        public int Width = photo.Width, Height = photo.Height;
         public SurveyCard Card = card;
         public bool Ready, Failed;
     }
@@ -72,7 +73,8 @@ public sealed class PhotoSurveyView : UserControl, IDisposable
     public void SetPhotos(IReadOnlyList<PhotoDocument> photos, Guid activeId)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(photos);
-        if (photos.Count > SurveyLayout.MaximumVisiblePhotos || photos.Select(p => p.Id).Distinct().Count() != photos.Count)
+        if (photos.Count > SurveyLayout.MaximumVisiblePhotos || photos.Any(p => p is null || p.Id == Guid.Empty || p.Width <= 0 || p.Height <= 0)
+            || photos.Select(p => p.Id).Distinct().Count() != photos.Count)
             throw new ArgumentException("A survey page requires distinct photos within its capacity.", nameof(photos));
         var same = photos.Count == _entries.Count && photos.Select(p => p.Id).SequenceEqual(_entries.Select(e => e.Photo.Id));
         var layoutDirty = !same; var pixelsDirty = !same;
@@ -103,8 +105,8 @@ public sealed class PhotoSurveyView : UserControl, IDisposable
             var e = _entries[i]; var photo = photos[i];
             if (!ReferenceEquals(e.Original, photo.Original) || !PhotoStateEquality.Pixels(e.State, photo.State))
             { e.Ready = e.Failed = false; pixelsDirty = true; }
-            if (e.State.Crop != photo.State.Crop || e.Photo.Width != photo.Width || e.Photo.Height != photo.Height) layoutDirty = true;
-            e.Photo = photo; e.State = photo.State; e.Original = photo.Original;
+            if (e.State.Crop != photo.State.Crop || e.Width != photo.Width || e.Height != photo.Height) layoutDirty = true;
+            e.Photo = photo; e.State = photo.State; e.Original = photo.Original; e.Width = photo.Width; e.Height = photo.Height;
             e.Card.Update(photo, photo.Id == activeId); e.Card.SetReady(e.Ready, e.Failed);
         }
         if (layoutDirty) { _layoutWidth = -1; ArrangePhotos(); }

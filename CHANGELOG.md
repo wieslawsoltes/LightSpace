@@ -2,7 +2,7 @@
 
 ## 0.7.0-alpha.1
 
-Added paged multi-photo Survey culling with aspect-aware layouts, per-photo rating/flag controls, keyboard navigation, reversible view-only exclusions, rejected-photo hiding and return to Detail. Catalog multi-selection is preserved while metadata actions target one candidate with normal undo and recovery. No source or catalog deletion occurs through exclusion.
+Added paged multi-photo Survey culling with aspect-aware layouts, per-photo rating/flag controls, keyboard navigation, reversible view-only exclusions, rejected-photo hiding and return to Detail. Catalog multi-selection is preserved while metadata actions target one candidate with normal undo and recovery. No source or catalog deletion occurs through exclusion. Returning to Detail corrects a selection that did not contain the displayed photo, preventing metadata edits from targeting a hidden previous selection.
 
 Survey renders directly through one Uno/Skia surface, with a separate twelve-photo 1024px preview cache. One candidate is prepared per dispatcher tick; this amortizes synchronous owner-thread work rather than claiming GPU/background decoding. Metadata changes retain cards, layout and processing caches. Leaving Survey releases its source references and decoded/brush/curve caches.
 
