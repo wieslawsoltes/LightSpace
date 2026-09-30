@@ -6,7 +6,7 @@
 
 Non-destructive editing · Custom Uno controls · Composed Skia effects · Reusable C# libraries
 
-[Open LightSpace](https://wieslawsoltes.github.io/LightSpace/) · [Guide](docs/GETTING-STARTED.md) · [Reference & selective settings](docs/REFERENCE-AND-SYNC.md) · [Feature coverage](docs/FEATURE-COVERAGE.md)
+[Open LightSpace](https://wieslawsoltes.github.io/LightSpace/) · [Guide](docs/GETTING-STARTED.md) · [Virtual copies](docs/VIRTUAL-COPIES.md) · [Feature coverage](docs/FEATURE-COVERAGE.md)
 
 [![Build](https://github.com/wieslawsoltes/LightSpace/actions/workflows/build.yml/badge.svg)](https://github.com/wieslawsoltes/LightSpace/actions/workflows/build.yml)
 [![Desktop](https://github.com/wieslawsoltes/LightSpace/actions/workflows/desktop.yml/badge.svg)](https://github.com/wieslawsoltes/LightSpace/actions/workflows/desktop.yml)
@@ -19,47 +19,31 @@ Non-destructive editing · Custom Uno controls · Composed Skia effects · Reusa
 
 LightSpace is a shared Uno desktop/WebAssembly photography application: browse a local catalog, develop a photograph, refine its composition and masks, and export a rendered copy while retaining the original bytes. The dark workspace combines a library sidebar, centered photo canvas, filmstrip, histogram, development inspector and vertical tool rail.
 
-**Current source version: 0.7.0-alpha.1.** This is independent, functional early-stage software—not pixel-identical or feature-complete Adobe Lightroom. No Adobe artwork, proprietary processing, calibrated camera/lens profiles or cloud services are included. [Implemented behavior and remaining boundaries →](docs/FEATURE-COVERAGE.md)
+**Current source version: 0.8.0-alpha.1.** This is independent, functional early-stage software—not pixel-identical or feature-complete Adobe Lightroom. No Adobe artwork, proprietary processing, calibrated camera/lens profiles or cloud services are included. [Implemented behavior and remaining boundaries →](docs/FEATURE-COVERAGE.md)
 
-## New in 0.7
+## New in 0.8
 
-**Multi-photo Survey culling.** Survey view or N compares selected photos, or the filtered sequence when fewer than two are selected. Twelve photos fit each page, with aspect-aware rows, filename/rating/flag controls, keyboard navigation, reversible exclusions and rejected-photo hiding. Exclusion never deletes originals or catalog records. Ratings and flags target only the active candidate and remain undoable and recoverable.
+**Persistent virtual copies.** Explore different looks without duplicating original image files. Create one copy or copies for a selection, rename them, filter originals/copies, and compare an original's family in Survey. Each copy has independent processing, metadata and named versions. Creating, renaming and removing copies are undoable; copy-only removal cannot delete original records or source files.
 
-**Bounded preparation and direct rendering.** A single Uno/Skia surface draws the page through the existing composed effects. A separate twelve-photo, 1024px preview renderer retains up to 48 MiB of decoded sources, avoiding a too-small cache cycling through a larger page. One photo is prepared per dispatcher tick. This amortizes synchronous CPU/native preparation; it is not GPU decoding or a frame-time guarantee. Metadata changes retain cards, layout and pixel caches. Leaving Survey clears its preview caches and source references.
+**Shared sources, independent pixels.** Copies share immutable encoded bytes and matching decoded previews, while retaining independent processing identities. Portable schema-6 catalogs write the original payload once per family and hydrate a shared array on load. Recovery reuses the existing SHA-256 blob. Warm renames do not decode images, rebuild shaders, rehash originals or rewrite stored source blobs.
 
-**Reusable, tested workflows.** SurveyLayout, SurveySelection, targeted EditorSession edits, SurveyCard and PhotoSurveyView provide reusable layers. Engine and real-browser checks cover paging, exclusion safety, single-photo undo, warm cache reuse, compact layouts and recovery. Existing all-slider crash regressions remain enabled. [Survey guide, APIs and measured scopes](docs/SURVEY.md)
+**Validated delivery.** The browser suite checks distinct edited pixels, original preservation, copy-only removal/undo, portable family reconstruction, filters, Survey handoffs and recovery reload. Existing all-slider crash regressions remain enabled. CI now audits all eight package/symbol pairs for version, commit, internal dependencies, target-framework payloads and required metadata. [Virtual-copy guide, API and measured scopes](docs/VIRTUAL-COPIES.md)
 
-## Reference comparison from 0.6
+Catalog schema **6** migrates versions 1–5. Native XMP settings remain **5**, recovery manifest **1** and IndexedDB **2**. Older builds reject schema 6. Keep pre-upgrade portable backups for older-version interoperability. **Do not clear site data** to load this update; it contains local recovery. `build-info.json` identifies the deployed version and commit.
 
-**Frozen reference comparison.** Pin the current edited look beside the active photograph with Reference view or Shift+R. Keep editing or choose another filmstrip photo without changing the reference. Switch side-by-side/stacked layouts, link or unlink fit-relative navigation, fit both panes, pin again, or apply selected settings from the reference. The reference stays session-local and adds no catalog record or processing revision.
+## Photography workflows
 
-**Selective copy and synchronization.** Choose thirteen independent processing groups instead of copying every edit. All/None/Global presets, captured source/target review and one-transaction batch undo make transfer explicit. Ratings, flags, labels, captions, keywords, original bytes and unselected edits remain intact. Ctrl/Cmd+Shift+C opens group selection; ordinary copy retains the all-processing shortcut.
+**Organize and cull.** Import JPEG, PNG, WebP, BMP or GIF sources. Browse grid/detail/filmstrip views, search names/captions/keywords, assign ratings and flags, and collect references in albums. Survey view or N compares up to twelve candidates per page with reversible exclusions and single-target metadata editing. Exclusion never deletes catalog records. Virtual copies persist alternative looks without duplicating the original. [Survey](docs/SURVEY.md) · [Virtual copies](docs/VIRTUAL-COPIES.md)
 
-**Shared decoded sources, independent looks.** Both views draw directly through the composed Skia pipeline. Matching immutable source arrays share a decoded image while preserving separate development, presentation and geometry state. Closing a reference releases its processing identity without clearing active caches. Batch applications resolve targets once rather than scanning the entire catalog for every changed photo.
+**Develop.** Adjust tone, relative white balance, saturation/vibrance, monochrome and eight hue bands. Master/R/G/B curves support up to 32 points, numeric/pointer/keyboard editing and linear or shape-preserving interpolation. Four-way grading controls shadows, midtones, highlights and global tint. Creative presets, detail/effect approximations, sharpening, spatial smoothing, grain and vignette provide further tools.
 
-**Framing, dialogs and stability.** Linked normalized pan survives pane/window resizing. Short dialogs fit their content; long bodies scroll with reachable actions. Source-sharing lifetime, frozen pixels, group isolation, selective export, recovery and actual browser input are covered by regression tests. The 0.4.1 shader-lifetime repair and fatal-slider stress remain enabled. [Reference/settings behavior, APIs and performance scopes](docs/REFERENCE-AND-SYNC.md) · [Validation](docs/VALIDATION.md)
+**Refine.** Use crop handles, centered ratio presets, quarter turns/flips, drawn-horizon straightening and manual projective geometry. Correct manual distortion, lens falloff and radial channel alignment. Create gradients, luminance ranges, five-color Oklab selections and paint/erase masks. A source-patch white-balance picker, interactive histogram and display-only clipping indicators support evaluation. [Optics/geometry](docs/OPTICS-GEOMETRY.md) · [Color and masks](docs/COLOR-AND-MASKS.md)
 
-## Photography foundation from 0.5
+**Compare and transfer.** Pin a frozen reference beside active editing with Shift+R. Link or separate fit-relative navigation, switch side-by-side/stacked views, and selectively match the pinned look. Copy/paste and synchronization offer thirteen independent processing groups and apply one reviewed transaction while retaining target metadata. Reference views are session-local; virtual copies are persistent catalog alternatives. [Reference/settings](docs/REFERENCE-AND-SYNC.md)
 
-Manual Optics corrects distortion, lens falloff and radial channel alignment. Geometry adjusts vertical/horizontal perspective, rotation, aspect, scale and offsets, with conservative constrained framing and drawn-horizon straightening. A source-patch white-balance picker, five-region histogram dragging, independent clipping indicators, panel resizing, filmstrip toggle and focus mode extend the workspace.
+**Preserve.** Completed gestures are individual undo transactions. Named versions retain alternative states. Export JPEG/PNG/WebP, ZIP selected photos, save compact portable family catalogs, or exchange XMP sidecars. Native LightSpace XMP round-trips the selected look's processing, not its catalog family. The reported Camera Raw subset is not equivalent Adobe development. [Advanced editing/XMP](docs/ADVANCED-EDITING.md)
 
-Development feeds a composed optical runtime effect directly, without a CPU-rendered intermediate. Projective geometry is a cached matrix. Picking and masks use inverse optical/projective mapping, retaining attachment to source coordinates. [Optics and geometry guide](docs/OPTICS-GEOMETRY.md)
-
-Catalog schema 5, native XMP settings 5, recovery manifest 1 and IndexedDB version 2 are unchanged by 0.6 and 0.7. Reload an older browser tab after deployment. **Do not clear site data**: it contains local recovery. `build-info.json` identifies the deployed source version and commit. Keep pre-upgrade backups when using older processing schemas. [Crash-fix evidence](docs/WASM-SLIDER-FIX.md)
-
-## Photography workflow
-
-**Organize.** Import JPEG, PNG, WebP, BMP or GIF sources. Browse paged grid/detail/filmstrip views, search filenames/captions/keywords, assign ratings and flags, and collect references in albums. Control-click extends selection. Selective copy/paste and synchronization transfer processing while retaining target metadata.
-
-**Develop.** Adjust tone, relative white balance, saturation/vibrance, monochrome and eight hue bands. Master/R/G/B point curves support up to 32 points, numeric/pointer/keyboard editing and linear or shape-preserving interpolation. Four-way grading controls shadows, midtones, highlights and global tint. Creative presets, detail/effect approximations, sharpening, spatial smoothing, grain and vignette provide further tools.
-
-**Refine.** Use crop handles, centered ratio presets, quarter turns/flips, straightening and manual perspective. Create radial/linear gradients, luminance ranges or five-color Oklab selections. Paint/erase masks with distance-resampled dabs, feather, flow, density and supplied pen pressure. Local tone/color adjustments reuse brush coverage. Clone stamps use explicit source locations; before/after has a draggable divider and reference comparison retains a frozen look.
-
-**Preserve.** Completed gestures are individual undo transactions. Named versions retain alternative looks. Export JPEG/PNG/WebP, ZIP selected photos, save a portable source-inclusive catalog, or exchange XMP sidecars. Native LightSpace XMP settings round-trip complete processing; the reported Camera Raw subset is not equivalent Adobe development.
-
-**Stay local.** Revision-aware recovery stores originals by SHA-256 and publishes a separate committed edit manifest. Warm metadata saves avoid rewriting or rehashing unchanged originals. Restore verifies source integrity; failed writes remain dirty and unreadable recovery is protected from automatic replacement. No account, photo upload or cloud processing is required.
-
-[Advanced editing/XMP](docs/ADVANCED-EDITING.md) · [Color selections](docs/COLOR-AND-MASKS.md) · [Recovery contract](docs/RECOVERY.md) · [Performance evidence](docs/PERFORMANCE.md)
+**Stay local.** Revision-aware recovery stores originals by SHA-256 and publishes a committed edit manifest. Warm metadata saves avoid rewriting or rehashing unchanged originals. Restore checks source integrity and family relationships. Failed writes stay dirty; unreadable recovery is protected from automatic replacement. No account, photo upload or cloud processing is required. [Recovery contract](docs/RECOVERY.md)
 
 ## Download
 
@@ -71,11 +55,11 @@ The [release workflow](https://github.com/wieslawsoltes/LightSpace/releases) pro
 | macOS | `LightSpace-<version>-osx-x64.tar.gz` | `LightSpace-<version>-osx-arm64.tar.gz` |
 | Linux | `LightSpace-<version>-linux-x64.tar.gz` | `LightSpace-<version>-linux-arm64.tar.gz` |
 
-Extract and run `LightSpace` (`LightSpace.exe` on Windows). Native dependencies extract at startup. Builds are not code-signed or notarized; verify their source and `SHA256SUMS.txt` before opening them. A source version bump does not itself publish new release assets. [Packaging and publication](docs/RELEASES.md)
+Extract and run `LightSpace` (`LightSpace.exe` on Windows). Native dependencies extract at startup. Builds are not code-signed or notarized; verify their source and `SHA256SUMS.txt` before opening them. A source version bump does not itself publish release assets. [Packaging and publication](docs/RELEASES.md)
 
 ## NuGet packages
 
-All eight libraries are MIT-licensed. The badges below show the versions and downloads on [NuGet.org](https://www.nuget.org/packages?q=LightSpace), independently of the current source version. The six engine packages (Core, Storage, Catalog, Imaging, Rendering.Skia, Editing) target `net10.0` without Uno; Imaging and Rendering.Skia use SkiaSharp 3.119. Controls and Workbench target `net10.0-desktop` and `net10.0-browserwasm` with the Uno Skia renderer. Packages are versioned together, with `.snupkg` symbols and SourceLink. Build artifacts alone do not imply that a new version has been published.
+All eight libraries are MIT-licensed. The badges below show public-feed versions and downloads independently of the current source version. The six engine packages target `net10.0` without Uno; Imaging and Rendering.Skia use SkiaSharp. Controls and Workbench target desktop and browser with Uno's Skia renderer. Packages are versioned together with `.snupkg` symbols and SourceLink. Build artifacts alone do not imply publication to NuGet.org. Newly added APIs require packages built from the corresponding source version.
 
 ```sh
 dotnet add package LightSpace.Core --prerelease
@@ -83,34 +67,28 @@ dotnet add package LightSpace.Core --prerelease
 
 | Package | Version | Downloads | Description |
 | --- | --- | --- | --- |
-| [LightSpace.Core](https://www.nuget.org/packages/LightSpace.Core) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Core.svg)](https://www.nuget.org/packages/LightSpace.Core) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Core.svg)](https://www.nuget.org/packages/LightSpace.Core) | Photo state, curves, grading, masks, optical/projective geometry, selective processing groups and catalog models |
+| [LightSpace.Core](https://www.nuget.org/packages/LightSpace.Core) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Core.svg)](https://www.nuget.org/packages/LightSpace.Core) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Core.svg)](https://www.nuget.org/packages/LightSpace.Core) | Photo/copy state, curves, grading, masks, optical/projective geometry and processing groups |
 | [LightSpace.Storage](https://www.nuget.org/packages/LightSpace.Storage) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Storage.svg)](https://www.nuget.org/packages/LightSpace.Storage) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Storage.svg)](https://www.nuget.org/packages/LightSpace.Storage) | Import/export contracts, atomic content-addressed recovery and optional sidecar picking |
-| [LightSpace.Catalog](https://www.nuget.org/packages/LightSpace.Catalog) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Catalog.svg)](https://www.nuget.org/packages/LightSpace.Catalog) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Catalog.svg)](https://www.nuget.org/packages/LightSpace.Catalog) | Versioned catalog serialization/migration, queries, recovery manifests and XMP interchange |
-| [LightSpace.Imaging](https://www.nuget.org/packages/LightSpace.Imaging) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Imaging.svg)](https://www.nuget.org/packages/LightSpace.Imaging) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Imaging.svg)](https://www.nuget.org/packages/LightSpace.Imaging) | Bounded image decoding, EXIF orientation, sRGB conversion and procedural samples |
-| [LightSpace.Rendering.Skia](https://www.nuget.org/packages/LightSpace.Rendering.Skia) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Rendering.Skia.svg)](https://www.nuget.org/packages/LightSpace.Rendering.Skia) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Rendering.Skia.svg)](https://www.nuget.org/packages/LightSpace.Rendering.Skia) | Composed effects, projective drawing, shared-source caches, masks, curves, histogram and export |
-| [LightSpace.Editing](https://www.nuget.org/packages/LightSpace.Editing) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Editing.svg)](https://www.nuget.org/packages/LightSpace.Editing) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Editing.svg)](https://www.nuget.org/packages/LightSpace.Editing) | Transactions, undo/redo, frozen references, selective synchronization, versions and revision-aware recovery |
-| [LightSpace.Controls](https://www.nuget.org/packages/LightSpace.Controls) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Controls.svg)](https://www.nuget.org/packages/LightSpace.Controls) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Controls.svg)](https://www.nuget.org/packages/LightSpace.Controls) | Original Uno editors, histogram, thumbnails, active/reference viewports and settings-group selection |
-| [LightSpace.Workbench](https://www.nuget.org/packages/LightSpace.Workbench) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Workbench.svg)](https://www.nuget.org/packages/LightSpace.Workbench) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Workbench.svg)](https://www.nuget.org/packages/LightSpace.Workbench) | Composable photography workspace, reference comparison, catalog UI, inspectors, dialogs and recovery UX |
+| [LightSpace.Catalog](https://www.nuget.org/packages/LightSpace.Catalog) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Catalog.svg)](https://www.nuget.org/packages/LightSpace.Catalog) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Catalog.svg)](https://www.nuget.org/packages/LightSpace.Catalog) | Catalog migration, copy-family/source validation, queries, manifests and XMP |
+| [LightSpace.Imaging](https://www.nuget.org/packages/LightSpace.Imaging) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Imaging.svg)](https://www.nuget.org/packages/LightSpace.Imaging) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Imaging.svg)](https://www.nuget.org/packages/LightSpace.Imaging) | Bounded decoding, EXIF orientation, sRGB conversion and procedural samples |
+| [LightSpace.Rendering.Skia](https://www.nuget.org/packages/LightSpace.Rendering.Skia) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Rendering.Skia.svg)](https://www.nuget.org/packages/LightSpace.Rendering.Skia) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Rendering.Skia.svg)](https://www.nuget.org/packages/LightSpace.Rendering.Skia) | Composed effects, projective drawing, shared-source caches, masks, histogram and export |
+| [LightSpace.Editing](https://www.nuget.org/packages/LightSpace.Editing) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Editing.svg)](https://www.nuget.org/packages/LightSpace.Editing) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Editing.svg)](https://www.nuget.org/packages/LightSpace.Editing) | Transactions, virtual copies, undo/redo, references, selective sync and recovery |
+| [LightSpace.Controls](https://www.nuget.org/packages/LightSpace.Controls) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Controls.svg)](https://www.nuget.org/packages/LightSpace.Controls) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Controls.svg)](https://www.nuget.org/packages/LightSpace.Controls) | Uno editors, histogram, thumbnails, active/reference/Survey views and settings selection |
+| [LightSpace.Workbench](https://www.nuget.org/packages/LightSpace.Workbench) | [![NuGet](https://img.shields.io/nuget/vpre/LightSpace.Workbench.svg)](https://www.nuget.org/packages/LightSpace.Workbench) | [![Downloads](https://img.shields.io/nuget/dt/LightSpace.Workbench.svg)](https://www.nuget.org/packages/LightSpace.Workbench) | Composable photography workspace, copy manager, catalog, tools, dialogs and recovery UX |
 
-Dependencies: `Core ← Catalog, Imaging`; `Imaging ← Rendering.Skia`; `Catalog + Storage ← Editing`; `Editing + Rendering.Skia ← Controls`; `Controls + Storage ← Workbench`. Storage has no project dependencies. The host supplies startup and platform storage. Standard Uno input, scrolling and accessibility primitives remain in use where appropriate.
+Dependencies: `Core ← Catalog, Imaging`; `Imaging ← Rendering.Skia`; `Catalog + Storage ← Editing`; `Editing + Rendering.Skia ← Controls`; `Controls + Storage ← Workbench`. Storage has no project dependencies. The host supplies startup and platform storage. Standard Uno input, scrolling and accessibility primitives remain where appropriate.
 
 Dispose workspaces and native-resource caches (`PhotoRenderer`, `ThumbnailCache`, `PhotoViewport`, `StudioView`). Treat snapshot arrays as copy-on-write and originals as read-only. Objects have one logical owner, normally the UI synchronization context. [Component API](docs/ADVANCED-EDITING.md) · [Reference/settings API](docs/REFERENCE-AND-SYNC.md) · [Recovery invariants](docs/RECOVERY.md)
 
 ### LightSpace.Core
 
-The editing model includes `PhotoState`, development/crop/optics/geometry, local masks, clone spots, ratings, flags and keywords. Point curves support linear or shape-preserving interpolation; grading, sampled color ranges, brush strokes and built-in presets are UI-independent. Settings normalize values to their supported ranges. Selective transfers apply only chosen processing groups. No dependencies and no UI.
+UI-independent photo state includes development/crop/optics/geometry, masks, clone spots, ratings, flags and keywords. Curves support linear or shape-preserving interpolation. Grading, color ranges, brush samples, selective transfers, Survey layout and virtual-copy identity are independent of UI and rendering. Settings normalize values to their supported ranges.
 
 ```sh
 dotnet add package LightSpace.Core --prerelease
 ```
 
-**Key types**
-- `PhotoState`, `DevelopSettings` (17 adjustments and named Get/Set), `CropSettings`, `CloneSpot`.
-- `GeometrySettings`, `LensCorrectionSettings`, `GeometryProjection`, `ProjectiveTransform`, `LensMapping`, `WhiteBalanceEstimator`.
-- `PointCurve`, `ChannelCurves`, `CompiledPointCurve`, `ColorGradingSettings`, `GradingTone`, `ColorBand`.
-- `LocalMask`, `ColorRangeSettings`, `BrushStroke`, `BrushStrokeBuilder`.
-- `CatalogDocument`, `PhotoDocument`, `Album`, `NamedVersion`, `BuiltInPresets`.
-- `EditSettingsGroup`, `EditSettingsTransfer`, `PhotoNavigationState`.
+**Key types:** `PhotoState`, `DevelopSettings`, `CropSettings`, `CloneSpot`, `GeometrySettings`, `LensCorrectionSettings`, `GeometryProjection`, `ProjectiveTransform`, `LensMapping`, `WhiteBalanceEstimator`, `PointCurve`, `ChannelCurves`, `CompiledPointCurve`, `ColorGradingSettings`, `GradingTone`, `ColorBand`, `LocalMask`, `ColorRangeSettings`, `BrushStroke`, `BrushStrokeBuilder`, `CatalogDocument`, `PhotoDocument`, `VirtualCopyNames`, `Album`, `NamedVersion`, `BuiltInPresets`, `EditSettingsGroup`, `EditSettingsTransfer`, `PhotoNavigationState`, `SurveyLayout`.
 
 ```csharp
 using LightSpace.Core;
@@ -140,11 +118,7 @@ Host contracts for pickers, downloads and recovery. `FileRecoveryStore` stages i
 dotnet add package LightSpace.Storage --prerelease
 ```
 
-**Key types**
-- `IWorkspaceStorage`: OpenImagesAsync, OpenCatalogAsync, SaveAsync, ReadRecoveryAsync, WriteRecoveryAsync; `WorkspaceFile(Name, Bytes)`.
-- `IRecoveryStore`: ReadManifestAsync, ReadBlobAsync, CommitAsync; `FileRecoveryStore(directory)`.
-- `RecoveryWrite(Manifest, References, Blobs)`, `RecoveryBlob(Key, Bytes)`, `RecoveryKeys`.
-- `ISidecarStorage`: optional user-authorized XMP picker.
+**Key types:** `IWorkspaceStorage` with OpenImagesAsync/OpenCatalogAsync/SaveAsync/ReadRecoveryAsync/WriteRecoveryAsync; `WorkspaceFile`; `IRecoveryStore` with ReadManifestAsync/ReadBlobAsync/CommitAsync; `FileRecoveryStore`; `RecoveryWrite`, `RecoveryBlob`, `RecoveryKeys`; optional `ISidecarStorage` for XMP picking.
 
 ```csharp
 using LightSpace.Storage;
@@ -160,20 +134,17 @@ string? manifest = await store.ReadManifestAsync();
 byte[]? restored = await store.ReadBlobAsync(key);
 ```
 
-Normally `RecoveryPersistence` in LightSpace.Editing builds these writes for the host.
+Normally `RecoveryPersistence` in LightSpace.Editing builds these writes for the host. Passing arbitrary text as manifestJson is not a valid recovery write.
 
 ### LightSpace.Catalog
 
-Validated catalog serialization, migration, search/filter/sort, recovery manifests and XMP metadata/settings interchange. Current schema 5 accepts catalogs 1–4 with neutral missing fields. The Camera Raw subset is reported explicitly; native extensions retain complete LightSpace state. Depends on Core; no UI.
+Validated catalog serialization, migration, search/filter/sort, virtual-copy families, recovery manifests and XMP metadata/settings interchange. Schema 6 accepts catalogs 1–5 and hydrates copy sources from validated masters. Camera Raw mappings are reported explicitly; native settings retain the selected look, not its family identity. Depends on Core; no UI.
 
 ```sh
 dotnet add package LightSpace.Catalog --prerelease
 ```
 
-**Key types**
-- `CatalogSerializer`: Serialize, Deserialize, Validate, SerializeSettings, DeserializeSettings.
-- `PhotoQuery(Text, MinimumRating, Flag, Album, Sort).Execute(catalog)` and `PhotoSort`.
-- `XmpSidecar`, `XmpImportResult`, `XmpExportResult`, `RecoveryManifest`, `RecoverySourceReference`.
+**Key types:** `CatalogSerializer` (Serialize/Deserialize/Validate/SerializeSettings/DeserializeSettings), `VirtualCopyCatalog`, `PhotoQuery` and `PhotoSort`/`PhotoKind`, `XmpSidecar`, `XmpImportResult`, `XmpExportResult`, `RecoveryManifest`, `RecoverySourceReference`.
 
 ```csharp
 using LightSpace.Catalog;
@@ -187,7 +158,7 @@ if (picks.Count > 0)
     var photo = picks[0];
     XmpImportResult imported = XmpSidecar.Import(File.ReadAllText("IMG_0042.xmp"), photo.State);
     foreach (var warning in imported.Warnings) Console.WriteLine(warning);
-    // An interactive host should present warnings before applying this state.
+    // An interactive host should present warnings and apply through EditorSession.
     photo.State = imported.State;
     File.WriteAllText("IMG_0042.xmp", XmpSidecar.Export(photo.State).Xml);
 }
@@ -196,16 +167,13 @@ File.WriteAllText("catalog.json", CatalogSerializer.Serialize(catalog));
 
 ### LightSpace.Imaging
 
-Bounded decoding for JPEG, PNG, WebP, BMP and GIF sources, EXIF orientation, downscaled sRGB previews and procedural sample landscapes. Limits are 64 MiB encoded and 100 megapixels decoded. Depends on Core and SkiaSharp; no UI.
+Bounded decoding for JPEG, PNG, WebP, BMP and the first GIF frame, EXIF orientation, downscaled sRGB previews and procedural landscapes. Limits are 64 MiB encoded and 100 megapixels decoded. Depends on Core and SkiaSharp; no UI.
 
 ```sh
 dotnet add package LightSpace.Imaging --prerelease
 ```
 
-**Key types**
-- `PhotoCodec.Import(name, bytes)` validates source metadata and retains original bytes.
-- `PhotoCodec.Decode(bytes, maxDimension)` returns an oriented sRGB `SKImage`.
-- `SamplePhotos.CreateCatalog()` and `SamplePhotos.Create(seed)` provide generated content.
+**Key types:** `PhotoCodec.Import(name, bytes)`, `PhotoCodec.Decode(bytes, maxDimension)`, `SamplePhotos.CreateCatalog()`, `SamplePhotos.Create(seed)`.
 
 ```csharp
 using LightSpace.Core;
@@ -219,17 +187,13 @@ CatalogDocument samples = SamplePhotos.CreateCatalog();
 
 ### LightSpace.Rendering.Skia
 
-Development, curves, grading, masks, clone spots and color ranges run as SkSL runtime effects. A separate optical effect composes with development; projective geometry is a draw matrix. The backend is selected by the host and may be GPU or software. Histograms, Auto settings, source sampling and JPEG/PNG/WebP export are also provided. Matching source buffers share decoding independently of per-photo shader state. Depends on Imaging; no UI framework.
+Development, curves, grading, masks, clone spots and color ranges run as SkSL runtime effects. An optical effect composes with development; projective geometry is a draw matrix. The backend is supplied by the host and may be GPU or software. Histograms, Auto settings, bounded source sampling and image export are also provided. Matching source arrays share decoding independently of processing identities. Depends on Imaging; no UI framework.
 
 ```sh
 dotnet add package LightSpace.Rendering.Skia --prerelease
 ```
 
-**Key types**
-- `PhotoRenderer`: Draw, CreateShader, Export, CalculateHistogram, Auto, SampleSource, ReleasePhoto, Statistics and Presentation.
-- `Histogram`, `PhotoTransform`, `GeometryMapping`, `ClippingIndicators`.
-- `ToneLookupCache`, `BrushCoverageCache` and their construction/work statistics.
-- `RendererStatistics`: original six-field API plus CachedSources and SharedSourceHits.
+**Key types:** `PhotoRenderer` (Prepare/Draw/CreateShader/Export/CalculateHistogram/Auto/SampleSource/ReleasePhoto/Statistics/Presentation), `Histogram`, `PhotoTransform`, `GeometryMapping`, `ClippingIndicators`, `ToneLookupCache`, `BrushCoverageCache`, `RendererStatistics` with the original six-field API plus CachedSources/SharedSourceHits.
 
 ```csharp
 using LightSpace.Core;
@@ -261,17 +225,13 @@ session.Undo(); // Original encoded bytes are untouched.
 
 ### LightSpace.Editing
 
-`EditorSession` makes each completed gesture one transaction. Previews update visible state without adding history; commit adds a step and cancel restores the opening state. Named versions, selective synchronization, frozen reference snapshots, albums and committed-revision recovery are included. Depends on Catalog and Storage; no UI.
+`EditorSession` coalesces each completed gesture into a transaction. Previews change visible state without adding history; commit adds a step and cancel restores the opening state. Named versions, selective synchronization, frozen references, virtual-copy record deltas and committed-revision recovery are included. Depends on Catalog and Storage; no UI.
 
 ```sh
 dotnet add package LightSpace.Editing --prerelease
 ```
 
-**Key types**
-- `EditorSession`: Catalog, Active, Selection, Edit, BeginGesture/Preview/CommitGesture/CancelGesture, Undo/Redo, SaveVersion, SyncSelected, ApplySettings, CreateAlbum, Changed.
-- `ReferencePhotoSnapshot.Capture(photo)`: independent render identity, shared immutable source and captured settings.
-- `RecoveryPersistence(IRecoveryStore)`: Capture, CommitAsync, RestoreAsync.
-- `RecoveryCoordinator`: FlushAsync, Status and StatusChanged; overlapping flush calls share one writer.
+**Key types:** `EditorSession` (Catalog/Active/Selection/Edit/BeginGesture/Preview/CommitGesture/CancelGesture/Undo/Redo/SaveVersion/SyncSelected/ApplySettings/CreateAlbum/Changed), virtual-copy methods CreateVirtualCopies/RenameVirtualCopy/RemoveVirtualCopies, `ReferencePhotoSnapshot`, `SurveySelection`, `RecoveryPersistence`, `RecoveryCoordinator`.
 
 ```csharp
 using LightSpace.Core;
@@ -285,11 +245,18 @@ foreach (var value in new[] { .1f, .2f, .35f })
     session.Preview(state => state with { Develop = state.Develop with { Exposure = value } });
 session.CommitGesture("Exposure");
 session.SaveVersion("Bright");
-session.SyncSelected(); // Includes crop, geometry, optics and masks; retains target metadata.
+session.SyncSelected(); // All processing; target metadata remains intact.
 session.Undo();
-
-// Or transfer only selected groups in one transaction.
 session.SyncSelected(EditSettingsGroup.Light | EditSettingsGroup.ColorGrading);
+
+var copy = session.CreateVirtualCopies([session.Active!.Id]).Single();
+session.RenameVirtualCopy(copy.Id, "Warm alternative");
+session.Edit("Alternative exposure", state => state with
+{
+    Develop = state.Develop with { Exposure = .8f }
+});
+session.RemoveVirtualCopies([copy.Id]);
+session.Undo(); // Restores the same copy identity and settings; original never deleted.
 
 var persistence = new RecoveryPersistence(new FileRecoveryStore("recovery"));
 using var recovery = RecoveryCoordinator.Incremental(session, persistence, initiallySaved: false);
@@ -298,19 +265,13 @@ await recovery.FlushAsync();
 
 ### LightSpace.Controls
 
-Original dark Uno photography controls include active/reference viewports, selective settings, adjustment sliders, curves, grading/mixer/range/mask editors, optics/geometry, interactive histogram, panel-resize grips, thumbnails and chrome. Editors expose preview/commit/cancel events without owning the host's transaction policy. Brush settings affect new strokes. Depends on Editing and Rendering.Skia; requires the Uno Skia renderer.
+Original Uno photography controls include active/reference/Survey views, settings selection, sliders, curves, grading/mixer/range/mask editors, optics/geometry, interactive histogram, panel grips, thumbnails and chrome. Editors expose preview/commit/cancel without owning the host's transaction policy. Brush settings affect new strokes. Depends on Editing and Rendering.Skia; requires Uno's Skia renderer.
 
 ```sh
 dotnet add package LightSpace.Controls --prerelease
 ```
 
-**Key types**
-- `PhotoViewport(EditorSession, PhotoRenderer)`: SetTool, Fit, Compare, Before, Clipping, MaskOverlay, SetActiveMask, BrushSettings, Navigation and SetNavigation.
-- `ReferencePhotoView(PhotoRenderer)`: Photo, Navigation, SetNavigation, NavigationChanged, Fit and RenderFailed. Does not own the renderer.
-- `SettingsTransferEditor`: Groups and SelectionChanged; no document or clipboard ownership.
-- `AdjustmentSlider`: ValueChanged, ValueCommitted, GestureCanceled.
-- `PointCurveEditor`, `ColorGradingEditor`, `ColorMixerEditor`, `ColorRangeEditor`, `MaskSettingsEditor`, `GeometryEditor`, `OpticsEditor`: Value and preview/commit/cancel contracts.
-- `BrushSettingsEditor`, `HistogramView`, `PanelResizeGrip`, `PhotoCard`, `PhotoThumbnail`, `ThumbnailCache`, `PanelSection`, `LightButton`, `Theme`.
+**Key types:** `PhotoViewport`, `ReferencePhotoView`, `PhotoSurveyView`, `SurveyCard`, `SettingsTransferEditor`, `AdjustmentSlider`, `PointCurveEditor`, `ColorGradingEditor`, `ColorMixerEditor`, `ColorRangeEditor`, `MaskSettingsEditor`, `GeometryEditor`, `OpticsEditor`, `BrushSettingsEditor`, `HistogramView`, `PanelResizeGrip`, `PhotoCard`, `PhotoThumbnail`, `ThumbnailCache`, `PanelSection`, `LightButton`, `Theme`.
 
 ```csharp
 using LightSpace.Controls;
@@ -347,27 +308,24 @@ var inspector = new StackPanel { Width = 300, Children = { exposure, curves, geo
 var root = new Grid { Background = Theme.Background };
 root.ColumnDefinitions.Add(new ColumnDefinition());
 root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-Grid.SetColumn(inspector, 1);
-root.Children.Add(viewport); root.Children.Add(new ScrollViewer { Content = inspector });
-Grid.SetColumn(root.Children[1], 1);
+root.Children.Add(viewport);
+var scroll = new ScrollViewer { Content = inspector };
+Grid.SetColumn(scroll, 1); root.Children.Add(scroll);
 window.Content = root;
 window.Closed += (_, _) => { viewport.Dispose(); renderer.Dispose(); };
 ```
 
-See [reference embedding and navigation](docs/REFERENCE-AND-SYNC.md#reusable-model-and-ui-apis) for paired-view wiring and release of session-local render identities.
+See [reference embedding](docs/REFERENCE-AND-SYNC.md#reusable-model-and-ui-apis) and [Survey](docs/SURVEY.md) for multi-view wiring and release of session-local processing identities. A standalone view does not dispose an externally supplied renderer.
 
 ### LightSpace.Workbench
 
-The complete application workspace as one control: library/grid, filmstrip, histogram, development/optics/geometry inspectors, frozen reference comparison, selective settings, tools, presets, versions, dialogs, shortcuts, resizable panels and recovery status. Depends on Controls and Storage; requires Uno. `ISidecarStorage` remains optional.
+The complete workspace as one control: library/grid, filmstrip, histogram, development/optics/geometry inspectors, frozen reference comparison, Survey, virtual-copy manager, selective settings, tools, presets, versions, dialogs, shortcuts, resizing and recovery status. Depends on Controls and Storage; requires Uno. `ISidecarStorage` remains optional.
 
 ```sh
 dotnet add package LightSpace.Workbench --prerelease
 ```
 
-**Key types**
-- `StudioView(EditorSession, IWorkspaceStorage, recoveryLoaded, RecoveryPersistence?)`: Session, Viewport, Recovery, SetGrid, ChooseTool, SetStatus, SaveRecoveryAsync.
-- UnsavedChangesChanged and opt-in DiagnosticsChanged events.
-- ProtectExistingRecovery preserves unreadable prior data until explicit replacement.
+**Key types:** `StudioView(EditorSession, IWorkspaceStorage, recoveryLoaded, RecoveryPersistence?)` with Session/Viewport/Recovery/SetGrid/ChooseTool/SetStatus/SaveRecoveryAsync; UnsavedChangesChanged and opt-in DiagnosticsChanged events; ProtectExistingRecovery safeguards unreadable prior data.
 
 ```csharp
 using LightSpace.Editing;
@@ -375,7 +333,7 @@ using LightSpace.Imaging;
 using LightSpace.Storage;
 using LightSpace.Workbench;
 
-IWorkspaceStorage storage = new MyWorkspaceStorage(); // Your picker/export/recovery implementation.
+IWorkspaceStorage storage = new MyWorkspaceStorage(); // Host picker/export/recovery adapter.
 var persistence = storage is IRecoveryStore store ? new RecoveryPersistence(store) : null;
 var catalog = persistence is null ? null : await persistence.RestoreAsync();
 var studio = new StudioView(new EditorSession(catalog ?? SamplePhotos.CreateCatalog()),
@@ -384,15 +342,15 @@ window.Content = studio;
 window.Closed += (_, _) => studio.Dispose();
 ```
 
-A production host should catch restore failures and protect unreadable existing recovery rather than automatically replacing it; the supplied application host implements that behavior.
+A production host should catch restore failures and protect unreadable existing recovery rather than replacing it automatically; the supplied application host implements that behavior.
 
 ## Stack and rendering
 
 Pinned versions are **.NET SDK 10.0.401**, **Uno SDK 6.7.30** and matched **SkiaSharp 3.119.4** managed/native assets. Upgrade the graphics family together and retain native ABI/lifetime validation.
 
-The viewport uses `Uno.WinUI.Graphics2DSK.SKCanvasElement`. SkSL effects participate in Uno's existing Skia composition path. Hardware execution requires a GPU-backed host canvas. Software hosts remain supported; this is **not a separate WebGPU compute backend** or a fully GPU-based import/export pipeline.
+The viewport uses `Uno.WinUI.Graphics2DSK.SKCanvasElement`. Composed SkSL effects participate in Uno's existing Skia path; hardware execution requires a GPU-backed host canvas. Software hosts remain supported. This is **not a separate WebGPU compute backend** or a GPU-only import/export pipeline.
 
-Decode, first-use hashing, manifest serialization, brush texture publication, histogram sampling and image encoding retain synchronous CPU/native work. Viewport previews target 2560 pixels, thumbnails 384, brush coverage 1024 even for export, and image output 8192 pixels on the long edge. Cache budgets cover retained buffers, not every transient/GPU allocation. Channel alignment can evaluate the development child three times, so cost depends on enabled effects. Reference/active views share matching source decoding, but two visible panes still add draw and shading work. [Architecture](docs/ARCHITECTURE.md) · [Performance scopes](docs/PERFORMANCE.md) · [Shared-source ownership](docs/REFERENCE-AND-SYNC.md#shared-source-cache-and-gpu-work)
+Decode, first-use hashing, manifest serialization, brush texture publication, histogram and encoding retain CPU/native work. Viewport previews target 2560 pixels, thumbnails 384, Survey 1024, brush coverage 1024 even for export, and image output 8192 on the long edge. Budgets cover retained buffers, not all transient/GPU allocations. Channel alignment can evaluate development three times. Virtual copies/reference views share source decoding within their renderer; distinct visible looks still add shading work. [Architecture](docs/ARCHITECTURE.md) · [Performance](docs/PERFORMANCE.md) · [Shared-source ownership](docs/REFERENCE-AND-SYNC.md#shared-source-cache-and-gpu-work)
 
 ## Build and run
 
@@ -419,9 +377,9 @@ Open `http://127.0.0.1:4173/LightSpace/`. Serve the actual Uno/.NET WebAssembly 
 
 ## Tests and workflows
 
-Build runs the engine suite, publishes WebAssembly, drives actual Uno controls, verifies exports/recovery and packages all libraries. It retains screenshots, traces on failure, source snapshots, structured results and scoped performance counters. Desktop compiles Windows/Linux/macOS. Pages consumes a successful trusted main build, verifies commit provenance and repeats browser tests against the public application.
+Build runs engine checks, publishes WebAssembly, drives actual controls, checks export/recovery and packages all libraries. It retains screenshots, traces on failure, source snapshots, structured results and scoped performance counters. Desktop compiles Windows/Linux/macOS. Pages consumes a successful trusted main build, verifies the commit and repeats the browser suite against the public application.
 
-The crash regression drives all 17 main development sliders through extremes and neutral crossings, then verifies undo/redo, JPEG decoding, all final catalog values and recovery reload. Photography tests cover optics, geometry, source picking, histogram/clipping, layout, export and cache reuse. Reference tests check frozen image pixels, independent shader state, shared-source lifetime, selective exported values, batch undo and linked framing. No editing features or fatal-error reporting are disabled for testing.
+The crash regression drives all 17 development sliders through extremes and neutral crossings, then verifies undo/redo, JPEG decoding, all final catalog values and recovery reload. Photography, reference, Survey and virtual-copy tests exercise real pixels, input, ownership, safe removal, independent metadata, shared sources and persistence. No editing features or fatal-error reporting are disabled for testing.
 
 ```bash
 npm ci --ignore-scripts
@@ -430,23 +388,29 @@ mkdir -p artifacts/fixtures
 cp artifacts/engine/*.png artifacts/fixtures/
 npm run test:browser
 npx playwright test slider-stability.spec.mjs
-npx playwright test reference-sync.spec.mjs reference-layout.spec.mjs
+npx playwright test virtual-copies.spec.mjs
+python3 -m unittest discover -s tests/scripts -v
+
+# After packing all libraries, verify version/commit/framework and symbol pairs.
+python3 scripts/validate-packages.py --commit "$(git rev-parse HEAD)"
 ```
 
-Release retains six-RID self-contained single-file desktop packaging, browser archives, symbol packages and checksums. Tags create GitHub releases and publish NuGet packages using OIDC Trusted Publishing from the protected `nuget` environment. **Manual runs are dry runs:** they build/upload artifacts without creating releases or publishing packages. [Release contract](docs/RELEASES.md)
+The package audit rejects missing/mixed pairs, incorrect versions or repository commits, mismatched internal dependencies, absent framework payloads and incomplete metadata. It records SHA-256 digests and checks archive CRCs without executing assemblies. The script accepts `--version`, `--directory` and `--output` for independent artifact checks. It is not a substitute for build/runtime tests or proof of NuGet publication.
 
-CI uses Chromium/SwiftShader, not physical GPUs or certified pen hardware. CPU microbenchmarks, memory capacity and work counters are scoped evidence, not universal speed or leak-free claims. Signing/notarization, installers and automatic updates remain unconfigured.
+Release retains six-RID self-contained single-file packaging, browser archives, symbols and checksums. Tags create GitHub releases and publish packages using OIDC Trusted Publishing from the protected `nuget` environment. **Manual runs are dry runs:** they only build/upload artifacts. No release tag or publication is implied by a source commit. [Release contract](docs/RELEASES.md)
+
+CI uses Chromium/SwiftShader, not physical GPUs or certified pen hardware. CPU microbenchmarks, memory capacity and counters are scoped evidence, not universal speed or leak-free claims. Signing/notarization, installers and automatic updates remain unconfigured.
 
 ## Compatibility and data safety
 
-Catalog schema **5** preserves optics/geometry alongside masks and curves. Schemas 1–4 migrate with neutral missing fields; native XMP version 5 accepts 3–4. Recovery manifest format 1 and IndexedDB 2 are unchanged. The 0.6 reference/settings and 0.7 Survey increments add no persisted schema fields. Older builds reject unsupported processing schemas rather than silently discarding corrections. Keep pre-upgrade portable backups for older-version interoperability.
+Catalog schema **6** preserves virtual-copy identity and shared source families. Versions 1–5 migrate as original-only records. Native XMP settings stay at 5 and accept 3–4; the sidecar records processing, not family identity. Recovery manifest 1 and IndexedDB 2 are unchanged. Older builds reject schema 6. Keep a pre-upgrade portable backup and reload the app; do not delete site data.
 
-Safety ceilings are 64 MiB per source, 100 megapixels decoded and 256 MiB of encoded originals per catalog. Output is 8-bit sRGB, capped at 8192 pixels, without embedded source EXIF/IPTC. Recovery is local/unencrypted and does not merge tabs or automatically remove orphan sources. Keep original source files and portable backups.
+Safety ceilings are 64 MiB per source, 100 megapixels decoded, 256 MiB of catalog source bytes and 5,000 photo records including virtual copies. Output is 8-bit sRGB, capped at 8192 pixels, without embedded source EXIF/IPTC. Recovery is local/unencrypted and does not merge tabs or automatically remove orphan sources. Keep original files and portable backups.
 
-RAW/DNG/HEIF/TIFF, AI tools, calibrated camera/lens profiles, automatic Upright, HDR/panorama, native-resolution tiling, durable indexed catalogs, virtual copies, printing/proofing and cloud workflows remain unimplemented. The interface is Lightroom-inspired, not full pixel-identical parity. [Complete feature ledger](docs/FEATURE-COVERAGE.md)
+RAW/DNG/HEIF/TIFF, AI tools, calibrated profiles, automatic Upright, continuous crop aspect locking, HDR/panorama, native-resolution tiling, durable indexed catalogs, copy-to-master promotion/stacks, printing/proofing and cloud workflows remain unimplemented. The interface is Lightroom-inspired, not full pixel-identical parity. [Complete feature ledger](docs/FEATURE-COVERAGE.md)
 
 ## Documentation and license
 
-[Guide](docs/GETTING-STARTED.md) · [Survey](docs/SURVEY.md) · [Reference/settings](docs/REFERENCE-AND-SYNC.md) · [Optics/geometry](docs/OPTICS-GEOMETRY.md) · [Advanced editing/XMP](docs/ADVANCED-EDITING.md) · [Architecture](docs/ARCHITECTURE.md) · [Performance](docs/PERFORMANCE.md) · [Recovery](docs/RECOVERY.md) · [Slider hotfix](docs/WASM-SLIDER-FIX.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Third-party notices](THIRD-PARTY-NOTICES.md)
+[Guide](docs/GETTING-STARTED.md) · [Virtual copies](docs/VIRTUAL-COPIES.md) · [Survey](docs/SURVEY.md) · [Reference/settings](docs/REFERENCE-AND-SYNC.md) · [Optics/geometry](docs/OPTICS-GEOMETRY.md) · [Advanced editing/XMP](docs/ADVANCED-EDITING.md) · [Architecture](docs/ARCHITECTURE.md) · [Performance](docs/PERFORMANCE.md) · [Recovery](docs/RECOVERY.md) · [Slider hotfix](docs/WASM-SLIDER-FIX.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Third-party notices](THIRD-PARTY-NOTICES.md)
 
-Source is [MIT licensed](LICENSE). Dependencies, the OFL font and optional Unsplash photographs retain their own licenses; photos are not MIT-relicensed. Adobe and Lightroom are comparative workflow references and trademarks of their owners. No affiliation, endorsement or proprietary catalog compatibility is claimed.
+Source is [MIT licensed](LICENSE). Dependencies, the OFL font and optional Unsplash photographs retain their licenses; photos are not MIT-relicensed. Adobe and Lightroom are comparative workflow references and trademarks of their owners. No affiliation, endorsement or proprietary catalog compatibility is claimed.

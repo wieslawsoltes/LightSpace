@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+      - name: Test package audit safeguards
+        run: python3 -m unittest discover -s tests/scripts -v
       - run: dotnet run --project tests/LightSpace.Engine.Tests -c Release
       - uses: actions/upload-artifact@v7
         if: always()
@@ -76,6 +78,14 @@ jobs:
             case "$project" in */LightSpace.App/*) continue;; esac
             dotnet pack "$project" -c Release -o artifacts/packages
           done
+      - name: Verify all package and symbol provenance
+        run: python3 scripts/validate-packages.py --commit "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: LightSpace-package-validation
+          path: artifacts/package-validation.json
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v7
         if: always()
         with:
