@@ -124,8 +124,13 @@ public sealed partial class EditorSession
             throw new InvalidOperationException("Only existing virtual copies may be removed. Original photographs are protected.");
         if (photos.Length == 0) return;
         CommitGesture("Adjustment"); var before = SelectionState.Capture(this);
-        var active = ids.Contains(before.Active) ? photos.FirstOrDefault(p => p.Photo.Id == before.Active)!.Photo.MasterPhotoId!.Value : before.Active;
-        var selected = before.Selected.Where(id => !ids.Contains(id)).ToArray();
+        // Keep the displayed active photo inside the surviving selection. Falling
+        // back to an unselected master would leave toolbar edits targeting a
+        // hidden selected sibling instead of the photo shown in Detail.
+        var selected = Catalog.Photos.Where(p => Selection.Contains(p.Id) && !ids.Contains(p.Id)).Select(p => p.Id).ToArray();
+        var active = before.Active;
+        if (ids.Contains(active))
+            active = selected.Length > 0 ? selected[0] : photos.First(p => p.Photo.Id == before.Active).Photo.MasterPhotoId!.Value;
         var after = new SelectionState(active, selected.Length > 0 ? selected : [active]);
         var change = new VirtualCopyEdit(false, photos, [], before, after);
         change.Apply(this, true); Push(new("Remove virtual copies", [], change)); Notify();

@@ -20,6 +20,7 @@ SharedSourceLifetimeTests.Register(Test);
 SurveyTests.Register(Test);
 VirtualCopyTests.Register(Test);
 VirtualCopyQueryTests.Register(Test);
+VirtualCopySelectionTests.Register(Test);
 foreach (var legacy in Enumerable.Range(1, CatalogDocument.CurrentSchemaVersion - 1))
 {
     Test($"Schema {legacy} migrates with neutral brush and channel settings", () =>
