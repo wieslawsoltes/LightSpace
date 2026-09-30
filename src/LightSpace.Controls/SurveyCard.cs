@@ -41,7 +41,8 @@ public sealed class SurveyCard : UserControl
             </ControlTemplate>
             """);
         _pending = Theme.Text("Preparing preview…", 10, true);
-        _hit = new PhotoTarget(this) { Template = _hitTemplate, Content = _pending, BorderThickness = new(2), Padding = new(0), MinWidth = 0, MinHeight = 0 };
+        _hit = new PhotoTarget(this) { Template = _hitTemplate, Content = _pending, BorderThickness = new(2), Padding = new(0), MinWidth = 0, MinHeight = 0,
+            HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch };
         _hit.Click += (_, _) => Activated?.Invoke(_photo.Id);
         _hit.DoubleTapped += (_, e) => { OpenRequested?.Invoke(_photo.Id); e.Handled = true; };
         _hit.PointerEntered += (_, _) => { _hover = true; Border(); };
@@ -54,12 +55,12 @@ public sealed class SurveyCard : UserControl
         for (var i = 0; i < 4; i++) actions.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
         _rating = new("Cycle rating", text: "0★", action: () => RatingRequested?.Invoke(_photo.Id));
         _pick = new("Pick this photo", Glyph.Flag, action: () => FlagRequested?.Invoke(_photo.Id, PhotoFlag.Pick));
-        _reject = new("Reject this photo", Glyph.Reject, action: () => FlagRequested?.Invoke(_photo.Id, PhotoFlag.Reject));
+        _reject = new("Reject this photo", Glyph.RejectFlag, action: () => FlagRequested?.Invoke(_photo.Id, PhotoFlag.Reject));
         _exclude = new("Exclude from survey, not from catalog", Glyph.Close, action: () => ExcludeRequested?.Invoke(_photo.Id));
         LightButton[] buttons = [_rating, _pick, _reject, _exclude];
         for (var i = 0; i < buttons.Length; i++)
         {
-            var button = buttons[i]; button.MinWidth = 0; button.MinHeight = 0; button.Padding = new(1, 0, 1, 0);
+            var button = buttons[i]; button.HorizontalAlignment = HorizontalAlignment.Stretch; button.VerticalAlignment = VerticalAlignment.Stretch; button.MinWidth = 0; button.MinHeight = 0; button.Padding = new(1, 0, 1, 0);
             Grid.SetColumn(button, i); actions.Children.Add(button);
         }
         Grid.SetRow(actions, 2); _root.Children.Add(actions); Content = _root; Update(photo, false);

@@ -1,6 +1,6 @@
 namespace LightSpace.Controls;
 
-public enum Glyph { None, Menu, Grid, Photo, Edit, Crop, Mask, Clone, Presets, Info, Folder, Add, Import, Export, Undo, Redo, Search, Star, Flag, Reject, Check, Chevron, Close, Compare, Rotate, Flip, Help, Cloud, History, Zoom, Trash, Link }
+public enum Glyph { None, Menu, Grid, Photo, Edit, Crop, Mask, Clone, Presets, Info, Folder, Add, Import, Export, Undo, Redo, Search, Star, Flag, Reject, Check, Chevron, Close, Compare, Rotate, Flip, Help, Cloud, History, Zoom, Trash, Link, RejectFlag }
 public sealed class IconView : SKCanvasElement
 {
     private SKColor _color = SKColor.Parse("#c4c4c4");
@@ -33,6 +33,7 @@ public sealed class IconView : SKCanvasElement
             case Glyph.Search: case Glyph.Zoom: canvas.DrawCircle(10,10,6,p);Line(15,15,21,21);break;
             case Glyph.Star: using(var star=new SKPath()){for(var i=0;i<10;i++){var r=i%2==0?9:4;var a=-Math.PI/2+i*Math.PI/5;var x=12+(float)Math.Cos(a)*r;var y=12+(float)Math.Sin(a)*r;if(i==0)star.MoveTo(x,y);else star.LineTo(x,y);}star.Close();canvas.DrawPath(star,p);}break;
             case Glyph.Flag: Path(6,21,6,3,18,3,15,8,18,12,6,12);break;
+            case Glyph.RejectFlag: Path(6,21,6,3,18,3,15,8,18,12,6,12);Line(3,2,21,17);break;
             case Glyph.Reject: case Glyph.Close: Line(6,6,18,18);Line(18,6,6,18);break;
             case Glyph.Check: Path(4,12,9,17,20,6);break;
             case Glyph.Chevron: Path(8,5,15,12,8,19);break;

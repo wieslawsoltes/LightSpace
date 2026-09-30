@@ -27,6 +27,8 @@ test('survey culls independently, retains source records, and restores excluded 
     await page.waitForTimeout(250);
     return page.screenshot({ clip: { x: b.x + b.width / 4, y: b.y + b.height / 4, width: b.width / 2, height: b.height / 2 } });
   }
+  const hit = await stableBox(page, 'survey-photo-0');
+  expect(hit.width).toBeGreaterThan(100); expect(hit.height).toBeGreaterThan(80);
   const edited = await photoPixels();
   await click(page, 'Survey original');
   expect((await photoPixels()).equals(edited)).toBe(false);
@@ -90,6 +92,7 @@ test('survey pages twelve previews without dropping candidates and survives resi
   const host = await stableBox(page, 'survey-canvas');
   for (let i = 0; i < 12; i++) {
     const b = await stableBox(page, 'survey-photo-' + i);
+    expect(b.width).toBeGreaterThan(100); expect(b.height).toBeGreaterThan(60);
     expect(b.x).toBeGreaterThanOrEqual(host.x); expect(b.x + b.width).toBeLessThanOrEqual(host.x + host.width + 1);
     expect(b.y + b.height).toBeLessThanOrEqual(host.y + host.height + 1);
   }
