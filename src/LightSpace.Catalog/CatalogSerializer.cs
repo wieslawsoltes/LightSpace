@@ -11,7 +11,7 @@ public static class CatalogSerializer
     {
         if (document.SchemaVersion != CatalogDocument.CurrentSchemaVersion)
             throw new InvalidDataException("Normalize legacy catalogs through Deserialize before saving new processing settings.");
-        return JsonSerializer.Serialize(document, CatalogJsonContext.Default.CatalogDocument);
+        return JsonSerializer.Serialize(VirtualCopyCatalog.PortableSnapshot(document), CatalogJsonContext.Default.CatalogDocument);
     }
     public static CatalogDocument Deserialize(string json)
     {
@@ -29,13 +29,14 @@ public static class CatalogSerializer
         {
             if (photo is null || !ids.Add(photo.Id)) throw new InvalidDataException("Missing or duplicate photo identity.");
             if (photo.Original is null || photo.Original.Length > MaxFileBytes) throw new InvalidDataException("Invalid photo source.");
-            bytes += photo.Original.Length;
+            if (!photo.IsVirtualCopy) bytes += photo.Original.Length;
             if (bytes > MaxCatalogBytes || photo.Width <= 0 || photo.Height <= 0 || (long)photo.Width * photo.Height > 100_000_000)
                 throw new InvalidDataException("Catalog exceeds image safety limits.");
             photo.Name = string.IsNullOrWhiteSpace(photo.Name) ? "Untitled" : photo.Name;
             photo.State = (photo.State ?? new()).Normalize();
             photo.Versions = (photo.Versions ?? []).Where(v => v?.State is not null).Take(100).Select(v => v with { State = v.State.Normalize() }).ToList();
         }
+        VirtualCopyCatalog.ValidateRelationships(result, hydrateSources: true);
         var albums = new HashSet<Guid>();
         foreach (var album in result.Albums)
         {
@@ -43,8 +44,8 @@ public static class CatalogSerializer
             album.Name ??= "Album"; album.Photos = (album.Photos ?? []).Where(ids.Contains).Distinct().ToList();
         }
         if (!ids.Contains(result.ActivePhoto)) result.ActivePhoto = result.Photos.FirstOrDefault()?.Id ?? Guid.Empty;
-        // Missing schema-1/2 curve and brush fields have neutral defaults. New saves
-        // use schema 3, preventing older applications from silently dropping edits.
+        // Legacy catalogs have no virtual-copy relations. New saves use schema 6
+        // so older readers cannot silently discard copy identity/source sharing.
         result.SchemaVersion = CatalogDocument.CurrentSchemaVersion;
         return result;
     }

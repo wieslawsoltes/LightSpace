@@ -37,10 +37,13 @@ public sealed class RecoveryManifest
                 || source.Length is < 1 or > CatalogSerializer.MaxFileBytes)
                 throw new InvalidDataException("Invalid recovery source reference.");
             if (lengths.TryGetValue(source.Key, out var length) && length != source.Length) throw new InvalidDataException("Conflicting source lengths.");
-            lengths[source.Key] = source.Length; bytes += source.Length;
+            if (lengths.TryAdd(source.Key, source.Length)) bytes += source.Length;
             if (bytes > CatalogSerializer.MaxCatalogBytes) throw new InvalidDataException("Recovery originals exceed 256 MiB.");
         }
         CatalogSerializer.Validate(manifest.Catalog);
+        foreach (var photo in manifest.Catalog.Photos)
+            if (photo.MasterPhotoId is Guid master && manifest.Sources[photo.Id] != manifest.Sources[master])
+                throw new InvalidDataException("Virtual-copy recovery source does not match its original.");
         return manifest;
     }
 }

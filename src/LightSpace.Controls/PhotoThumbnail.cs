@@ -29,6 +29,11 @@ public sealed class ThumbnailCache : IDisposable
         surface.Canvas.Clear(SKColors.Transparent); _renderer.Draw(surface.Canvas, photo, SKRect.Create(width, height));
         var image = surface.Snapshot(); _renders++; _cache[photo.Id] = new(photo.Original, photo.State, image, ++_clock); return image;
     }
+    public void ReleasePhoto(Guid id)
+    {
+        if (_cache.Remove(id, out var entry)) entry.Image.Dispose();
+        _renderer.ReleasePhoto(id);
+    }
     public void Clear() { foreach (var entry in _cache.Values) entry.Image.Dispose(); _cache.Clear(); _renderer.Clear(); }
     public void Dispose() { Clear(); _renderer.Dispose(); }
 }

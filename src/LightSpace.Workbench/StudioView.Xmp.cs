@@ -74,7 +74,7 @@ public sealed partial class StudioView
         ShowDialog("Export XMP sidecar", panel, "Save XMP", async () =>
         {
             if (result is null) throw new InvalidDataException("The sidecar could not be created. Export a catalog backup instead.");
-            await _storage.SaveAsync(SafeName(photo.Name) + ".xmp", Encoding.UTF8.GetBytes(result.Xml), "application/rdf+xml");
+            await _storage.SaveAsync(ExportStem(photo) + ".xmp", Encoding.UTF8.GetBytes(result.Xml), "application/rdf+xml");
             SetStatus("XMP sidecar exported. Original image unchanged.");
         });
         return Task.CompletedTask;

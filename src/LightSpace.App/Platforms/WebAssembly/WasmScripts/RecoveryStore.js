@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const MAX_SOURCE = 64 * 1024 * 1024, MAX_TOTAL = 256 * 1024 * 1024;
-  const MAX_CATALOG_SCHEMA = 5;
+  const MAX_CATALOG_SCHEMA = 6;
   const validKey = key => typeof key === 'string' && /^[a-f0-9]{64}$/.test(key);
   const validId = id => typeof id === 'string' && /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id);
   const stats = { commits: 0, blobWrites: 0, blobBytes: 0, blobReads: 0, referencesChecked: 0, manifestBytes: 0, durability: 'unrequested' };
@@ -55,9 +55,30 @@
           || !Number.isInteger(photo.Width) || !Number.isInteger(photo.Height) || photo.Width < 1 || photo.Height < 1 || photo.Width * photo.Height > 100000000)
         throw new Error('Invalid recovery source reference.');
       if (lengths.has(source.Key) && lengths.get(source.Key) !== source.Length) throw new Error('Conflicting recovery source lengths.');
+      if (!lengths.has(source.Key)) total += source.Length;
       lengths.set(source.Key, source.Length);
-      total += source.Length; if (total > MAX_TOTAL) throw new Error('Recovery originals exceed 256 MiB.');
+      if (total > MAX_TOTAL) throw new Error('Recovery originals exceed 256 MiB.');
       keys.add(source.Key);
+    }
+    const photos = new Map(value.Catalog.Photos.map(photo => [photo.Id.toLowerCase(), photo]));
+    const names = new Map();
+    for (const photo of value.Catalog.Photos) {
+      if (photo.MasterPhotoId == null) {
+        if (photo.CopyName) throw new Error('An original cannot have a virtual-copy name.');
+        continue;
+      }
+      const master = validId(photo.MasterPhotoId) ? photos.get(photo.MasterPhotoId.toLowerCase()) : null;
+      if (value.Catalog.SchemaVersion < 6 || !master || master.MasterPhotoId != null || master === photo ||
+          master.Width !== photo.Width || master.Height !== photo.Height ||
+          value.Sources[master.Id].Key !== value.Sources[photo.Id].Key || value.Sources[master.Id].Length !== value.Sources[photo.Id].Length)
+        throw new Error('Invalid virtual-copy recovery family.');
+      const name = photo.CopyName;
+      if (typeof name !== 'string' || name.length < 1 || name.length > 100 || name !== name.trim() || /[\u0000-\u001f\u007f-\u009f]/.test(name))
+        throw new Error('Invalid virtual-copy name.');
+      // C# performs the authoritative OrdinalIgnoreCase uniqueness check on restore.
+      if (!names.has(master.Id)) names.set(master.Id, new Set());
+      const family = names.get(master.Id); const folded = name;
+      if (family.has(folded)) throw new Error('Duplicate virtual-copy name.'); family.add(folded);
     }
     return { value, keys, lengths, manifestBytes };
   }
@@ -132,6 +153,7 @@
     if (manifest === undefined) return (await read('workspace', 'catalog')) || '';
     const { value } = parseManifest(manifest); const cache = new Map();
     for (const photo of value.Catalog.Photos) {
+      if (photo.MasterPhotoId != null) { photo.Original = ''; continue; }
       const source = value.Sources[photo.Id];
       if (!cache.has(source.Key)) cache.set(source.Key, await readBlob(source.Key));
       photo.Original = cache.get(source.Key); if (!photo.Original) throw new Error('Recovery source is missing.');

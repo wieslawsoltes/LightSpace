@@ -15,6 +15,6 @@ test('unreadable recovery is preserved until replacement is explicitly confirmed
   await click(page, 'Save recovery now'); await click(page, 'Replace recovery');
   await expect.poll(async () => (await state(page)).recovery.state).toBe('Saved');
   const recovery = await page.evaluate(async () => JSON.parse(await globalThis.lightSpaceFiles.load()));
-  expect(recovery.SchemaVersion).toBe(5);
+  expect(recovery.SchemaVersion).toBe(6);
   expect(recovery.Photos.find(photo => photo.Id === recovery.ActivePhoto).State.Rating).toBe(1);
 });

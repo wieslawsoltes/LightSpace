@@ -1,12 +1,16 @@
 using LightSpace.Core;
 namespace LightSpace.Catalog;
 
+public enum PhotoKindFilter { All, Originals, VirtualCopies }
 public enum PhotoSort { ImportOrder, Name, Rating, RecentlyEdited }
 public sealed record PhotoQuery(string Text = "", int MinimumRating = 0, PhotoFlag? Flag = null, Guid? Album = null, PhotoSort Sort = PhotoSort.ImportOrder)
 {
+    public PhotoKindFilter Kind { get; init; }
     public IReadOnlyList<PhotoDocument> Execute(CatalogDocument catalog)
     {
         IEnumerable<PhotoDocument> photos = catalog.Photos;
+        if (Kind == PhotoKindFilter.Originals) photos = photos.Where(p => !p.IsVirtualCopy);
+        else if (Kind == PhotoKindFilter.VirtualCopies) photos = photos.Where(p => p.IsVirtualCopy);
         if (Album is Guid id)
         {
             var ids = catalog.Albums.FirstOrDefault(a => a.Id == id)?.Photos.ToHashSet() ?? [];
@@ -14,7 +18,7 @@ public sealed record PhotoQuery(string Text = "", int MinimumRating = 0, PhotoFl
         }
         var tokens = Text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         photos = photos.Where(p => p.State.Rating >= MinimumRating && (Flag is null || p.State.Flag == Flag) && tokens.All(t =>
-            p.Name.Contains(t, StringComparison.OrdinalIgnoreCase) || p.State.Caption.Contains(t, StringComparison.OrdinalIgnoreCase) ||
+            p.Name.Contains(t, StringComparison.OrdinalIgnoreCase) || (p.CopyName ?? "").Contains(t, StringComparison.OrdinalIgnoreCase) || p.State.Caption.Contains(t, StringComparison.OrdinalIgnoreCase) ||
             p.State.Keywords.Any(k => k.Contains(t, StringComparison.OrdinalIgnoreCase))));
         return (Sort switch
         {

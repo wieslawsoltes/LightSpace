@@ -61,6 +61,18 @@ public sealed class PhotoDocument
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "Untitled";
+    public Guid? MasterPhotoId { get; set; }
+    public string CopyName { get; set; } = "";
+    [System.Text.Json.Serialization.JsonIgnore] public bool IsVirtualCopy => MasterPhotoId.HasValue;
+    [System.Text.Json.Serialization.JsonIgnore] public string DisplayName => IsVirtualCopy ? $"{Name} · {CopyName}" : Name;
+    /// <summary>Copies the record and version list; immutable original/state arrays remain shared.</summary>
+    public PhotoDocument CopyRecord() => new()
+    {
+        Id = Id, Name = Name, MasterPhotoId = MasterPhotoId, CopyName = CopyName,
+        Original = Original, Width = Width, Height = Height, ImportedAt = ImportedAt,
+        Camera = Camera, Lens = Lens, ExposureInfo = ExposureInfo, State = State,
+        Versions = [.. Versions], Revision = Revision
+    };
     public byte[] Original { get; set; } = [];
     public int Width { get; set; }
     public int Height { get; set; }
@@ -81,7 +93,7 @@ public sealed class Album
 }
 public sealed class CatalogDocument
 {
-    public const int CurrentSchemaVersion = 5;
+    public const int CurrentSchemaVersion = 6;
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public Guid ActivePhoto { get; set; }
     public List<PhotoDocument> Photos { get; set; } = [];

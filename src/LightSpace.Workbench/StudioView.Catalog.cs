@@ -4,6 +4,7 @@ public sealed partial class StudioView
 {
     private void RefreshCatalog()
     {
+        TrackCatalogRecords();
         _visible = _query.Execute(Session.Catalog); _page = Math.Clamp(_page, 0, Math.Max(0, (_visible.Count - 1) / PageSize));
         var page = _visible.Skip(_page * PageSize).Take(PageSize).ToArray(); var ids = page.Select(p => p.Id).ToArray();
         if (!_tileIds.AsSpan().SequenceEqual(ids))
@@ -19,6 +20,7 @@ public sealed partial class StudioView
         for (var i = 0; i < page.Length; i++) { var selected = Session.Selection.Contains(page[i].Id); _filmCards[i].Update(page[i], selected); _gridCards[i].Update(page[i], selected); }
         _count.Text = $"{_visible.Count} photos · {Session.Selection.Count} selected";
         _title.Text = _query.Album is Guid id ? Session.Catalog.Albums.FirstOrDefault(a => a.Id == id)?.Name ?? "Album" : _query.Flag is PhotoFlag.Pick ? "Picks" : _query.Flag is PhotoFlag.Reject ? "Rejected" : _query.MinimumRating > 0 ? "Favorites" : "All photos";
+        if (_query.Kind != PhotoKindFilter.All) _title.Text = _query.Kind == PhotoKindFilter.Originals ? "Originals" : "Virtual copies";
         if (_visible.Count > PageSize) _title.Text += $"  /  {_page + 1} of {(_visible.Count + PageSize - 1) / PageSize}";
         BuildLibrary(); PublishDiagnostics();
     }
@@ -39,7 +41,7 @@ public sealed partial class StudioView
     }
     private void BuildLibrary()
     {
-        var signature = _query.Album + ":" + _query.Flag + ":" + _query.MinimumRating + "|" + string.Join("|", Session.Catalog.Albums.Select(a => a.Id + ":" + a.Name));
+        var signature = _query.Kind + ":" + _query.Album + ":" + _query.Flag + ":" + _query.MinimumRating + "|" + string.Join("|", Session.Catalog.Albums.Select(a => a.Id + ":" + a.Name));
         if (_librarySignature == signature) return; _librarySignature = signature; _libraryBuilds++;
         _library.Children.Clear(); _library.Padding = new(10, 12, 10, 12);
         var import = Button("Import photos", Glyph.Add, "Add photos", () => Run(ImportAsync)); import.HorizontalAlignment = HorizontalAlignment.Stretch; import.HorizontalContentAlignment = HorizontalAlignment.Left; import.Margin = new(0, 0, 0, 20); _library.Children.Add(import);
@@ -48,6 +50,8 @@ public sealed partial class StudioView
             var b = Button(name, glyph, name, () => { _query = query with { Text = _search.Text }; _page = 0; RefreshCatalog(); SetGrid(true); });
             b.HorizontalAlignment = HorizontalAlignment.Stretch; b.HorizontalContentAlignment = HorizontalAlignment.Left; b.Margin = new(0, 2, 0, 2); _library.Children.Add(b);
         }
+        Filter("Originals", Glyph.Photo, new() { Kind = PhotoKindFilter.Originals });
+        Filter("Virtual copies", Glyph.Photo, new() { Kind = PhotoKindFilter.VirtualCopies });
         Filter("All photos", Glyph.Photo, new()); Filter("Favorites", Glyph.Star, new(MinimumRating: 4)); Filter("Picks", Glyph.Flag, new(Flag: PhotoFlag.Pick)); Filter("Rejected", Glyph.Reject, new(Flag: PhotoFlag.Reject));
         var divider = Theme.Divider(); divider.Margin = new(0, 20, 0, 14); _library.Children.Add(divider);
         var heading = new Grid { ColumnDefinitions = { new() { Width = new(1, GridUnitType.Star) }, new() { Width = GridLength.Auto } } };

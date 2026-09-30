@@ -75,7 +75,7 @@ test('manual optics and projective geometry edit, export, undo and restore corre
   const pending = page.waitForEvent('download'); await click(page, 'Save catalog');
   const download = await pending; const path = 'artifacts/browser-exports/corrected.lightspace'; await download.saveAs(path);
   const catalog = JSON.parse(await readFile(path, 'utf8')); const active = catalog.Photos.find(p => p.Id === catalog.ActivePhoto);
-  expect(catalog.SchemaVersion).toBe(5); expect(active.State.Geometry.Rotate).toBe(13.5); expect(active.State.Optics.Distortion).toBe(50);
+  expect(catalog.SchemaVersion).toBe(6); expect(active.State.Geometry.Rotate).toBe(13.5); expect(active.State.Optics.Distortion).toBe(50);
   await saved(page); await boot(page);
   expect((await photo(page)).geometry).toEqual(expected.geometry); expect((await photo(page)).optics).toEqual(expected.optics);
 });

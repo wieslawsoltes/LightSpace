@@ -15,7 +15,7 @@ public sealed class ReferencePhotoSnapshot
         SourcePhotoId = source.Id;
         Photo = new PhotoDocument
         {
-            Name = source.Name, Original = source.Original, Width = source.Width, Height = source.Height,
+            Name = source.DisplayName, Original = source.Original, Width = source.Width, Height = source.Height,
             ImportedAt = source.ImportedAt, State = source.State.Normalize(),
             Camera = source.Camera, Lens = source.Lens, ExposureInfo = source.ExposureInfo
         };

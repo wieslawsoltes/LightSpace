@@ -18,6 +18,8 @@ PhotographyTests.Register(Test);
 ComparisonTransferTests.Register(Test);
 SharedSourceLifetimeTests.Register(Test);
 SurveyTests.Register(Test);
+VirtualCopyTests.Register(Test);
+VirtualCopyQueryTests.Register(Test);
 foreach (var legacy in Enumerable.Range(1, CatalogDocument.CurrentSchemaVersion - 1))
 {
     Test($"Schema {legacy} migrates with neutral brush and channel settings", () =>
@@ -28,7 +30,7 @@ foreach (var legacy in Enumerable.Range(1, CatalogDocument.CurrentSchemaVersion 
         Fixtures.Check(migrated.SchemaVersion == CatalogDocument.CurrentSchemaVersion && migrated.Photos[0].State.Develop.Channels.IsIdentity && migrated.Photos[0].State.Masks.Length == 0);
     });
 }
-foreach (var (name, action) in RecoveryTests.Cases.Concat(IncrementalRecoveryTests.Cases))
+foreach (var (name, action) in RecoveryTests.Cases.Concat(IncrementalRecoveryTests.Cases).Concat(VirtualCopyTests.AsyncCases))
 {
     try { await action(); passed++; Console.WriteLine($"PASS {name}"); results.Add(new { name, passed = true, error = "" }); }
     catch (Exception error) { failed++; Console.WriteLine($"FAIL {name}: {error}"); results.Add(new { name, passed = false, error = error.Message }); }
