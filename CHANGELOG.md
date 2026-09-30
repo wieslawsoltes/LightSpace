@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0-alpha.1
+
+Added paged multi-photo Survey culling with aspect-aware layouts, per-photo rating/flag controls, keyboard navigation, reversible view-only exclusions, rejected-photo hiding and return to Detail. Catalog multi-selection is preserved while metadata actions target one candidate with normal undo and recovery. No source or catalog deletion occurs through exclusion.
+
+Survey renders directly through one Uno/Skia surface, with a separate twelve-photo 1024px preview cache. One candidate is prepared per dispatcher tick; this amortizes synchronous owner-thread work rather than claiming GPU/background decoding. Metadata changes retain cards, layout and processing caches. Leaving Survey releases its source references and decoded/brush/curve caches.
+
+Added reusable layout/selection/culling/preparation APIs and engine/browser regressions for paging, geometry bounds, exclusion safety, single-target metadata, undo, cache reuse, resize and recovery. The original slider-crash checks remain enabled. Catalog schema 5, native XMP 5, recovery manifest 1 and IndexedDB 2 are unchanged. See docs/SURVEY.md.
+
 ## 0.6.0-alpha.1
 
 Added a session-local frozen reference beside the active photograph, with side-by-side/stacked layouts, linked or independent fit-relative navigation, pin/fit/close controls, and selective application of the pinned look. The reference does not create a catalog photo or recovery revision. Both panes render through the existing composed Skia pipeline; matching immutable source arrays share one decoded image while retaining independent per-photo shaders.

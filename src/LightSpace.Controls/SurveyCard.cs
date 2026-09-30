@@ -5,6 +5,14 @@ namespace LightSpace.Controls;
 /// <summary>Native Uno focus/input/accessibility chrome over a shared Skia photo surface.</summary>
 public sealed class SurveyCard : UserControl
 {
+    private sealed class PhotoTarget(SurveyCard owner) : Button
+    {
+        protected override void OnKeyDown(KeyRoutedEventArgs e)
+        {
+            if (e.Key == VirtualKey.Enter) { owner.OpenRequested?.Invoke(owner._photo.Id); e.Handled = true; }
+            else base.OnKeyDown(e);
+        }
+    }
     private static ControlTemplate? _hitTemplate;
     private readonly Button _hit;
     private readonly TextBlock _name, _pending;
@@ -33,7 +41,7 @@ public sealed class SurveyCard : UserControl
             </ControlTemplate>
             """);
         _pending = Theme.Text("Preparing preview…", 10, true);
-        _hit = new Button { Template = _hitTemplate, Content = _pending, BorderThickness = new(2), Padding = new(0), MinWidth = 0, MinHeight = 0 };
+        _hit = new PhotoTarget(this) { Template = _hitTemplate, Content = _pending, BorderThickness = new(2), Padding = new(0), MinWidth = 0, MinHeight = 0 };
         _hit.Click += (_, _) => Activated?.Invoke(_photo.Id);
         _hit.DoubleTapped += (_, e) => { OpenRequested?.Invoke(_photo.Id); e.Handled = true; };
         _hit.PointerEntered += (_, _) => { _hover = true; Border(); };

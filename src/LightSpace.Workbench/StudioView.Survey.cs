@@ -69,7 +69,7 @@ public sealed partial class StudioView
     private void ExitSurvey()
     {
         if (!_surveyMode) return;
-        _surveyMode = false; _surveyRoot!.Visibility = Visibility.Collapsed; _surveyView!.SetActive(false);
+        _surveyMode = false; _surveyRoot!.Visibility = Visibility.Collapsed; _surveyView!.SetActive(false); _surveyView.SetPhotos([], Guid.Empty);
         _survey.Open([]); _surveyPhotos.Clear(); _surveyCatalog = null;
         if (_detailHost is not null) _detailHost.Visibility = Visibility.Visible;
         _displayedPhoto = Guid.Empty; Resize(); RefreshLive();
@@ -121,9 +121,13 @@ public sealed partial class StudioView
             case VirtualKey.PageUp: _survey.MovePage(-1); break;
             case VirtualKey.PageDown: _survey.MovePage(1); break;
             case VirtualKey.Delete: case VirtualKey.Back: _survey.Exclude(_survey.ActiveId); break;
+            case VirtualKey.Z: if (_survey.ActiveId != Guid.Empty) { OpenSurveyPhoto(_survey.ActiveId); Viewport.ToggleZoom(); } break;
+            case VirtualKey.Y: if (_survey.ActiveId != Guid.Empty) { OpenSurveyPhoto(_survey.ActiveId); Viewport.Compare = true; Viewport.Invalidate(); } break;
             case VirtualKey.Enter: if (_survey.ActiveId != Guid.Empty) OpenSurveyPhoto(_survey.ActiveId); break;
             case VirtualKey.Escape: SetGrid(false); break;
-            default: return false;
+            default:
+                if ((int)key == 220 && _surveyView is not null) { _surveyView.Before = !_surveyView.Before; return true; }
+                return false;
         }
         return true;
     }

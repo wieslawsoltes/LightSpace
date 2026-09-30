@@ -59,3 +59,12 @@ Diagnostic registrations are weak. Brush coordinate arrays are omitted, and norm
 Decode, image encoding, first-use source hashing, manifest serialization, brush texture preparation and some native resource creation remain synchronous. Recovery startup loads referenced originals; it does not page them on demand. Display sources are not tiled. Source-pixel zoom describes geometry but cannot reveal information missing from a bounded preview.
 
 The next large architectural steps are tiled native-resolution source/render storage, asynchronous decode/export scheduling, source compaction/paging, GPU analysis reductions and measured multi-pass tradeoffs on real devices. None is represented as complete by these work-avoidance tests. See [feature boundaries](FEATURE-COVERAGE.md) and [optical/geometry semantics](OPTICS-GEOMETRY.md).
+
+
+## Survey preparation and twelve-source cache
+
+[Survey](SURVEY.md) uses one Skia surface and a separate twelve-photo, 1024px preview renderer. Its 48 MiB decoded-source budget accommodates all twelve maximum-size previews without cycling through a smaller source cache. One candidate is prepared per dispatcher tick; this is amortized synchronous owner-thread work, not background or GPU decoding. A complex codec can still exceed a frame budget. Common immutable sources share decoding within the survey renderer; detail and thumbnail renderers remain separate.
+
+Metadata changes reuse existing cards, layout, decodes and shaders. Page changes release departed render identities. Closing Survey releases its candidate controls and clears decoded/curve/brush caches. Source buffers, codec scratch space, independent caches, brush geometry and GPU allocations are excluded from the decoded budget.
+
+The engine report `artifacts/engine/survey-performance.json` checks 240 warm 96x64 raster draws across twelve sources. Browser `artifacts/browser-exports/survey-performance.json` records counters for real culling input and verifies metadata does not cause pixel work. Neither report is a hardware-GPU frame-rate benchmark.
