@@ -121,7 +121,13 @@ test('crop tools retain correct interaction and compact layout on a resized work
   const start = bounds(await crop(page)); const revision = (await state(page)).revision;
   const handle = await stableBox(page, 'crop-right'); await page.mouse.move(handle.x + 7, handle.y + 7); await page.mouse.down();
   await page.mouse.move(handle.x - 30, handle.y + 7, { steps: 5 });
-  await page.setViewportSize({ width: 1024, height: 800 }); await page.mouse.up();
+  // Browser viewport emulation is not an acknowledgement that Uno processed
+  // the root/layout notification. Observe the app's cancellation while capture
+  // is still held, then release; do not race release against deferred layout.
+  await expect.poll(async () => (await state(page)).recovery.hasActiveGesture).toBe(true);
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await expect.poll(async () => (await state(page)).recovery.hasActiveGesture).toBe(false);
+  await stableBox(page, 'canvas'); await page.mouse.up();
   await expect.poll(async () => bounds(await crop(page))).toEqual(start);
   expect((await state(page)).revision).toBe(revision);
   await shot(page, 'crop-compact');

@@ -38,7 +38,8 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     public event Action? ViewChanged;
     public event Action<string>? Status;
     private bool IsMaskTool => Tool is PhotoTool.RadialMask or PhotoTool.LinearMask or PhotoTool.Brush or PhotoTool.ColorRange;
-    private CropSettings DisplayCrop => Uncropped ? new() : _session.Active?.State.Crop ?? new();
+    private static readonly CropSettings FullCrop = new();
+    private CropSettings DisplayCrop => Uncropped ? FullCrop : _session.Active?.State.Crop ?? FullCrop;
     public PhotoViewport(EditorSession session, PhotoRenderer renderer)
     {
         _session = session; _renderer = renderer; _surface = new(this); Content = _surface;
@@ -83,8 +84,7 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
         canvas.Clear(SKColor.Parse("#171717")); var photo = _session.Active; if (photo is null) return;
         try
         {
-            var available = SKRect.Create(26, 24, Math.Max(1, (float)area.Width - 52), Math.Max(1, (float)area.Height - 48));
-            _imageRect = PhotoTransform.Fit(DisplayCrop, photo.Width, photo.Height, available, Zoom, PanX, PanY);
+            _imageRect = ImageFrame(photo, area);
             using var paint = new SKPaint { IsAntialias = true, Color = new SKColor(0, 0, 0, 130) };
             canvas.DrawRect(new(_imageRect.Left - 1, _imageRect.Top - 1, _imageRect.Right + 2, _imageRect.Bottom + 3), paint);
             _renderer.Draw(canvas, photo, _imageRect, Before, Uncropped, IsMaskTool && ShowMaskCoverage ? ActiveMask : -1, Clipping);
@@ -157,7 +157,12 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     }
     private void Release(object sender, PointerRoutedEventArgs e)
     {
-        if (!_dragging || HasCropGesture && e.Pointer.PointerId != _cropPointer) return; Move(sender, e); _dragging = false; _surface.ReleasePointerCapture(e.Pointer);
+        if (!_dragging || HasCropGesture && e.Pointer.PointerId != _cropPointer) return;
+        Move(sender, e);
+        // Move may cancel after a layout/root/source change. Never commit a
+        // gesture after it has been invalidated and rolled back.
+        if (!_dragging) { e.Handled = true; return; }
+        _dragging = false; StopCropTracking(); _surface.ReleasePointerCapture(e.Pointer);
         if (Tool != PhotoTool.Edit) _session.CommitGesture(Tool == PhotoTool.Straighten ? "Straighten horizon" : Tool == PhotoTool.Brush ? (_brushStart?.Erase == true ? "Erase brush stroke" : "Paint brush stroke") : Tool == PhotoTool.Crop ? "Crop" : _maskAction is null ? "Create gradient mask" : "Transform mask");
         _strokeBuilder = null; _brushStart = null; _startState = null; _cropGesture = null; _dragComparison = false; _straightenStart = _straightenEnd = null;
         if (Tool == PhotoTool.Straighten) SetTool(PhotoTool.Crop);
@@ -165,7 +170,9 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
     }
     private void Cancel()
     {
-        if (!_dragging) return; _dragging = false; _surface.ReleasePointerCaptures(); _session.CancelGesture(); _startState = null; _cropGesture = null; _dragComparison = false;
+        if (!_dragging) return;
+        _dragging = false; StopCropTracking(); _cropGesture = null;
+        _surface.ReleasePointerCaptures(); _session.CancelGesture(); _startState = null; _dragComparison = false;
         _strokeBuilder = null; _brushStart = null; _straightenStart = _straightenEnd = null;
         ActiveMask = Math.Clamp(ActiveMask, -1, (_session.Active?.State.Masks.Length ?? 0) - 1); Invalidate();
     }
@@ -186,5 +193,5 @@ public sealed partial class PhotoViewport : UserControl, IDisposable
         PanX = Math.Clamp(PanX, -Math.Max(0, (aw + w * scale) / 2 - 32), Math.Max(0, (aw + w * scale) / 2 - 32));
         PanY = Math.Clamp(PanY, -Math.Max(0, (ah + h * scale) / 2 - 32), Math.Max(0, (ah + h * scale) / 2 - 32));
     }
-    public new void Dispose() { _session.ViewChanged -= Invalidate; }
+    public new void Dispose() { Cancel(); StopCropTracking(); _session.ViewChanged -= Invalidate; }
 }

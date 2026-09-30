@@ -87,7 +87,9 @@ public sealed partial class PhotoViewport
     }
     private void PressCrop(PointerRoutedEventArgs e)
     {
-        if (_dragging || _session.Active is not { } photo || _imageRect.Width <= 0 || _imageRect.Height <= 0) return;
+        if (_dragging || _session.Active is not { } photo || XamlRoot is null || _surface.ActualWidth <= 0 || _surface.ActualHeight <= 0) return;
+        // Input may follow layout before the compositor paints the next frame.
+        _imageRect = ImageFrame(photo, new(_surface.ActualWidth, _surface.ActualHeight));
         var pointer = e.GetCurrentPoint(_surface); var point = pointer.Position;
         if (!pointer.Properties.IsLeftButtonPressed) return;
         Focus(FocusState.Pointer); e.Handled = true;
@@ -108,12 +110,14 @@ public sealed partial class PhotoViewport
         if (!_surface.CapturePointer(e.Pointer)) return;
         _cropPointer = e.Pointer.PointerId; _cropPhoto = photo.Id; _cropPress = point; _cropInteractionFrame = _imageRect;
         _cropGesture = new(photo.State.Crop, _cropHandle, frame, photo.Width, photo.Height, locked, centered);
-        _startState = photo.State; _dragging = true; Focus(FocusState.Pointer); _session.BeginGesture(); e.Handled = true;
+        _startState = photo.State; _dragging = true; Focus(FocusState.Pointer);
+        StartCropTracking(); _session.BeginGesture(); e.Handled = true;
     }
     private void MoveCrop(PointerRoutedEventArgs e)
     {
         if (!_dragging || _cropGesture is not { } gesture || e.Pointer.PointerId != _cropPointer) return;
-        if (_session.Active is not { } photo || photo.Id != _cropPhoto) { Cancel(); return; }
+        if (!CropFrameIsCurrent()) { Cancel(); e.Handled = true; return; }
+        var photo = _session.Active!;
         var p = e.GetCurrentPoint(_surface).Position;
         if (_cropHandle == CropHandle.Create && Math.Abs(p.X - _cropPress.X) + Math.Abs(p.Y - _cropPress.Y) < 5) return;
         var frame = new PointD((p.X - _cropInteractionFrame.Left) / _cropInteractionFrame.Width, (p.Y - _cropInteractionFrame.Top) / _cropInteractionFrame.Height);

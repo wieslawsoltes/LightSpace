@@ -45,6 +45,7 @@ public sealed partial class StudioView
     private bool CropKeyboard(VirtualKey key, bool shift)
     {
         if (Viewport.Tool != PhotoTool.Crop) return false;
+        if (key == VirtualKey.A) { Viewport.CropAspectLocked = !Viewport.CropAspectLocked; return true; }
         if (key == VirtualKey.O) { if (shift) Viewport.ReverseCropGuide(); else Viewport.CycleCropGuide(); return true; }
         if (Viewport.HasCropGesture) return key is VirtualKey.X or VirtualKey.Enter or VirtualKey.Left or VirtualKey.Right or VirtualKey.Up or VirtualKey.Down;
         switch (key)
