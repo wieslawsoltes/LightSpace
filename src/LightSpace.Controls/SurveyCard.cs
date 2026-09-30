@@ -48,7 +48,7 @@ public sealed class SurveyCard : UserControl
         _hit.PointerEntered += (_, _) => { _hover = true; Border(); };
         _hit.PointerExited += (_, _) => { _hover = false; Border(); };
         _hit.GotFocus += (_, _) => Border(); _hit.LostFocus += (_, _) => Border();
-        _name = Theme.Text(photo.Name, 10, true); _name.Margin = new(4, 0, 4, 0);
+        _name = Theme.Text(photo.DisplayName, 10, true); _name.Margin = new(4, 0, 4, 0);
         _root = new Grid { RowDefinitions = { new() { Height = new(1, GridUnitType.Star) }, new() { Height = new(21) }, new() { Height = new(27) } } };
         _root.Children.Add(_hit); Grid.SetRow(_name, 1); _root.Children.Add(_name);
         var actions = new Grid { ColumnSpacing = 1 };
@@ -68,12 +68,12 @@ public sealed class SurveyCard : UserControl
     public void Update(PhotoDocument photo, bool active)
     {
         _photo = photo; _active = active;
-        if (_name.Text != photo.Name) _name.Text = photo.Name;
+        if (_name.Text != photo.DisplayName) _name.Text = photo.DisplayName;
         var rating = photo.State.Rating + "★";
         if (_rating.Text != rating) _rating.Text = rating;
         _pick.Selected = photo.State.Flag == PhotoFlag.Pick; _reject.Selected = photo.State.Flag == PhotoFlag.Reject;
-        AutomationProperties.SetName(_hit, $"{photo.Name}, {photo.State.Rating} stars, {photo.State.Flag}");
-        ToolTipService.SetToolTip(_name, photo.Name); Border();
+        AutomationProperties.SetName(_hit, $"{photo.DisplayName}, {photo.State.Rating} stars, {photo.State.Flag}");
+        ToolTipService.SetToolTip(_name, photo.DisplayName); Border();
     }
     public void SetReady(bool ready, bool failed = false)
     {
@@ -82,7 +82,6 @@ public sealed class SurveyCard : UserControl
     }
     public void SetFooter(double availableHeight)
     {
-        // Extremely small hosts retain photo activation. Normal survey pages get both rows.
         _root.RowDefinitions[1].Height = new(Math.Min(21, availableHeight * 21 / 48));
         _root.RowDefinitions[2].Height = new(Math.Min(27, availableHeight * 27 / 48));
     }

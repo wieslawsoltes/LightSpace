@@ -22,6 +22,7 @@ public sealed partial class StudioView
                 case VirtualKey.A: Session.Selection.UnionWith(_visible.Select(p => p.Id)); RefreshCatalog(); break;
                 case VirtualKey.C: if (shift) ShowSettingsDialog(false); else CopyAllSettings(); break;
                 case VirtualKey.V: PasteSelectedSettings(); break;
+                case (VirtualKey)222: CreateCopies(); break;
                 default: handled = false; break;
             }
         }

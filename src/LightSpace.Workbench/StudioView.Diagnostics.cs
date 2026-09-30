@@ -39,7 +39,7 @@ public sealed partial class StudioView
             list.ToArray(), _recovery.Status, p?.State.Develop.Grading ?? new(), summaries, Viewport.ComparisonPosition,
             new(_renderer.Statistics, _thumbnails.Statistics, _thumbnails.Renders, _cardBuilds, _libraryBuilds, _inspectorBuilds),
             p?.State.Develop.Channels ?? new(), brush, _renderer.BrushStatistics, _renderer.CurveLookupBuilds, p?.State.Caption ?? "", p?.State.Keywords ?? [],
-            _persistence?.Statistics, _renderer.SourceSamplePixels, Photography(p), ReferenceInfo()) { Survey = SurveyInfo() });
+            _persistence?.Statistics, _renderer.SourceSamplePixels, Photography(p), ReferenceInfo()) { Survey = SurveyInfo(), Copies = CopiesInfo() });
     }
     private void AdvancedKeyboard(object sender, KeyRoutedEventArgs e)
     {

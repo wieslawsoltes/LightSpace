@@ -10,7 +10,7 @@ public sealed partial class StudioView
         var files = await _storage.OpenImagesAsync();
         if (files.Count == 0) return;
         var imported = 0; var errors = new List<string>();
-        var total = Session.Catalog.Photos.Sum(p => (long)p.Original.Length);
+        var total = VirtualCopyCatalog.SourceBytes(Session.Catalog);
         foreach (var file in files)
         {
             try
@@ -88,14 +88,14 @@ public sealed partial class StudioView
                     foreach (var photo in Session.Catalog.Photos.Where(p => Session.Selection.Contains(p.Id)))
                     {
                         var bytes = _renderer.Export(photo, encoded, (int)quality.Value, limit);
-                        var entry = zip.CreateEntry($"{++index:000}-{SafeName(photo.Name)}.{extension}", CompressionLevel.NoCompression);
+                        var entry = zip.CreateEntry($"{++index:000}-{ExportStem(photo)}.{extension}", CompressionLevel.NoCompression);
                         using var output = entry.Open(); output.Write(bytes);
                     }
                 }
                 await _storage.SaveAsync("LightSpace-export.zip", stream.ToArray(), "application/zip");
             }
             else if (Session.Active is { } photo)
-                await _storage.SaveAsync(SafeName(photo.Name) + "-edited." + extension,
+                await _storage.SaveAsync(ExportStem(photo) + "-edited." + extension,
                     _renderer.Export(photo, encoded, (int)quality.Value, limit), mime);
             SetStatus("Export complete. Original retained in the catalog.");
         });

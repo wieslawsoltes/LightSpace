@@ -18,6 +18,7 @@ public static class VirtualCopyCatalog
             if (photo.MasterPhotoId is not Guid id)
             {
                 if (!string.IsNullOrEmpty(photo.CopyName)) throw new InvalidDataException("An original cannot have a virtual-copy name.");
+                if (hydrateSources) photo.CopyName = "";
                 continue;
             }
             if (catalog.SchemaVersion < 6 || id == photo.Id || !photos.TryGetValue(id, out var master) || master.IsVirtualCopy)

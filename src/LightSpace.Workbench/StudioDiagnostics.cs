@@ -11,4 +11,5 @@ public sealed record StudioDiagnostics(string ActivePhoto, string View, string T
     RecoveryPersistenceStatistics? Persistence, long SourceSamplePixels, PhotographyDiagnostics Photography, ReferenceDiagnostics Reference)
 {
     public SurveyDiagnostics? Survey { get; init; }
+    public VirtualCopyDiagnostics? Copies { get; init; }
 }

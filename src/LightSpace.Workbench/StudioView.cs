@@ -131,7 +131,7 @@ public sealed partial class StudioView : UserControl, IDisposable
     private string MaskStructure() => Session.Active is { } p ? string.Join("|", p.State.Masks.Select(m => m.Id + ":" + m.Name)) : "";
     private void Committed()
     {
-        RefreshCatalog(); RefreshLive(); if (_inspectorMode == "History" || _inspectorMode == "Masks" && _maskStructure != MaskStructure()) BuildInspector();
+        RefreshCatalog(); RefreshLive(); if (_inspectorMode is "History" or "Virtual copies" || _inspectorMode == "Masks" && _maskStructure != MaskStructure()) BuildInspector();
         _saveTimer.Stop(); _saveTimer.Start();
     }
     private void RefreshAll() { RefreshCatalog(); BuildInspector(); RefreshLive(); }

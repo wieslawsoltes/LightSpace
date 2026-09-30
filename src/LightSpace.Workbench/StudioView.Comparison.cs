@@ -95,7 +95,7 @@ public sealed partial class StudioView
         if (!ReferenceEquals(_referenceCatalog, Session.Catalog)) { CloseReference(); return; }
         if (_referenceTitle is not null)
         {
-            var title = $"REFERENCE: {_referenceSnapshot?.Photo.Name}   /   ACTIVE: {Session.Active?.Name}";
+            var title = $"REFERENCE: {_referenceSnapshot?.Photo.DisplayName}   /   ACTIVE: {Session.Active?.DisplayName}";
             if (_referenceTitle.Text != title) _referenceTitle.Text = title;
         }
     }
@@ -109,7 +109,7 @@ public sealed partial class StudioView
         PublishDiagnostics();
     }
     private ReferenceDiagnostics ReferenceInfo() => new(_referenceOpen, _referenceStacked, _referenceLinked,
-        _referenceSnapshot?.SourcePhotoId, _referenceSnapshot?.Photo.Name, _referenceSnapshot?.Photo.State.Develop.Exposure,
+        _referenceSnapshot?.SourcePhotoId, _referenceSnapshot?.Photo.DisplayName, _referenceSnapshot?.Photo.State.Develop.Exposure,
         Viewport.Navigation, _referenceView?.Navigation ?? PhotoNavigationState.Fit, _referenceView?.RenderCount ?? 0);
     private void DisposeReference()
     {

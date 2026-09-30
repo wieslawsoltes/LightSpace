@@ -9,6 +9,7 @@ public sealed partial class StudioView
         top.Children.Add(Button("Add photos", Glyph.Add, null, () => Run(ImportAsync)));
         top.Children.Add(Button("Grid view", Glyph.Grid, null, () => SetGrid(true)));
         top.Children.Add(Button("Detail view", Glyph.Photo, null, () => SetGrid(false)));
+        top.Children.Add(Button("Manage virtual copies", Glyph.Photo, null, OpenVirtualCopies));
         top.Children.Add(Button("Survey view", Glyph.Grid, null, OpenSurvey));
         top.Children.Add(Button("Reference view", Glyph.Compare, null, ToggleReference));
         top.Children.Add(Button("Copy settings", Glyph.Edit, null, () => ShowSettingsDialog(false)));
@@ -34,7 +35,7 @@ public sealed partial class StudioView
         _centerLayout = center;
         var breadcrumb = new Grid { Padding = new(18, 0, 14, 0), Background = Theme.Brush("#1c1c1c"), ColumnDefinitions = { new() { Width = new(1, GridUnitType.Star) }, new() { Width = GridLength.Auto } } }; breadcrumb.Children.Add(_title);
         var pages = Row(); pages.Spacing = 2;
-        pages.Children.Add(Button("Toggle filmstrip", Glyph.Photo, null, ToggleFilmstrip)); pages.Children.Add(Button("Focus mode", Glyph.Compare, null, ToggleFocusMode));
+        pages.Children.Add(Button("Toggle filmstrip", Glyph.Photo, null, ToggleFilmstrip)); pages.Children.Add(Button("Focus mode", Glyph.Compare, null, () => ToggleFocusMode()));
         pages.Children.Add(Button("Previous page", text: "‹", action: () => { if (_page > 0) { _page--; RefreshCatalog(); } }));
         pages.Children.Add(Button("Next page", text: "›", action: () => { if ((_page + 1) * PageSize < _visible.Count) { _page++; RefreshCatalog(); } })); Grid.SetColumn(pages, 1); breadcrumb.Children.Add(pages); center.Children.Add(breadcrumb);
         var photo = CreateReferenceLayout(); photo.Children.Add(_gridScroll); InitializeSurvey(photo); Grid.SetRow(photo, 1); center.Children.Add(photo);

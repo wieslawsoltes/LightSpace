@@ -68,7 +68,7 @@ test('legacy portable recovery migrates on the next commit without losing origin
   await page.evaluate(value => globalThis.lightSpaceFiles.save(value), JSON.stringify(old));
   await boot(page); expect((await state(page)).rating).toBe(2);
   await click(page, 'Rate 4'); await click(page, 'Save recovery now'); await saved(page);
-  const newManifest = await manifest(page); expect(newManifest.Catalog.SchemaVersion).toBe(5);
+  const newManifest = await manifest(page); expect(newManifest.Catalog.SchemaVersion).toBe(6);
   const hydrated = await page.evaluate(async () => JSON.parse(await globalThis.lightSpaceFiles.load()));
   expect(hydrated.Photos.map(p => p.Original)).toEqual(old.Photos.map(p => p.Original));
   expect(hydrated.Photos[0].State.Rating).toBe(4);

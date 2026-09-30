@@ -28,6 +28,7 @@ public sealed partial class StudioView
                 case "Presets": BuildPresets(); return;
                 case "History": BuildHistory(photo); return;
                 case "Info": BuildInfo(photo); return;
+                case "Virtual copies": BuildVirtualCopies(photo); return;
                 case "Crop": BuildCrop(photo); return;
                 case "Masks": BuildMasks(photo); return;
                 case "Clone": BuildClone(photo); return;
@@ -115,7 +116,7 @@ public sealed partial class StudioView
     private void BuildInfo(PhotoDocument photo)
     {
         var info = new StackPanel { Spacing = 12, Margin = new(18, 0, 18, 18) };
-        var filename = Theme.Text(photo.Name, 14); filename.TextWrapping = TextWrapping.Wrap; info.Children.Add(filename);
+        var filename = Theme.Text(photo.DisplayName, 14); filename.TextWrapping = TextWrapping.Wrap; info.Children.Add(filename);
         info.Children.Add(Theme.Text($"{photo.Width:N0} × {photo.Height:N0} pixels", 12, true)); info.Children.Add(Theme.Text($"{photo.Original.Length / 1048576d:0.0} MiB · source retained", 11, true));
         var sidecars = Row(); sidecars.Spacing = 4;
         sidecars.Children.Add(Button("Import XMP", Glyph.Import, "Import XMP", () => Run(ImportXmpAsync)));
