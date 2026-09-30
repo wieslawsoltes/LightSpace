@@ -25,14 +25,15 @@ public sealed class RecoveryPersistence(IRecoveryStore store)
     public CommittedCatalogSnapshot Capture(EditorSession session)
     {
         var catalog = session.CopyCommittedCatalog();
+        VirtualCopyCatalog.ValidateRelationships(catalog);
         var manifest = new RecoveryManifest { Revision = session.Revision, Catalog = catalog };
         var blobs = new Dictionary<string, RecoveryBlob>(StringComparer.Ordinal); long bytes = 0;
         foreach (var photo in catalog.Photos)
         {
-            bytes += photo.Original.Length;
-            if (bytes > CatalogSerializer.MaxCatalogBytes) throw new InvalidDataException("Recovery originals exceed 256 MiB.");
             var key = Identify(photo.Original); manifest.Sources.Add(photo.Id, new(key, photo.Original.Length));
-            blobs.TryAdd(key, new(key, photo.Original)); photo.Original = [];
+            if (blobs.TryAdd(key, new(key, photo.Original))) bytes += photo.Original.Length;
+            if (bytes > CatalogSerializer.MaxCatalogBytes) throw new InvalidDataException("Recovery originals exceed 256 MiB.");
+            photo.Original = [];
         }
         var json = manifest.Serialize();
         return new(session.Revision, json, new(json, blobs.Keys.ToArray(), blobs.Values.ToArray()));
@@ -49,7 +50,7 @@ public sealed class RecoveryPersistence(IRecoveryStore store)
             _commits++; _blobWrites += missing.Length; _blobBytes += missing.Sum(blob => (long)blob.Bytes.Length);
             _manifestBytes += Encoding.UTF8.GetByteCount(batch.Manifest);
         }
-        catch { _persisted.Clear(); throw; } // A retry restages originals after quota/eviction/missing-key failures.
+        catch { _persisted.Clear(); throw; }
     }
     public async Task<CatalogDocument?> RestoreAsync()
     {

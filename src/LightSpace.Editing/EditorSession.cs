@@ -5,7 +5,7 @@ namespace LightSpace.Editing;
 public sealed partial class EditorSession
 {
     private sealed record Change(Guid Id, PhotoState Before, PhotoState After);
-    private sealed record Transaction(string Name, Change[] Changes);
+    private sealed record Transaction(string Name, Change[] Changes, VirtualCopyEdit? Copies = null, CopyNameEdit? CopyName = null);
     private readonly List<Transaction> _undo = [];
     private readonly Stack<Transaction> _redo = [];
     private PhotoState? _gestureBefore;
@@ -96,14 +96,22 @@ public sealed partial class EditorSession
     public void Undo()
     {
         CancelGesture(); if (!CanUndo) return;
-        var t = _undo[^1]; _undo.RemoveAt(_undo.Count - 1); Apply(t, false); _redo.Push(t); Notify();
+        var t = _undo[^1]; Apply(t, false); _undo.RemoveAt(_undo.Count - 1); _redo.Push(t); Notify();
     }
     public void Redo()
     {
-        CancelGesture(); if (!_redo.TryPop(out var t)) return; Apply(t, true); _undo.Add(t); Notify();
+        CancelGesture(); if (!_redo.TryPeek(out var t)) return; Apply(t, true); _redo.Pop(); _undo.Add(t); Notify();
     }
     private void Apply(Transaction t, bool forward)
     {
+        if (t.Copies is not null) { t.Copies.Apply(this, forward); return; }
+        if (t.CopyName is { } rename)
+        {
+            var photo = Catalog.Photos.FirstOrDefault(p => p.Id == rename.Id)
+                ?? throw new InvalidOperationException("The virtual copy is no longer available.");
+            photo.CopyName = forward ? rename.After : rename.Before;
+            return;
+        }
         var targets = Catalog.Photos.ToDictionary(p => p.Id);
         foreach (var c in t.Changes) if (targets.TryGetValue(c.Id, out var p)) { p.State = forward ? c.After : c.Before; p.Revision++; }
     }
@@ -134,11 +142,11 @@ public sealed partial class EditorSession
     {
         SchemaVersion = Catalog.SchemaVersion, ActivePhoto = Catalog.ActivePhoto,
         Albums = Catalog.Albums.Select(album => new Album { Id = album.Id, Name = album.Name, Photos = [.. album.Photos] }).ToList(),
-        Photos = Catalog.Photos.Select(photo => new PhotoDocument
+        Photos = Catalog.Photos.Select(photo =>
         {
-            Id = photo.Id, Name = photo.Name, Original = photo.Original, Width = photo.Width, Height = photo.Height, ImportedAt = photo.ImportedAt,
-            Camera = photo.Camera, Lens = photo.Lens, ExposureInfo = photo.ExposureInfo,
-            State = _gestureBefore is not null && photo.Id == _gesturePhoto ? _gestureBefore : photo.State, Versions = [.. photo.Versions]
+            var copy = photo.CopyRecord();
+            if (_gestureBefore is not null && photo.Id == _gesturePhoto) copy.State = _gestureBefore;
+            return copy;
         }).ToList()
     };
     public void Notify() { Revision++; Changed?.Invoke(); ViewChanged?.Invoke(); }
