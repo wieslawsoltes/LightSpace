@@ -31,6 +31,7 @@ public sealed partial class StudioView
             }
         }
         var p = Session.Active;
+        var cropSize = p?.State.Crop.OutputSize(p.Width, p.Height) ?? (0, 0);
         var masks = p?.State.Masks ?? [];
         var summaries = masks.Select(m => m with { Strokes = [] }).ToArray();
         var brush = masks.Select(m => new BrushDiagnostic(m.Id, m.Strokes.Length, m.Strokes.Sum(s => s.Dabs.Length), m.Strokes.LastOrDefault()?.Erase ?? false)).ToArray();
@@ -39,7 +40,7 @@ public sealed partial class StudioView
             list.ToArray(), _recovery.Status, p?.State.Develop.Grading ?? new(), summaries, Viewport.ComparisonPosition,
             new(_renderer.Statistics, _thumbnails.Statistics, _thumbnails.Renders, _cardBuilds, _libraryBuilds, _inspectorBuilds),
             p?.State.Develop.Channels ?? new(), brush, _renderer.BrushStatistics, _renderer.CurveLookupBuilds, p?.State.Caption ?? "", p?.State.Keywords ?? [],
-            _persistence?.Statistics, _renderer.SourceSamplePixels, Photography(p), ReferenceInfo()) { Survey = SurveyInfo(), Copies = CopiesInfo() });
+            _persistence?.Statistics, _renderer.SourceSamplePixels, Photography(p), ReferenceInfo()) { Survey = SurveyInfo(), Copies = CopiesInfo(), CropTool = p is null ? null : new(p.State.Crop, Viewport.CropAspectLocked, Viewport.CropGuide, Viewport.CropGuideReversed, CropGeometry.OutputAspect(p.State.Crop, p.Width, p.Height), cropSize.Item1, cropSize.Item2) });
     }
     private void AdvancedKeyboard(object sender, KeyRoutedEventArgs e)
     {

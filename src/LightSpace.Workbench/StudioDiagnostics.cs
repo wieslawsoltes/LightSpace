@@ -10,6 +10,9 @@ public sealed record StudioDiagnostics(string ActivePhoto, string View, string T
     ChannelCurves Curves, BrushDiagnostic[] Brushes, BrushCacheStatistics BrushCache, long CurveLookupBuilds, string Caption, string[] Keywords,
     RecoveryPersistenceStatistics? Persistence, long SourceSamplePixels, PhotographyDiagnostics Photography, ReferenceDiagnostics Reference)
 {
+    public CropToolDiagnostics? CropTool { get; init; }
     public SurveyDiagnostics? Survey { get; init; }
     public VirtualCopyDiagnostics? Copies { get; init; }
 }
+
+public sealed record CropToolDiagnostics(CropSettings Bounds, bool Locked, CropGuide Guide, bool Reversed, double OutputAspect, int OutputWidth, int OutputHeight);

@@ -10,7 +10,7 @@ public sealed partial class StudioView
         try
         {
             _inspectorBuilds++; _inspector.Children.Clear(); _sliders.Clear(); _curve = null; _gradingEditor = null; _maskEditor = null; _mixerEditor = null;
-            _geometryEditor = null; _opticsEditor = null; _maskStructure = MaskStructure();
+            _geometryEditor = null; _opticsEditor = null; _cropAspectEditor = null; _maskStructure = MaskStructure();
             var heading = new Grid { Padding = new(18, 16, 12, 12), ColumnDefinitions = { new() { Width = new(1, GridUnitType.Star) }, new() { Width = GridLength.Auto } } };
             heading.Children.Add(Theme.Text(_inspectorMode == "History" ? "Versions" : _inspectorMode, 20));
             var actions = Row(); actions.Spacing = 0;

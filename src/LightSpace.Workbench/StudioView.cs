@@ -83,6 +83,7 @@ public sealed partial class StudioView : UserControl, IDisposable
         };
         _diagnosticsTimer.Tick += (_, _) => PublishDiagnostics();
         Loaded += (_, _) => { if (DiagnosticsChanged is not null) _diagnosticsTimer.Start(); Resize(); RefreshAll(); };
+        Viewport.CropToolChanged += RefreshCropTool;
         InitializePhotography(); RefreshAll(); RecoveryChanged(_recovery.Status); if (!recoveryLoaded) _saveTimer.Start();
     }
     private static StackPanel Row() => new() { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
@@ -149,7 +150,7 @@ public sealed partial class StudioView : UserControl, IDisposable
             if (_mixerEditor is not null) _mixerEditor.Value = photo.State.Develop.Mixer;
             if (_gradingEditor is not null) _gradingEditor.Value = photo.State.Develop.Grading;
             if (_maskEditor is not null && Viewport.ActiveMask >= 0 && Viewport.ActiveMask < photo.State.Masks.Length) _maskEditor.Value = photo.State.Masks[Viewport.ActiveMask];
-            RefreshPhotography(photo);
+            RefreshPhotography(photo); RefreshCropContext(photo);
             for (var i = 0; i < _ratingButtons.Count; i++) _ratingButtons[i].Selected = i < photo.State.Rating;
             if ((_histogramPhoto != photo.Id || _histogramState is null || !PhotoStateEquality.Pixels(_histogramState, photo.State)) && !_histogramTimer.IsEnabled) _histogramTimer.Start();
             RefreshToolButtons();
@@ -162,6 +163,7 @@ public sealed partial class StudioView : UserControl, IDisposable
     {
         if (_disposed) return; _disposed = true; _recovery.Dispose(); _diagnosticsTimer.Stop(); _saveTimer.Stop(); _histogramTimer.Stop();
         Session.Changed -= Committed; Session.ViewChanged -= RefreshLive; Viewport.ViewChanged -= ViewportChanged;
+        Viewport.CropToolChanged -= RefreshCropTool;
         DisposeSurvey(); DisposeReference(); Viewport.Dispose(); _thumbnails.Dispose(); _renderer.Dispose();
     }
 }
