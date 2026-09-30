@@ -9,6 +9,7 @@ public sealed partial class PhotoViewport
         var handles = new List<ViewportHandle>();
         if (Compare && Tool == PhotoTool.Edit) handles.Add(new("compare-divider", _imageRect.Left + _imageRect.Width * ComparisonPosition, _imageRect.MidY));
         var photo = _session.Active;
+        if (Tool == PhotoTool.Crop && photo is not null) { AddCropHandles(handles, photo.State.Crop); return handles; }
         if (!IsMaskTool || Tool == PhotoTool.Brush || !MaskOverlay || photo is null || ActiveMask < 0 || ActiveMask >= photo.State.Masks.Length) return handles;
         var m = photo.State.Masks[ActiveMask];
         if (Tool == PhotoTool.ColorRange) { AddColorHandles(handles, m); return handles; }

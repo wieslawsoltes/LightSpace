@@ -2,90 +2,77 @@
 
 ## Open and organize
 
-LightSpace restores valid local recovery or opens its demonstration catalog. Add photos imports JPEG, PNG, WebP, BMP or GIF sources without changing their original bytes. Camera RAW, DNG, HEIF and TIFF are not decoded.
+LightSpace restores valid local recovery or opens its demonstration catalog. Add photos imports JPEG, PNG, WebP, BMP or GIF without modifying originals. RAW, DNG, HEIF and TIFF are not decoded.
 
-Select a photograph in the grid or filmstrip; Control-click extends selection. Search matches filename, copy name, caption and keyword tokens. Favorites uses four stars or higher; Picks/Rejected filter flags. Albums reference photos instead of duplicating originals. Grid and filmstrip show pages of up to 60 photos. Originals and Virtual copies filters distinguish source records from alternative looks.
+Select in the grid or filmstrip; Control-click extends selection. Search matches filenames, copy names, captions and keywords. Favorites uses four stars or higher; Picks/Rejected filter flags. Albums reference records, not duplicated sources. Grid/filmstrip show sixty-photo pages. Originals and Virtual copies filters distinguish source records and alternatives.
 
-## Virtual copies
+## Virtual copies and culling
 
-Open **Manage virtual copies** on the right tool rail. Create virtual copy captures the active photograph's final look; Create for selection makes a copy for each selected photograph in one transaction. Each copy has independent processing and metadata while sharing the original source bytes. Creating from another copy captures that look but references the original directly.
+Manage virtual copies creates one alternative or copies for the selection. Each has independent processing/metadata, sharing immutable original bytes. A copy of a copy points to the original directly. Names are unique within a family; album membership is inherited, while named versions start empty. Confirmed removal affects only copy records and memberships, never original files; create/rename/remove are undoable. After removing the active copy, a surviving selected photo becomes active or its original is selected when none remains. [Family guide](VIRTUAL-COPIES.md)
 
-The family panel selects and renames alternatives, shows their original, and offers **Survey this original**. Copy names must be unique within the family. Copies inherit source album memberships; later edits remain independent. Named versions start empty on the new copy rather than being duplicated from its source.
+Survey or N compares the selection, falling back to filtered photos when fewer than two are selected. Twelve previews appear per page. Ratings and P/X/U apply only to the active candidate. Exclude or Delete removes it from the current survey, not the catalog. Restore excluded reverses that narrowing. Enter/double-click opens Detail. Survey and exclusions are session-local. [Survey](SURVEY.md)
 
-**Remove this copy…** requires confirmation and removes only the virtual-copy record and its album memberships. It does not delete an original catalog record, sibling copy or source file. Undo restores the same copy identity and appearance. Creation, rename and removal are undoable. A virtual copy persists in catalogs/recovery, unlike a session-local reference view. [Copy-family behavior and APIs](VIRTUAL-COPIES.md)
+## Develop and transfer
 
-## Survey and reference comparison
+Drag a slider or enter its value; double-click resets. Release commits one gesture and Escape cancels capture. RGB curves supports master/R/G/B, up to thirty-two points each, numeric/keyboard edits and smooth or linear interpolation. Grade opens four tonal/global wheels. Presets and detail/effect controls use original LightSpace processing, not calibrated Adobe algorithms. [Advanced editing](ADVANCED-EDITING.md) · [Color/masks](COLOR-AND-MASKS.md)
 
-Survey view or **N** compares the selected photographs; with fewer than two selected, it uses the filtered sequence and reports that choice. Up to twelve aspect-aware previews appear per page. Click a candidate, then use 0–5 or P/X/U to change only its rating/flag. The cross or Delete/Backspace excludes it from the survey, never from the catalog. Hide rejected and Restore excluded refine the group. Enter or double-click opens the candidate in Detail. Exclusions are session-local. [Survey guide](SURVEY.md)
+Copy settings/Sync offer thirteen processing groups. Global excludes geometry, crop, masks and clones. Source and targets are captured before review; one batch transaction retains target metadata and unselected edits. Ctrl/Cmd+C copies all processing, Ctrl/Cmd+Shift+C opens group selection, and Ctrl/Cmd+V pastes. Shift+R pins a session-local frozen reference with linked or independent navigation, side-by-side/stacked layouts and selective matching. [Reference/settings](REFERENCE-AND-SYNC.md)
 
-Reference view or **Shift+R** pins the current look beside active editing. Choose another filmstrip photograph or keep editing while the reference stays frozen. Pin again, fit both, switch side-by-side/stacked layouts, and link or separate navigation using the header. Linked pan/zoom is fit-relative, not automatic image registration. The reference clears when closed, the catalog changes, or the application reloads. [Reference workflow](REFERENCE-AND-SYNC.md)
+## Crop, ratios and composition guides
 
-## Develop and transfer settings
+Crop or R exposes presets, custom width/height inputs, lock, orientation swap and guides. Choosing a preset or applying a custom ratio enables locking. Ratios describe final output dimensions after quarter turns; X swaps width/height without rotating or rejecting the photograph. A toggles locking. Original restores full-frame bounds; Reset crop also resets geometry while retaining global development and optics.
 
-Edit supplies Light, Color, curves, mixer, grading, effects, detail, Optics and Geometry sections. Drag a slider or type its value. Double-click resets its default, release commits one gesture, and Escape cancels a captured gesture.
+Locked corner/edge drags retain the current ratio and opposite anchor. Shift temporarily locks an unlocked crop for one gesture. Alt/Option resizes around the center. Drag the interior to move; drag outside the crop to create a new rectangle. Policies are captured at pointer-down. Bounds remain inside the image with the existing approximately one-percent minimum extent. Arrow keys nudge one source pixel, or ten with Shift. Enter outside text inputs returns to Edit; Escape cancels a captured edit.
 
-RGB curves supports master/red/green/blue curves with up to 32 points, numeric values, keyboard editing and smooth or linear interpolation. Grade opens four tonal/global wheels. Brush/range masks, clone stamps and named versions retain non-destructive state. These are original LightSpace algorithms, not Adobe processing equivalence. [Advanced editing](ADVANCED-EDITING.md) · [Color and masks](COLOR-AND-MASKS.md)
+O cycles Thirds, Grid, Golden ratio, Diagonals, Triangle and None; Shift+O reverses Triangle. Inspector controls expose the same operations. Guides affect neither image processing nor exports. Lock/guide/custom-input state is session-local; the resulting numeric crop persists in catalogs, copies and recovery.
 
-Copy settings and Synchronize settings offer thirteen selectable processing groups. Global excludes geometry, crop, masks and clone spots. Copy captures the checked groups; Paste applies those groups to the current selection. Synchronize captures the source and other selected targets before review and commits one batch transaction. Target metadata and unselected processing stay intact. Ctrl/Cmd+C copies all processing immediately; Ctrl/Cmd+Shift+C opens group selection; Ctrl/Cmd+V pastes.
+Resize, display-scale or viewport-position changes invalidate a captured coordinate frame and cancel the uncommitted crop rather than reinterpret old coordinates. After layout settles, begin another drag. [Crop math, API and regression evidence](CROP-CONSTRAINTS.md)
 
-## Optics, geometry and crop
+## Optics, geometry and straightening
 
-Use Optics for manual distortion, lens falloff and red/cyan or blue/yellow radial alignment. These are original manual corrections, not an automatic lens-profile database. Geometry supplies vertical/horizontal perspective, Rotate, Aspect, Scale and X/Y offsets. Constrain crop conservatively enlarges the transformed image to fill the frame; it is not Adobe automatic/guided Upright or a maximum-area optimizer.
+Optics supplies manual distortion, lens falloff and radial red/cyan or blue/yellow alignment. Geometry provides perspective, Rotate, Aspect, Scale and offsets. Constrain crop conservatively enlarges the corrected image to fill its frame; it is not a maximum-area solver or automatic/guided Upright. Draw a horizon with Straighten to correct its angle; Escape restores the opening value. Source-coordinate masks/picking remain attached through corrections. [Geometry](OPTICS-GEOMETRY.md)
 
-Crop has handles, movement, centered ratio presets, quarter turns and flips. Straighten activates a horizon-line tool: drag along a horizon and release to correct its angle; Escape restores it. Done returns to Edit. Ratio presets are not continuously locked during later free dragging. Reset crop clears framing and geometry, not global development or optics.
+White balance or W samples a neutral source-preview patch for relative Temperature/Tint. Black/transparent samples are rejected; this is not RAW Kelvin calibration. Histogram regions adjust Blacks, Shadows, Exposure, Highlights or Whites. Corner triangles or J toggle display-only clipping, excluded from exports and histogram measurements.
 
-Masks and sampled colors remain in original-source coordinates. Drawing and picking use the optical/projective mappings so positions remain attached when the image is corrected. [Math and limits](OPTICS-GEOMETRY.md)
+## Masks and comparison
 
-## White balance, histogram and clipping
+Drag radial/linear gradients and their handles. Luminance restricts source brightness. Color range uses click to replace, Shift-click to add up to five samples and Alt-click or swatches to remove. Coverage shows selection in red without affecting exports.
 
-Press W or choose the White balance picker, then click a neutral patch. A small source-preview sample sets relative Temperature and Tint; black/transparent areas are rejected and model limits are reported. This is not camera Kelvin or RAW calibration.
+New brush creates a mask; Paint selected edits existing spatial coverage. Paint adds, Erase subtracts and Alt temporarily erases. Size, feather, flow, density and supplied pressure are captured per stroke. Brackets change size; Escape cancels. Brush coverage remains limited to a 1024-pixel long edge, including export. Physical pen hardware is not certified by CI. Clone supports thirty-two feathered source stamps, not healing or generative removal.
 
-Drag a histogram region—Blacks, Shadows, Exposure, Highlights or Whites—to adjust that tone. Release commits once; Escape cancels. Corner triangles toggle blue shadow/red highlight clipping independently; J toggles both. Indicators are excluded from histogram measurements, exports and catalog state. They describe LDR display thresholds, not RAW recoverability.
-
-## Workspace and zoom
-
-Drag library/edit-panel dividers to resize. Escape cancels, double-click/Home resets, and focused arrows make small changes. F6/Focus mode hides side panels and filmstrip; F7 toggles the filmstrip. Layout remains in the workbench session, not the catalog.
-
-Original/Before compares development while retaining optical/geometric framing. Drag the comparison divider without editing the photo. Fit resets navigation; 100% uses source-pixel geometry and display scale. The preview targets a 2560-pixel long edge, so large photographs do not gain native-resolution detail simply by zooming.
-
-## Masks and clone
-
-Drag radial/linear gradients and their handles. Luminance restricts source brightness; Color range uses click to replace, Shift-click to add up to five samples, and Alt-click or a swatch to remove. Coverage shows the selected mask in red and never enters exports.
-
-New brush creates a mask; Paint selected modifies existing spatial coverage. Paint adds, Erase subtracts, and Alt temporarily erases. Size, feather, flow, density and supplied pen pressure are captured per stroke. Brackets change size; Escape cancels. Coverage is capped at 1024 pixels even for export. Physical pen hardware is not certified by CI.
-
-Clone uses Alt-click for a source and click for destinations, with up to 32 feathered stamps. It is not healing or generative removal.
+Before/after retains optical/geometric alignment and has a draggable divider. Fit resets navigation; 100% uses source-pixel geometry with display scale. Editing previews target 2560 pixels; zoom does not restore omitted native-resolution detail. Resize side panels with grips. F6 toggles focus layout; F7 toggles the filmstrip. These are session-local view changes.
 
 ## XMP, export and recovery
 
-Photo information supplies Import/Export XMP. Review the applied/unsupported-field report before Apply. Metadata only leaves processing intact. The native extension round-trips the selected look's settings, not its virtual-copy family. Standard Camera Raw mapping remains a reported scalar/curve subset, not equivalent Adobe development. Unknown properties are not retained on re-export.
+Photo information offers reviewed XMP import/export. Metadata only leaves processing intact; the native extension round-trips the selected look's processing, not family relationships. Standard Camera Raw fields are a reported subset, not equivalent Adobe development. Unknown properties are not retained on re-export.
 
-Export produces JPEG/PNG/WebP with quality/size choices and an optional selected-photo ZIP. Copy exports include their name and short identity in the filename. Output is 8-bit sRGB with an 8192-pixel long-edge cap. Source EXIF/IPTC is not embedded. Geometry and optics are included; guides/overlays are excluded.
+Image export supports JPEG/PNG/WebP, quality/size and optional selection ZIP. Copy filenames include their name/identity. Output is 8-bit sRGB, at most 8192 pixels on the long edge, without source EXIF/IPTC embedding. Geometry/optics are included; overlays/guides are excluded.
 
-Save catalog exports a portable `.lightspace` file with originals, alternatives, processing, albums, metadata and versions. Each original's bytes are stored once per family; virtual-copy records reference it. Loading validates family relationships before restoring shared sources. Open catalog replaces the workspace: save a backup first.
+Save catalog exports originals, families, edits, albums, metadata and versions. Source bytes are stored once per family and relationships validated on load. Open catalog replaces the workspace; back it up first. Catalog schema 6 migrates 1–5; native XMP 5 accepts 3–4; recovery manifest 1 and IndexedDB 2 are unchanged. Older builds reject unsupported schemas. Keep pre-upgrade backups and reload without clearing site data.
 
-New catalog **schema 6** migrates versions 1–5. Native XMP settings remain **5** and accept versions 3–4. Recovery manifest **1** and IndexedDB **2** are unchanged. Older builds reject schema 6; keep pre-upgrade portable backups for older-version interoperability. **Do not clear site data to load the update.**
-
-The footer acknowledges only completed committed recovery revisions, not previews. Click to flush/retry. SHA-256 sources are stored separately from metadata; creating or renaming a copy can reuse its existing original blob. Missing/corrupt recovery stays protected until explicit replacement. Native recovery uses the application-data LightSpace directory. Stores are local, unencrypted, not cross-tab-merged and not automatically compacted. Keep original files and portable backups. [Recovery contract](RECOVERY.md)
+The footer acknowledges completed committed revisions, never previews. Click to flush/retry. Recovery uses SHA-256 originals and separate metadata. Missing/corrupt data stays protected until explicit replacement. Stores are local, unencrypted and do not merge tabs or clean orphan sources. Keep original files and portable backups. [Recovery contract](RECOVERY.md)
 
 ## Keyboard reference
 
 | Keys | Action |
 | --- | --- |
 | G / E or D | Grid / Edit |
-| N / Shift+R | Survey / frozen reference |
+| N / Shift+R | Survey / reference |
 | R / M / B | Crop / Masking / Brush |
-| W / J | White-balance picker / clipping indicators |
-| F6 / F7 | Focus workspace / filmstrip |
+| A / X in Crop | Lock / swap width and height |
+| O / Shift+O in Crop | Guide / reverse triangle |
+| Arrow / Shift+Arrow in Crop | Nudge by one / ten source pixels |
+| Enter in Crop | Apply custom input when focused there; otherwise return to Edit |
+| W / J | White balance / clipping |
+| F6 / F7 | Focus layout / filmstrip |
 | [ / ] | Brush size |
 | Z / Y / Backslash | Zoom / before-after / original |
-| 0–5 / P, X, U | Rating / pick, reject, clear flag |
-| Left / right | Photo or Survey navigation unless consumed by a focused editor |
-| Enter / Delete in Survey | Open Detail / exclude candidate without deleting its catalog record |
+| 0–5 / P, X, U | Rating / pick, reject, clear outside crop-specific shortcuts |
+| Enter / Delete in Survey | Detail / exclude without deletion |
 | Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z | Undo / redo |
-| Ctrl/Cmd+I / S / E | Import photos / catalog backup / export |
-| Ctrl/Cmd+A / C / V | Select filtered / copy all processing / paste captured settings |
-| Ctrl/Cmd+Shift+C | Select processing groups to copy |
+| Ctrl/Cmd+I / S / E | Import / catalog backup / export |
+| Ctrl/Cmd+A / C / V | Select filtered / copy all processing / paste captured groups |
+| Ctrl/Cmd+Shift+C | Select groups to copy |
 | Escape | Cancel active gesture or dialog |
 
-Text fields retain typing behavior. Focused editors and resize grips have their own keyboard actions. The in-app Help panel documents the same workflows and boundaries.
+Text fields retain ordinary typing and selection. Focused controls consume their own editing shortcuts. The in-app Help includes the same behavior and limitations.

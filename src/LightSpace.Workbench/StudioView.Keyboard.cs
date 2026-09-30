@@ -10,6 +10,7 @@ public sealed partial class StudioView
         var control = Down(VirtualKey.Control) || Down(VirtualKey.LeftWindows) || Down(VirtualKey.RightWindows);
         var shift = Down(VirtualKey.Shift); var handled = true;
         if (!control && SurveyKeyboard(e.Key)) { e.Handled = true; return; }
+        if (!control && CropKeyboard(e.Key, shift)) { e.Handled = true; return; }
         if (control)
         {
             switch (e.Key)

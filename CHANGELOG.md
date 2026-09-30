@@ -1,57 +1,51 @@
 # Changelog
 
+## 0.9.0-alpha.1
+
+Adds continuous locked/free crop resizing, output-aware preset/custom ratios, anchor-preserving corners/edges, centered Alt/Option resizing, temporary Shift locking, A lock toggle, X orientation swap and pixel nudges. CropGuides emits bounded Thirds/Grid/Golden ratio/Diagonals/Triangle/None segments into caller-owned storage; O cycles and Shift+O reverses Triangle. Guides do not affect processing or export.
+
+Crop gestures capture initial bounds, modifier policy, pointer, source and coordinate frame. Root metrics, display scale, visibility, surface size and root-relative movement invalidate capture. Listener ownership is bounded to the gesture; release cannot commit after cancellation. Input refreshes the frame from arranged dimensions instead of relying on a previous paint. Resize acceptance now waits for actual Uno cancellation before releasing the pointer; additional tests cover lock cancellation and focus-layout changes followed by a new valid drag.
+
+Crop-only changes reuse source/development/optical/curve caches. The warmed analytic benchmark checks 100,000 evaluations and guide writes with zero managed allocation in that loop. Full-frame crop state is shared rather than repeatedly allocated. Existing slider-crash, photography, copy, Survey, reference, sidecar and recovery tests remain enabled. Schema versions remain catalog 6, native XMP 5, manifest 1 and IndexedDB 2. Tool state is session-local. See docs/CROP-CONSTRAINTS.md for boundaries.
+
 ## 0.8.0-alpha.1
 
-Added persistent virtual copies rooted directly at their original, with independent processing/metadata, unique family names, reversible batch creation, copy-only removal, rename, album-order and selection preservation. Copy-of-copy creation resolves to the original root. Original/copy filters, a paged family manager, Survey comparison, copy labels and distinct export filenames complete the workflow.
+Added persistent virtual copies with direct roots, independent processing/metadata, family names, reversible creation/rename/copy-only removal, album-order and selection preservation. Original/copy filters, family manager, Survey, labels and distinct export names complete the workflow. Removal activates a selected survivor rather than displaying an unselected original.
 
-Portable catalog schema 6 stores each family's encoded source once. Loading validates master identities, dimensions, family-name uniqueness and source consistency before hydrating a common source array. Recovery validates family/source references and reuses existing SHA-256 blobs; warm copy renames do not rehash originals or rebuild pixel caches. Invalid cycles, missing roots, conflicting bytes and mixed original/copy removals fail before mutation. Native XMP settings remain version 5; recovery manifest and database versions remain 1/2.
-
-Reviewed and merged PR #15. Added release documentation and an automatic package/symbol provenance gate with twelve fault-injection tests. Existing API guides, SourceLink/symbol packaging, six-RID release and Trusted Publishing workflows are retained. Source/package creation is not a claim of NuGet.org publication. The shader-lifetime fix and all-slider stress remain enabled. Full Lightroom parity is not claimed.
+Portable schema 6 stores each family's encoded source once and validates roots, names, dimensions and consistency before hydration. Recovery reuses SHA-256 sources; warm copy metadata changes retain pixel caches and source hashes/blobs. Native XMP remains 5 and recovery 1/2. Added automatic eight-package/symbol audits with twelve fault-injection tests. No tag or feed publication is implied by source versioning.
 
 ## 0.7.0-alpha.1
 
-Added multi-photo Survey culling with twelve aspect-aware previews per page, single-candidate rating/flags, keyboard activation/navigation, reversible exclusions and rejected-photo hiding. Exclusion never deletes catalog records or source files. Survey uses a separate bounded renderer with a 1024-pixel target and 48 MiB decoded budget, prepares one candidate per dispatcher tick, retains cards/layout/pixel caches through metadata changes, and releases previews/source references when closed.
-
-Added layout/selection/targeted-edit, actual-pixel, warm cache, keyboard, compact-layout and recovery checks. Fixed Survey-to-Detail selection handoff so later metadata changes target the displayed photo. The existing crash regression remains enabled; no schema change was introduced.
+Added twelve-candidate paged Survey, aspect-aware layout, targeted ratings/flags, keyboard navigation, exclusions without catalog deletion and rejected-photo hiding. A separate 1024px/48 MiB renderer prepares one candidate per tick and releases resources on close. Metadata retains cards/layout/caches. Fixed Survey-to-Detail selection handoff. No schema change.
 
 ## 0.6.0-alpha.1
 
-Added a session-local frozen reference beside active editing, side-by-side/stacked layouts, linked/independent fit-relative navigation, pin/fit/close controls and selective reference matching. Matching immutable source arrays share a decoded image while retaining independent shaders. The reference adds no catalog record or recovery revision.
-
-Added thirteen processing groups for copy/paste/sync with captured source/target review and one staged undoable transaction. Metadata and unselected groups are retained. Direct batch application avoids repeated catalog lookups. Source ownership survives single-slot eviction; RendererStatistics retains its six-field API. Linked pan survives resizing, and short dialogs fit their contents. No schema change.
+Added frozen reference alongside active editing, side-by-side/stacked layouts, linked/independent fit-relative navigation and selective matching. Shared sources retain independent processing identities. Added thirteen-group copy/paste/sync, captured reviews and atomic transactions retaining metadata. Direct target application avoids repeated scans. Ownership survives one-slot eviction; six-field statistics API retained. No schema change.
 
 ## 0.5.0-alpha.1
 
-Added manual distortion, linear-light lens-falloff correction and radial channel alignment; vertical/horizontal projective geometry, arbitrary rotation, aspect/scale/offsets and conservative constrained framing. Added drawn-horizon straightening, source-patch relative white balance, interactive five-region histogram/clipping indicators, custom panel resizing, focus and filmstrip controls.
-
-Development feeds a composed optical effect without a CPU-rendered display intermediate; geometry is independently cached. Inverse mapping retains source attachment for masks and sampling. Schema 5 and native XMP 5 preserve optics/geometry; recovery manifest/database remain 1/2. Existing package/symbol/six-RID release workflows remain intact.
+Added manual optics, projective geometry, conservative framing, horizon straightening, bounded relative white balance, histogram/clipping interaction, panel resizing, focus and filmstrip controls. Composed effects avoid a CPU-rendered display intermediate; geometry and inverse maps are cached. Catalog/native XMP 5 retain corrections; recovery remains 1/2. Six-RID and symbol/package delivery retained.
 
 ## 0.4.1-alpha.1
 
-Fixed the reproduced WebAssembly slider-crash path by separating compiled-shader ownership from native input cleanup, deterministically disposing staging, retaining source/output lifetimes and simplifying neutral-state mixer comparison. No editing or accelerated-runtime feature was disabled.
-
-Added forced-finalization/deferred-draw/independent-uniform regressions and a real-pointer stress sweep of all 17 development sliders, histogram updates, undo/redo, JPEG/catalog export and recovery reload. CI/Pages retain a combined report. Schema 4 and IndexedDB 2 were unchanged; loading the fix required reload, not deleting recovery.
+Fixed the reproduced WebAssembly slider crash through explicit shader ownership, deterministic staging cleanup, retained lifetimes and simpler neutral comparisons. Added forced-finalization/deferred-draw/uniform tests and all-seventeen-slider stress with export/reload validation. No feature or runtime acceleration disabled. Schema 4 and IndexedDB 2 unchanged.
 
 ## 0.4.0-alpha.1
 
-Added five-color Oklab selections with replacement/Shift-add/Alt-remove, swatches, tolerance/smoothness and existing-mask restriction. Sampling reads a bounded source-preview patch before development; coverage remains viewport-only.
-
-Introduced source-separated SHA-256 originals and committed manifests. Warm metadata writes avoid unchanged original values/hashing. Restore verifies integrity; invalid data is protected and failed writes stay dirty. Browser publication explicitly aborts synchronous failures; native publication stages sources before the manifest. Schema 4 migrates 1–3; orphan sources remain retained.
+Added five-color Oklab selection, bounded source picking, tolerance/smoothness and mask restrictions. Introduced SHA-256 originals and committed manifests; warm saves avoid source transfer/hashing, restore verifies integrity, failures stay dirty and damaged recovery is protected. Browser abort and native staged publication strengthened. Schema 4 migrates 1–3.
 
 ## 0.3.0-alpha.1
 
-Added arbitrary master/R/G/B curves, shape-preserving interpolation, numeric/pointer editing and separate floating-point lookup caching. Added pressure-aware paint/erase brushes, arc-length resampling, incremental affine coverage and gesture undo/cancel.
-
-Added bounded XMP metadata/Camera Raw subset reporting, review-before-apply, metadata-only import and complete native settings. Schema 3 migrates 1–2. Merged Actions/Playwright updates, split workbench partials and weakened diagnostic ownership.
+Added arbitrary RGB curves, shape-preserving interpolation, floating-point lookups and pressure-aware add/erase brushes with distance resampling and incremental affine coverage. Added bounded XMP subset/report/review, metadata-only import and native settings. Schema 3 migrates 1–2; weaker diagnostic ownership and split workbench partials reduce retention.
 
 ## 0.2.0-alpha.1
 
-Added four-way grading, reusable color controls, rotatable gradients/handles, luminance ranges, coverage, local adjustments, mask management and comparison divider. Schema 2 migration accompanied pixel-aware invalidation, direct comparisons, stable cards, bounded thumbnails/Auto and opt-in diagnostics.
+Added grading, rotatable gradients, luminance ranges, coverage, mask management and comparison divider. Schema 2 migration accompanied direct comparisons, pixel-aware caches, stable cards, bounded thumbnails/Auto and opt-in diagnostics.
 
 ## 0.1.1-alpha.1
 
-Fixed autosave of uncommitted previews and stale acknowledgements. Added revision-aware single-writer recovery, explicit save/retry, protected corrupt data, unload warnings, slider cancellation and source/state-aware caches, with asynchronous/browser regressions.
+Fixed preview autosave and stale acknowledgements. Added single-writer recovery, save/retry, protected damaged data, unload warnings, cancellation and source-aware caches.
 
 ## 0.1.0-alpha.1
 
-Initial shared Uno photography workspace and eight reusable libraries: catalog, retained originals, tonal/color editing, presets, crop, gradients, clones, transactions, versions, export/recovery and custom native/browser controls.
+Initial shared Uno application and eight libraries: catalog, retained originals, development, presets, crop, gradients, clones, history, versions, export/recovery and desktop/browser controls.
