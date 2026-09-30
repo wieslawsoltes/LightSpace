@@ -103,13 +103,14 @@ public sealed partial class StudioView : UserControl, IDisposable
     {
         if (ActualWidth <= 0) return;
         _body.ColumnDefinitions[1].Width = new(!_focusMode && _sidebarVisible && ActualWidth >= 1080 ? _libraryWidth : 0);
-        _body.ColumnDefinitions[3].Width = new(_focusMode ? 0 : ActualWidth < 850 ? Math.Min(270, _inspectorWidth) : _inspectorWidth);
+        _body.ColumnDefinitions[3].Width = new(_focusMode || _surveyMode ? 0 : ActualWidth < 850 ? Math.Min(270, _inspectorWidth) : _inspectorWidth);
         if (_libraryGrip is not null) _libraryGrip.Visibility = _body.ColumnDefinitions[1].Width.Value > 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (_inspectorGrip is not null) _inspectorGrip.Visibility = _focusMode ? Visibility.Collapsed : Visibility.Visible;
+        if (_inspectorGrip is not null) _inspectorGrip.Visibility = _focusMode || _surveyMode ? Visibility.Collapsed : Visibility.Visible;
         if (_centerLayout is not null) _centerLayout.RowDefinitions[3].Height = new(!_focusMode && _filmstripVisible ? 116 : 0);
+        if (_centerLayout is not null) _centerLayout.RowDefinitions[2].Height = new(_surveyMode ? 0 : 39);
         PublishDiagnostics();
     }
-    public void SetGrid(bool enabled) { _gridMode = enabled; _gridScroll.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed; Viewport.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible; PublishDiagnostics(); }
+    public void SetGrid(bool enabled) { ExitSurvey(); _gridMode = enabled; if (_detailHost is not null) _detailHost.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible; _gridScroll.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed; Viewport.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible; PublishDiagnostics(); }
     public void ChooseTool(PhotoTool tool)
     {
         SetGrid(false); Viewport.SetTool(tool);
@@ -136,7 +137,9 @@ public sealed partial class StudioView : UserControl, IDisposable
     private void RefreshAll() { RefreshCatalog(); BuildInspector(); RefreshLive(); }
     private void RefreshLive()
     {
-        if (_refreshing || _disposed) return; _refreshing = true;
+        if (_refreshing || _disposed) return;
+        if (_surveyMode) { RefreshSurvey(); return; }
+        _refreshing = true;
         try
         {
             if (Session.Active is not { } photo) return;
@@ -159,6 +162,6 @@ public sealed partial class StudioView : UserControl, IDisposable
     {
         if (_disposed) return; _disposed = true; _recovery.Dispose(); _diagnosticsTimer.Stop(); _saveTimer.Stop(); _histogramTimer.Stop();
         Session.Changed -= Committed; Session.ViewChanged -= RefreshLive; Viewport.ViewChanged -= ViewportChanged;
-        DisposeReference(); Viewport.Dispose(); _thumbnails.Dispose(); _renderer.Dispose();
+        DisposeSurvey(); DisposeReference(); Viewport.Dispose(); _thumbnails.Dispose(); _renderer.Dispose();
     }
 }

@@ -9,6 +9,7 @@ public sealed partial class StudioView
         bool Down(VirtualKey key) => Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
         var control = Down(VirtualKey.Control) || Down(VirtualKey.LeftWindows) || Down(VirtualKey.RightWindows);
         var shift = Down(VirtualKey.Shift); var handled = true;
+        if (!control && SurveyKeyboard(e.Key)) { e.Handled = true; return; }
         if (control)
         {
             switch (e.Key)
@@ -28,6 +29,7 @@ public sealed partial class StudioView
         { var rating = (int)e.Key - (int)VirtualKey.Number0; Session.Edit("Rating", s => s with { Rating = rating }, true); }
         else switch (e.Key)
         {
+            case VirtualKey.N: OpenSurvey(); break;
             case VirtualKey.G: SetGrid(true); break;
             case VirtualKey.E: case VirtualKey.D: ChooseTool(PhotoTool.Edit); break;
             case VirtualKey.R: if (shift) ToggleReference(); else ChooseTool(PhotoTool.Crop); break;
