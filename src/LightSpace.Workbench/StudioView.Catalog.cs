@@ -28,6 +28,11 @@ public sealed partial class StudioView
         card.Selected += selected =>
         {
             var control = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+            if (_surveyMode && !control)
+            {
+                if (_survey.Activate(selected.Id)) return;
+                SetGrid(false);
+            }
             Session.Select(selected.Id, control); RefreshCatalog(); if (grid && !control) SetGrid(false);
         };
         return Register((grid ? "grid-photo-" : "photo-") + index, card);

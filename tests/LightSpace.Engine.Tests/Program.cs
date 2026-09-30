@@ -17,6 +17,7 @@ RendererLifetimeTests.Register(Test);
 PhotographyTests.Register(Test);
 ComparisonTransferTests.Register(Test);
 SharedSourceLifetimeTests.Register(Test);
+SurveyTests.Register(Test);
 foreach (var legacy in Enumerable.Range(1, CatalogDocument.CurrentSchemaVersion - 1))
 {
     Test($"Schema {legacy} migrates with neutral brush and channel settings", () =>

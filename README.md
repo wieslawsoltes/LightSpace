@@ -19,9 +19,17 @@ Non-destructive editing · Custom Uno controls · Composed Skia effects · Reusa
 
 LightSpace is a shared Uno desktop/WebAssembly photography application: browse a local catalog, develop a photograph, refine its composition and masks, and export a rendered copy while retaining the original bytes. The dark workspace combines a library sidebar, centered photo canvas, filmstrip, histogram, development inspector and vertical tool rail.
 
-**Current source version: 0.6.0-alpha.1.** This is independent, functional early-stage software—not pixel-identical or feature-complete Adobe Lightroom. No Adobe artwork, proprietary processing, calibrated camera/lens profiles or cloud services are included. [Implemented behavior and remaining boundaries →](docs/FEATURE-COVERAGE.md)
+**Current source version: 0.7.0-alpha.1.** This is independent, functional early-stage software—not pixel-identical or feature-complete Adobe Lightroom. No Adobe artwork, proprietary processing, calibrated camera/lens profiles or cloud services are included. [Implemented behavior and remaining boundaries →](docs/FEATURE-COVERAGE.md)
 
-## New in 0.6
+## New in 0.7
+
+**Multi-photo Survey culling.** Survey view or N compares selected photos, or the filtered sequence when fewer than two are selected. Twelve photos fit each page, with aspect-aware rows, filename/rating/flag controls, keyboard navigation, reversible exclusions and rejected-photo hiding. Exclusion never deletes originals or catalog records. Ratings and flags target only the active candidate and remain undoable and recoverable.
+
+**Bounded preparation and direct rendering.** A single Uno/Skia surface draws the page through the existing composed effects. A separate twelve-photo, 1024px preview renderer retains up to 48 MiB of decoded sources, avoiding a too-small cache cycling through a larger page. One photo is prepared per dispatcher tick. This amortizes synchronous CPU/native preparation; it is not GPU decoding or a frame-time guarantee. Metadata changes retain cards, layout and pixel caches. Leaving Survey clears its preview caches and source references.
+
+**Reusable, tested workflows.** SurveyLayout, SurveySelection, targeted EditorSession edits, SurveyCard and PhotoSurveyView provide reusable layers. Engine and real-browser checks cover paging, exclusion safety, single-photo undo, warm cache reuse, compact layouts and recovery. Existing all-slider crash regressions remain enabled. [Survey guide, APIs and measured scopes](docs/SURVEY.md)
+
+## Reference comparison from 0.6
 
 **Frozen reference comparison.** Pin the current edited look beside the active photograph with Reference view or Shift+R. Keep editing or choose another filmstrip photo without changing the reference. Switch side-by-side/stacked layouts, link or unlink fit-relative navigation, fit both panes, pin again, or apply selected settings from the reference. The reference stays session-local and adds no catalog record or processing revision.
 
@@ -37,7 +45,7 @@ Manual Optics corrects distortion, lens falloff and radial channel alignment. Ge
 
 Development feeds a composed optical runtime effect directly, without a CPU-rendered intermediate. Projective geometry is a cached matrix. Picking and masks use inverse optical/projective mapping, retaining attachment to source coordinates. [Optics and geometry guide](docs/OPTICS-GEOMETRY.md)
 
-Catalog schema 5, native XMP settings 5, recovery manifest 1 and IndexedDB version 2 are unchanged by 0.6. Reload an older browser tab after deployment. **Do not clear site data**: it contains local recovery. `build-info.json` identifies the deployed source version and commit. Keep pre-upgrade backups when using older processing schemas. [Crash-fix evidence](docs/WASM-SLIDER-FIX.md)
+Catalog schema 5, native XMP settings 5, recovery manifest 1 and IndexedDB version 2 are unchanged by 0.6 and 0.7. Reload an older browser tab after deployment. **Do not clear site data**: it contains local recovery. `build-info.json` identifies the deployed source version and commit. Keep pre-upgrade backups when using older processing schemas. [Crash-fix evidence](docs/WASM-SLIDER-FIX.md)
 
 ## Photography workflow
 
@@ -431,14 +439,14 @@ CI uses Chromium/SwiftShader, not physical GPUs or certified pen hardware. CPU m
 
 ## Compatibility and data safety
 
-Catalog schema **5** preserves optics/geometry alongside masks and curves. Schemas 1–4 migrate with neutral missing fields; native XMP version 5 accepts 3–4. Recovery manifest format 1 and IndexedDB 2 are unchanged. The 0.6 reference/settings increment adds no persisted schema fields. Older builds reject unsupported processing schemas rather than silently discarding corrections. Keep pre-upgrade portable backups for older-version interoperability.
+Catalog schema **5** preserves optics/geometry alongside masks and curves. Schemas 1–4 migrate with neutral missing fields; native XMP version 5 accepts 3–4. Recovery manifest format 1 and IndexedDB 2 are unchanged. The 0.6 reference/settings and 0.7 Survey increments add no persisted schema fields. Older builds reject unsupported processing schemas rather than silently discarding corrections. Keep pre-upgrade portable backups for older-version interoperability.
 
 Safety ceilings are 64 MiB per source, 100 megapixels decoded and 256 MiB of encoded originals per catalog. Output is 8-bit sRGB, capped at 8192 pixels, without embedded source EXIF/IPTC. Recovery is local/unencrypted and does not merge tabs or automatically remove orphan sources. Keep original source files and portable backups.
 
-RAW/DNG/HEIF/TIFF, AI tools, calibrated camera/lens profiles, automatic Upright, HDR/panorama, native-resolution tiling, durable indexed catalogs, survey mode, virtual copies, printing/proofing and cloud workflows remain unimplemented. The interface is Lightroom-inspired, not full pixel-identical parity. [Complete feature ledger](docs/FEATURE-COVERAGE.md)
+RAW/DNG/HEIF/TIFF, AI tools, calibrated camera/lens profiles, automatic Upright, HDR/panorama, native-resolution tiling, durable indexed catalogs, virtual copies, printing/proofing and cloud workflows remain unimplemented. The interface is Lightroom-inspired, not full pixel-identical parity. [Complete feature ledger](docs/FEATURE-COVERAGE.md)
 
 ## Documentation and license
 
-[Guide](docs/GETTING-STARTED.md) · [Reference/settings](docs/REFERENCE-AND-SYNC.md) · [Optics/geometry](docs/OPTICS-GEOMETRY.md) · [Advanced editing/XMP](docs/ADVANCED-EDITING.md) · [Architecture](docs/ARCHITECTURE.md) · [Performance](docs/PERFORMANCE.md) · [Recovery](docs/RECOVERY.md) · [Slider hotfix](docs/WASM-SLIDER-FIX.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Third-party notices](THIRD-PARTY-NOTICES.md)
+[Guide](docs/GETTING-STARTED.md) · [Survey](docs/SURVEY.md) · [Reference/settings](docs/REFERENCE-AND-SYNC.md) · [Optics/geometry](docs/OPTICS-GEOMETRY.md) · [Advanced editing/XMP](docs/ADVANCED-EDITING.md) · [Architecture](docs/ARCHITECTURE.md) · [Performance](docs/PERFORMANCE.md) · [Recovery](docs/RECOVERY.md) · [Slider hotfix](docs/WASM-SLIDER-FIX.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Third-party notices](THIRD-PARTY-NOTICES.md)
 
 Source is [MIT licensed](LICENSE). Dependencies, the OFL font and optional Unsplash photographs retain their own licenses; photos are not MIT-relicensed. Adobe and Lightroom are comparative workflow references and trademarks of their owners. No affiliation, endorsement or proprietary catalog compatibility is claimed.

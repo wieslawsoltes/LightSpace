@@ -2,7 +2,7 @@ using LightSpace.Core;
 using LightSpace.Catalog;
 namespace LightSpace.Editing;
 
-public sealed class EditorSession
+public sealed partial class EditorSession
 {
     private sealed record Change(Guid Id, PhotoState Before, PhotoState After);
     private sealed record Transaction(string Name, Change[] Changes);

@@ -19,7 +19,7 @@ public sealed partial class StudioView
             }
             catch (InvalidOperationException) { }
         }
-        if (!_gridMode)
+        if (!_gridMode && !_surveyMode)
         {
             var origin = Viewport.TransformToVisual(this).TransformPoint(new(0, 0));
             var image = Viewport.ImageBounds; list.Add(new("image", origin.X + image.X, origin.Y + image.Y, image.Width, image.Height));
@@ -34,12 +34,12 @@ public sealed partial class StudioView
         var masks = p?.State.Masks ?? [];
         var summaries = masks.Select(m => m with { Strokes = [] }).ToArray();
         var brush = masks.Select(m => new BrushDiagnostic(m.Id, m.Strokes.Length, m.Strokes.Sum(s => s.Dabs.Length), m.Strokes.LastOrDefault()?.Erase ?? false)).ToArray();
-        DiagnosticsChanged.Invoke(new(p?.Name ?? "", _gridMode ? "Grid" : "Detail", Viewport.Tool.ToString(), p?.State.Develop.Exposure ?? 0, p?.State.Rating ?? 0,
+        DiagnosticsChanged.Invoke(new(p?.Name ?? "", _surveyMode ? "Survey" : _gridMode ? "Grid" : "Detail", Viewport.Tool.ToString(), p?.State.Develop.Exposure ?? 0, p?.State.Rating ?? 0,
             Session.Catalog.Photos.Count, masks.Length, p?.State.CloneSpots.Length ?? 0, Session.CanUndo, Session.CanRedo, Session.Revision, _status.Text,
             list.ToArray(), _recovery.Status, p?.State.Develop.Grading ?? new(), summaries, Viewport.ComparisonPosition,
             new(_renderer.Statistics, _thumbnails.Statistics, _thumbnails.Renders, _cardBuilds, _libraryBuilds, _inspectorBuilds),
             p?.State.Develop.Channels ?? new(), brush, _renderer.BrushStatistics, _renderer.CurveLookupBuilds, p?.State.Caption ?? "", p?.State.Keywords ?? [],
-            _persistence?.Statistics, _renderer.SourceSamplePixels, Photography(p), ReferenceInfo()));
+            _persistence?.Statistics, _renderer.SourceSamplePixels, Photography(p), ReferenceInfo()) { Survey = SurveyInfo() });
     }
     private void AdvancedKeyboard(object sender, KeyRoutedEventArgs e)
     {

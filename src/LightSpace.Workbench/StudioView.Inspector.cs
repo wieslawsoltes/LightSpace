@@ -3,7 +3,7 @@ namespace LightSpace.Workbench;
 public sealed partial class StudioView
 {
     private ColorMixerEditor? _mixerEditor;
-    private void ShowInspector(string mode) { _inspectorMode = mode; BuildInspector(); PublishDiagnostics(); }
+    private void ShowInspector(string mode) { ExitSurvey(); _inspectorMode = mode; BuildInspector(); PublishDiagnostics(); }
     private void BuildInspector()
     {
         if (_buildingInspector) return; _buildingInspector = true;
