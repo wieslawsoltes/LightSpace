@@ -59,6 +59,6 @@
     if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
     const element = document.activeElement;
     if (element && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.isContentEditable)) return;
-    if (['s', 'i', 'e', 'z', 'y', 'a'].includes(event.key.toLowerCase())) event.preventDefault();
+    if (['s', 'i', 'e', 'z', 'y', 'a', "'"].includes(event.key.toLowerCase())) event.preventDefault();
   });
 })();
